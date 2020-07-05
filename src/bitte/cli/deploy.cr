@@ -32,12 +32,6 @@ module Bitte
       def copy_nix
         cluster.nodes.each do |name, node|
           log.info { "Copying Nix to #{name} ..." }
-          # File.open(temp, "w+") do |nix_conf|
-          #   sh! "nix", output: nix_conf,
-          #     args: ["eval", "--raw",
-          #            "--apply", "builtins.readFile",
-          #            %(#{base}.environment.etc."nix/nix.conf".source)]
-          # end
 
           flake_source = IO::Memory.new
           sh! "nix", output: flake_source, args: [
