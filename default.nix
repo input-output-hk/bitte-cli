@@ -1,6 +1,6 @@
 { stdenv, makeWrapper, crystal, inclusive, nixFlakes, nixos-rebuild, openssh
 , awscli, gitMinimal, coreutils, systemd, gnugrep, terraform-with-plugins
-, consul, sops, libssh2, pkgconfig, cfssl }: {
+, consul, sops, libssh2, pkgconfig, cfssl, rsync }: {
   bitte = let
     inner = crystal.buildCrystalPackage {
       pname = "bitte-cli";
@@ -32,6 +32,7 @@
       systemd
       terraform-with-plugins
       cfssl
+      rsync
     ];
 
   in stdenv.mkDerivation {
