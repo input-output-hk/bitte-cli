@@ -8,7 +8,9 @@ module Bitte
       define_help description: "Create the config.tf.json from the flake"
 
       def run
-        sh! "nix", "build", "#{flake}#clusters.#{cluster}.terraform-output", "-o", "config.tf.json"
+        sh! "nix", "build",
+          "#{flake}#clusters.#{cluster}.terraform-output",
+          "-o", "config.tf.json"
       end
 
       def flake

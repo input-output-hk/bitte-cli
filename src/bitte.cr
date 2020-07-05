@@ -1,6 +1,17 @@
 require "admiral"
+require "json"
 
 module Bitte
+  class TopologyNode
+    include JSON::Serializable
+
+    property kms : String
+    property region : String
+    property name : String
+
+    @[JSON::Field(key: "privateIP")]
+    property private_ip : String
+  end
 end
 
 if ARGV == ["schön"]

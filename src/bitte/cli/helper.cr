@@ -1,39 +1,86 @@
 module Bitte
   class CLI
     module Helpers
-      def sh!(cmd : String, args : Array( String ), output : IO, &block : Process -> _)
-        log.debug { "run: #{cmd} #{args.to_a.join(" ")}" }
-        Process.run(cmd, args: args.to_a, output: output, error: LogIO.new(log), &block)
-        raise RetryableError.new("Process exited with #{$?.exit_status}") unless $?.success?
+      def sh!(cmd : String,
+              args : Enumerable(String)?,
+              env : Process::Env = nil,
+              input : Process::Stdio = Process::Redirect::Close,
+              output : IO = LogIO.new(log),
+              error : IO = LogIO.new(log))
+
+        log.debug { "run: #{cmd} #{args.join(" ")}" }
+
+        process = Process.new(
+          cmd,
+          args: args,
+          env: env,
+          input: input,
+          output: output,
+          error: error,
+        )
+
+        begin
+          Signal::INT.trap {
+            process.signal(:int)
+            Signal::INT.reset
+          }
+          result = yield process
+          status = process.wait
+          raise RetryableError.new("Process exited with #{status.exit_status}") unless status.success?
+          result
+        rescue ex
+          process.terminate
+          raise ex
+        end
       end
 
-      def sh!(cmd : String, args : Array( String ), output : IO)
-        log.debug { "run: #{cmd} #{args.to_a.join(" ")}" }
-        Process.run(cmd, args: args.to_a, output: output, error: LogIO.new(log))
-        raise RetryableError.new("Process exited with #{$?.exit_status}") unless $?.success?
+      def sh!(cmd : String,
+              args : Enumerable(String)?,
+              env : Process::Env = nil,
+              input : Process::Stdio = Process::Redirect::Close,
+              output : IO = LogIO.new(log),
+              error : IO = LogIO.new(log))
+        sh!(cmd, args: args, env: env, input: input, output: output, error: error){|_| }
       end
 
-      def sh!(cmd : String, *args : String, &block)
-        log.debug { "run: #{cmd} #{args.to_a.join(" ")}" }
-        output = IO::Memory.new
-        Process.run(cmd, args.to_a, output: output, error: LogIO.new(log))
-        raise RetryableError.new("Process exited with #{$?.exit_status}") unless $?.success?
-        yield output
+      def sh!(cmd : String,
+              *args : String,
+              env : Process::Env = nil,
+              input : Process::Stdio = Process::Redirect::Close,
+              output : IO = LogIO.new(log),
+              error : IO = LogIO.new(log))
+        sh!(cmd, args: args.to_a, env: env, input: input, output: output, error: error){|_| }
       end
 
-      def sh!(cmd : String, *args : String)
-        log.debug { "run: #{cmd} #{args.to_a.join(" ")}" }
-        Process.run(cmd, args.to_a, output: LogIO.new(log), error: LogIO.new(log))
-        raise RetryableError.new("Process exited with #{$?.exit_status}") unless $?.success?
+      def sh!(cmd : String,
+              *args : String,
+              env : Process::Env = nil,
+              input : Process::Stdio = Process::Redirect::Close,
+              output : IO = LogIO.new(log),
+              error : IO = LogIO.new(log))
+        sh!(cmd, args: args.to_a, env: env, input: input, output: output, error: error){|process| yield process }
       end
 
       def ssh_key
-        path = "./secrets/ssh-#{cluster}"
-        if File.exists?(path)
-          ["-i", path]
+        path = secrets/"ssh-#{cluster_name}"
+        pp! path
+        if File.exists?(path.to_s)
+          ["-i", path.to_s]
         else
           [] of String
         end
+      end
+
+      def secrets
+        Path["secrets"]
+      end
+
+      def encrypted
+        Path["encrypted"]
+      end
+
+      def mtime(path)
+        File.info(path.to_s).modification_time
       end
 
       def log
@@ -41,15 +88,15 @@ module Bitte
       end
 
       def nix_eval(attr, apply)
-        sh! "nix", "eval", "--json", attr, "--apply", apply do |output|
-          yield output
-        end
+        output = IO::Memory.new
+        sh! "nix", "eval", "--json", attr, "--apply", apply
+        yield output
       end
 
       def nix_eval(attr)
-        sh! "nix", "eval", "--json", attr do |output|
-          yield output
-        end
+        output = IO::Memory.new
+        sh! "nix", "eval", "--json", attr, output: output
+        yield output
       end
 
       # We wait ~2 minutes for a connection

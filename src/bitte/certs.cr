@@ -10,17 +10,6 @@ module Bitte
 
       define_help description: "Generate TLS certs"
 
-      class TopologyNode
-        include JSON::Serializable
-
-        property kms : String
-        property region : String
-        property name : String
-
-        @[JSON::Field(key: "privateIP")]
-        property private_ip : String
-      end
-
       # Poor man's Make
       def run
         generate_ca
@@ -113,13 +102,13 @@ module Bitte
           }.to_pretty_json)
         end
 
-        FileUtils.mkdir_p "secrets"
+        FileUtils.mkdir_p(secrets.to_s)
 
-        Process.run("cfssljson", ["-bare", "secrets/#{cluster_name}"], error: STDERR) do |cfssljson|
-          Process.run("cfssl", ["gencert", "-initca", ca_tempfile.path], output: cfssljson.input, error: STDERR)
+        sh!("cfssljson", args: ["-bare", (secrets/cluster_name).to_s]) do |cfssljson|
+          sh!("cfssl", ["gencert", "-initca", ca_tempfile.path], output: cfssljson.input)
         end
 
-        FileUtils.rm "secrets/#{cluster_name}.csr"
+        FileUtils.rm(( secrets/"#{cluster_name}.csr" ).to_s)
       ensure
         ca_tempfile.delete if ca_tempfile
       end
@@ -157,18 +146,6 @@ module Bitte
           ST: "Kantō",
           L:  "Tokyo",
         }]
-      end
-
-      def secrets
-        Path["secrets"]
-      end
-
-      def encrypted
-        Path["encrypted"]
-      end
-
-      def mtime(path)
-        File.info(path.to_s).modification_time
       end
 
       def ca_exists?

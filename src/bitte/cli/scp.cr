@@ -22,26 +22,25 @@ module Bitte
           scp_args = SSH::COMMON_ARGS + [
             src.to_s, "root@#{ip}:#{dst}",
           ]
-          log.debug { "scp #{scp_args.join(" ")}" }
-          Process.run("scp", args: scp_args, output: STDOUT, error: STDERR)
+          sh! "scp", args: scp_args
         end
 
-      def ip
-        if node = cluster[arguments.host]
-          node.public_ip
-        else
-          raise "No instance with name #{arguments.host} found"
+        def ip
+          if node = cluster[arguments.host]
+            node.public_ip
+          else
+            raise "No instance with name #{arguments.host} found"
+          end
         end
-      end
 
-      def cluster
-        Cluster.new(
-          profile: parent.flags.as(CLI::Flags).profile,
-          flake: parent.flags.as(CLI::Flags).flake,
-          name: parent.flags.as(CLI::Flags).cluster,
-          region: parent.flags.as(CLI::Flags).region
-        )
-      end
+        def cluster
+          Cluster.new(
+            profile: parent.flags.as(CLI::Flags).profile,
+            flake: parent.flags.as(CLI::Flags).flake,
+            name: parent.flags.as(CLI::Flags).cluster,
+            region: parent.flags.as(CLI::Flags).region
+          )
+        end
       end
 
       register_sub_command from : From, description: "SCP files & folders from nodes"
@@ -61,26 +60,25 @@ module Bitte
           scp_args = SSH::COMMON_ARGS + [
             "root@#{ip}:#{src}", dst.to_s,
           ]
-          log.debug { "scp #{scp_args.join(" ")}" }
-          Process.run("scp", args: scp_args, output: STDOUT, error: STDERR)
+          sh! "scp", args: scp_args
         end
 
-      def ip
-        if node = cluster[arguments.host]
-          node.public_ip
-        else
-          raise "No instance with name #{arguments.host} found"
+        def ip
+          if node = cluster[arguments.host]
+            node.public_ip
+          else
+            raise "No instance with name #{arguments.host} found"
+          end
         end
-      end
 
-      def cluster
-        Cluster.new(
-          profile: parent.flags.as(CLI::Flags).profile,
-          flake: parent.flags.as(CLI::Flags).flake,
-          name: parent.flags.as(CLI::Flags).cluster,
-          region: parent.flags.as(CLI::Flags).region
-        )
-      end
+        def cluster
+          Cluster.new(
+            profile: parent.flags.as(CLI::Flags).profile,
+            flake: parent.flags.as(CLI::Flags).flake,
+            name: parent.flags.as(CLI::Flags).cluster,
+            region: parent.flags.as(CLI::Flags).region
+          )
+        end
       end
     end
   end

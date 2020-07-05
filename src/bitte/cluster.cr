@@ -16,11 +16,11 @@ module Bitte
 
     def populate
       nix_eval "#{flake}#clusters.#{name}.topology.nodes" do |output|
-        Hash(String, String).from_json(output.to_s).each do |name, node|
+        Hash(String, TopologyNode).from_json(output.to_s).each do |name, node|
           nodes[name] = Node.new(
             cluster: self,
             name: name,
-            private_ip: node["privateIp"]
+            private_ip: node.private_ip
           )
         end
       end
@@ -32,6 +32,7 @@ module Bitte
       aws_instances.each do |instance|
         tags = instance.tags_hash
 
+        next if tags["aws:autoscaling:groupName"]?
         next unless tags["Cluster"]? == name
         next unless public_ip = instance.public_ip_address
         next unless node_name = tags["Name"]?

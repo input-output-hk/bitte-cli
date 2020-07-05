@@ -21,12 +21,12 @@ module Bitte
         default: ENV["TERM"]? || "xterm"
 
       def run
-        ssh_args = COMMON_ARGS + [
+        ssh_args = COMMON_ARGS + ssh_key + [
           "-x", # Disables X11 forwarding
           "-t", # Force pseudo-terminal allocation
           "-p", "22",
           "root@#{ip}",
-        ] + ssh_key
+        ]
         log.debug { "ssh #{ssh_args.join(" ")}" }
         Process.exec("ssh", args: ssh_args, env: {"TERM" => "xterm"})
       end
@@ -43,9 +43,13 @@ module Bitte
         Cluster.new(
           profile: parent.flags.as(CLI::Flags).profile,
           flake: parent.flags.as(CLI::Flags).flake,
-          name: parent.flags.as(CLI::Flags).cluster,
+          name: cluster_name,
           region: parent.flags.as(CLI::Flags).region
         )
+      end
+
+      def cluster_name
+        parent.flags.as(CLI::Flags).cluster
       end
     end
   end
