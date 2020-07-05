@@ -74,10 +74,24 @@ module Bitte
       end
 
       def rebuild
+        ch = Channel(Nil).new
+
         cluster.nodes.each do |name, node|
-          sh! "nixos-rebuild",
-            "--flake", "#{flake}##{cluster_name}-#{name}",
-            "switch", "--target-host", "root@#{node.public_ip}"
+          spawn do
+            begin
+            sh! "nixos-rebuild",
+              "--flake", "#{flake}##{cluster_name}-#{name}",
+              "switch", "--target-host", "root@#{node.public_ip}"
+            rescue ex
+              log.error(exception: ex) { "nixos-rebuild failed"}
+            ensure
+              ch.send nil
+            end
+          end
+        end
+
+        cluster.nodes.each do |_, _|
+          ch.receive
         end
       end
 
