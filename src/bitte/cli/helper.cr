@@ -21,7 +21,7 @@ module Bitte
 
         begin
           Signal::INT.trap {
-            process.signal(:int)
+            process.signal(:int) unless process.terminated?
             Signal::INT.reset
           }
           result = yield process
@@ -29,7 +29,7 @@ module Bitte
           raise RetryableError.new("Process exited with #{status.exit_status}") unless status.success?
           result
         rescue ex
-          process.terminate
+          process.terminate unless process.terminated?
           raise ex
         end
       end
