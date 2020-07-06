@@ -10,47 +10,59 @@ module Bitte
       define_help description: "Show information about clusters and instances"
 
       def run
-        # if cluster_name.empty?
-        #   clusters.each do |cluster|
-        #     puts cluster.name
-        #   end
-        # else
-        #   cluster.nodes.each do |node|
-        #     puts node.name
-        #   end
-        # end
-      end
+        client = AWS::Client.new(region: region, profile: profile)
 
-      def clusters
-        nix_eval "#{flake}#clusters", "builtins.attrNames" do |output|
-          Array(String).from_json(output.to_s).map do |name|
-            Cluster.new(flake: flake, name: name)
+        data = client.auto_scaling_groups.auto_scaling_groups.flat_map { |asg|
+          instances = client.describe_instances(
+            asg.instances.map(&.instance_id)
+          ).reservations.map(&.instances).flatten
+
+          asg.instances.map do |asgi|
+            i = instances.find{|instance| instance.instance_id == asgi.instance_id }
+            if i
+              [
+                asgi.instance_id,
+                asgi.instance_type,
+                asgi.availability_zone,
+                asgi.lifecycle_state,
+                asgi.health_status,
+                asgi.launch_configuration_name || "",
+                i.private_ip_address || "",
+                i.public_ip_address || "",
+              ]
+            else
+              raise "Can't find #{asgi.instance_id}"
+            end
           end
+        }
+
+        table = Tablo::Table.new(data) do |t|
+          t.add_column("InstanceId") { |n| n[0] }
+          t.add_column("InstanceType") { |n| n[1] }
+          t.add_column("AvailabilityZone") { |n| n[2] }
+          t.add_column("LifecycleState") { |n| n[3] }
+          t.add_column("HealthStatus") { |n| n[4] }
+          t.add_column("LaunchConfigurationName") { |n| n[5] }
+          t.add_column("PrivateIp") { |n| n[6] }
+          t.add_column("PublicIp") { |n| n[7] }
         end
+
+        table.shrinkwrap!
+
+        puts "Auto Scaling Groups"
+        puts table
       end
 
-      def cluster
-        cluster = Cluster.new(flake: flake, name: cluster_name)
-        nix_eval "#{flake}#clusters.#{cluster_name}.nodes", "builtins.attrNames" do |output|
-          Array(String).from_json(output.to_s).map do |name|
-            cluster.node_names << name
-          end
-        end
-        cluster
+      def profile
+        parent.flags.as(CLI::Flags).profile
       end
 
-      def nix_eval(attr, apply)
-        sh! "nix", "eval", "--json", attr, "--apply", apply do |output|
-          yield output
-        end
+      def region
+        parent.flags.as(CLI::Flags).region
       end
 
       def cluster_name
         parent.flags.as(CLI::Flags).cluster
-      end
-
-      def flake
-        parent.flags.as(CLI::Flags).flake
       end
     end
   end
