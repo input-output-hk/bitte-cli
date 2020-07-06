@@ -12,7 +12,7 @@ class LogIO < IO
 
   def unbuffered_write(data)
     String.new(data).each_line do |line|
-      @log.info { line }
+      @log.debug { line }
     end
     0i64
   end
@@ -21,11 +21,9 @@ class LogIO < IO
   end
 
   def unbuffered_close
-    pp! :close
   end
 
   def unbuffered_rewind
-    pp! :rewind
   end
 
   def unbuffered_read(data)

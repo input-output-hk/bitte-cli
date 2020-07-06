@@ -4,34 +4,24 @@ module Bitte
       def sh!(cmd : String,
               args : Enumerable(String)?,
               env : Process::Env = nil,
-              input : Process::Stdio = Process::Redirect::Close,
+              input : Process::Stdio = Process::Redirect::Pipe,
               output : IO = LogIO.new(log),
               error : IO = LogIO.new(log))
 
         log.debug { "run: #{cmd} #{args.join(" ")}" }
 
-        process = Process.new(
+        Process.run(
           cmd,
           args: args,
           env: env,
           input: input,
           output: output,
           error: error,
-        )
-
-        begin
-          Signal::INT.trap {
-            process.signal(:int) unless process.terminated?
-            Signal::INT.reset
-          }
-          result = yield process
-          status = process.wait
-          raise RetryableError.new("Process exited with #{status.exit_status}") unless status.success?
-          result
-        rescue ex
-          process.terminate unless process.terminated?
-          raise ex
+        ) do |process|
+          yield process
         end
+
+        raise RetryableError.new("Process exited with #{$?.exit_status}") unless $?.success?
       end
 
       def sh!(cmd : String,
@@ -63,7 +53,6 @@ module Bitte
 
       def ssh_key
         path = secrets/"ssh-#{cluster_name}"
-        pp! path
         if File.exists?(path.to_s)
           ["-i", path.to_s]
         else

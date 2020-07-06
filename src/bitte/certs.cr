@@ -14,12 +14,50 @@ module Bitte
       def run
         generate_ca
         topology.each do |_, node_config|
-          generate_cert(node_config)
+          # TODO: one for each ASG?
+          generate_client_cert(node_config)
+          generate_server_cert(node_config)
           generate_pem(node_config)
         end
       end
 
-      def generate_cert(node)
+      def generate_client_cert(node)
+        enc = encrypted/cluster_name/"client.enc.json"
+
+        if File.exists?(enc) && mtime(secrets/"#{cluster_name}-key.pem") <= mtime(enc)
+          return
+        end
+
+        config = ca_config_file
+        cert_config = cert_config_file_client(node)
+
+        FileUtils.mkdir_p((encrypted/cluster_name).to_s)
+
+        File.open(enc, "w+") do |sopsfile|
+          sh!("sops", output: sopsfile, args: [
+            "--encrypt",
+            "--input-type", "json",
+            "--kms", node.kms,
+            "/dev/stdin",
+          ]) do |sops|
+            # we could plug in a multiwriter here that extracts the pem so we
+            # don't have to call sops twice...
+            sh!("cfssl", output: sops.input, args: [
+              "gencert",
+              "-ca", (secrets / "#{cluster_name}.pem").to_s,
+              "-ca-key", (secrets / "#{cluster_name}-key.pem").to_s,
+              "-config", config.not_nil!.path,
+              "-profile", "default",
+              cert_config.not_nil!.path,
+            ])
+          end
+        end
+      ensure
+        [config, cert_config].compact.each(&.delete)
+      end
+
+
+      def generate_server_cert(node)
         enc = encrypted/cluster_name/"#{node.name}.enc.json"
 
         if File.exists?(enc) && mtime(secrets/"#{cluster_name}-key.pem") <= mtime(enc)
@@ -27,7 +65,7 @@ module Bitte
         end
 
         config = ca_config_file
-        cert_config = cert_config_file(node)
+        cert_config = cert_config_file_server(node)
 
         FileUtils.mkdir_p((encrypted/cluster_name).to_s)
 
@@ -71,7 +109,7 @@ module Bitte
         end
       end
 
-      def cert_config_file(node)
+      def cert_config_file_server(node)
         File.tempfile "#{node.name}.json" do |file|
           file.puts({
             CN:    "#{node.name}.node.consul",
@@ -86,6 +124,19 @@ module Bitte
               "server.#{node.region}.consul",
               "127.0.0.1",
               node.private_ip,
+            ],
+          }.to_pretty_json)
+        end
+      end
+
+      def cert_config_file_client(node)
+        File.tempfile "client.json" do |file|
+          file.puts({
+            CN:    "client.node.consul",
+            names: ca_names,
+            key:   ca_key,
+            hosts: [
+              "127.0.0.1",
             ],
           }.to_pretty_json)
         end

@@ -89,13 +89,14 @@ module Bitte
         end
       end
 
+      # TODO: replace with rsync
       def copy_secrets(node)
         dst = "root@#{node.public_ip}"
         sh! "ssh", dst, "mkdir", "-p", "/etc/consul.d"
         sh! "scp", "./secrets/consul.master.token.json", "#{dst}:/etc/consul.d/master-token.json"
         sh! "scp", "./secrets/#{cluster_name}.pem", "#{dst}:/run/keys/ca.pem"
         sh! "scp", "./encrypted/#{cluster_name}/#{node.name}.enc.json", "#{dst}:/run/keys/certs.enc.json"
-        Dir.glob("encrypted/#{cluster_name}/*.pem") do |pem|
+        Dir.glob("encrypted/#{cluster_name}/*") do |pem|
           sh! "scp", pem, "#{dst}:/run/keys/#{File.basename(pem)}"
         end
       end
