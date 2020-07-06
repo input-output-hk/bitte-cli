@@ -8,6 +8,8 @@ module Bitte
       define_help description: "nixos-rebuild"
 
       def run
+        set_ssh_config
+
         ch = Channel(Nil).new
 
         cluster.nodes.each do |name, node|
@@ -34,6 +36,10 @@ module Bitte
         cluster.nodes.each do |_, _|
           ch.receive
         end
+      end
+
+      def set_ssh_config
+        ENV["NIX_SSHOPTS"] ||= (SSH::COMMON_ARGS + ssh_key).join(" ")
       end
 
       def cluster
