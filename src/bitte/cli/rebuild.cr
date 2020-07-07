@@ -12,18 +12,20 @@ module Bitte
 
         ch = Channel(Nil).new
 
-        cluster.nodes.each do |name, node|
+        nodes = cluster.nodes.values + cluster.asg_nodes
+
+        nodes.each do |node|
           sh! "nix", "copy",
             "--substitute-on-destination",
             "--to", "ssh://root@#{node.public_ip}",
-            "#{flake}#nixosConfigurations.#{cluster_name}-#{name}.config.system.build.toplevel"
+            "#{flake}#nixosConfigurations.#{node.uid}.config.system.build.toplevel"
         end
 
-        cluster.nodes.each do |name, node|
+        nodes.each do |node|
           spawn do
             begin
               sh! "nixos-rebuild",
-                "--flake", "#{flake}##{cluster_name}-#{name}",
+                "--flake", "#{flake}##{node.uid}",
                 "switch", "--target-host", "root@#{node.public_ip}"
             rescue ex
               log.error(exception: ex) { "nixos-rebuild failed"}
@@ -33,7 +35,7 @@ module Bitte
           end
         end
 
-        cluster.nodes.each do |_, _|
+        nodes.each do |_|
           ch.receive
         end
       end
