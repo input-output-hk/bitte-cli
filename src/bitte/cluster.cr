@@ -22,13 +22,14 @@ module Bitte
 
         asg.instances.map do |asgi|
           i = instances.find{|instance| instance.instance_id == asgi.instance_id }
-          if i
+          tags = i.tags_hash
+          if i && i["Cluster"]? == self.name
             Node.new(
               cluster: self,
               name: asgi.instance_id,
               private_ip: i.private_ip_address.not_nil!,
               public_ip: i.public_ip_address,
-            ).tap{|node| node.tags = i.tags_hash }
+            ).tap{|node| node.tags = tags }
           else
             raise "Can't find #{asgi.instance_id}"
           end
