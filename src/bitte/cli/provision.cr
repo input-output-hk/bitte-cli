@@ -10,6 +10,8 @@ module Bitte
       define_help description: "Initial provisioning from Terraform!"
 
       property cluster : TerraformCluster?
+
+      # TODO: fix race
       property log_name : String?
 
       def log_name
@@ -29,32 +31,26 @@ module Bitte
         create_secrets
         generate_ca
 
-        ch = Channel(Nil).new
-
         cluster.instances.each do |name, instance|
           @log_name = name
           generate_client_cert(instance)
           generate_server_cert(instance)
           generate_pem(instance)
+          copy_secrets(instance)
 
-          # TODO: make this parallel once https://github.com/NixOS/nix/issues/3794 is fixed
-          copy_nix(instance)
-
-          spawn do
-            begin
-              build(instance)
-              copy_secrets(instance)
-              switch(instance)
-            rescue ex
-              log.error(exception: ex) { "error during provision" }
-            ensure
-              ch.send nil
-            end
-          end
-        end
-
-        cluster.instances.each do |_|
-          ch.receive
+          # # TODO: make this parallel once https://github.com/NixOS/nix/issues/3794 is fixed
+          # copy_nix(instance)
+          #
+          # spawn do
+          #   begin
+          #     build(instance)
+          #     switch(instance)
+          #   rescue ex
+          #     log.error(exception: ex) { "error during provision" }
+          #   ensure
+          #     ch.send nil
+          #   end
+          # end
         end
       end
 
