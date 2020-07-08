@@ -6,6 +6,10 @@ module Bitte
       include Helpers
 
       define_help description: "nixos-rebuild"
+      define_flag only : Array( String ),
+        description: "node names to include",
+        default: Array(String).new
+
 
       def run
         set_ssh_config
@@ -13,6 +17,10 @@ module Bitte
         ch = Channel(Nil).new
 
         nodes = cluster.nodes.values + cluster.asg_nodes
+
+        if flags.only.any?
+          nodes.select!{|node| flags.only.includes?(node.name) }
+        end
 
         nodes.each do |node|
           sh! "nix", "copy",

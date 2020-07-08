@@ -55,7 +55,7 @@ module Bitte
       return if hydrated
 
       mem = IO::Memory.new
-      sh!("terraform", args: ["output", "-json", "instances"], output: mem)
+      sh!("terraform", args: ["output", "instances"], output: mem)
       ips = Hash(String, String).from_json(mem.to_s)
       ips.each do |node_name, ip|
         @nodes[node_name].public_ip = ip
@@ -66,10 +66,8 @@ module Bitte
 
         next if tags["aws:autoscaling:groupName"]?
         next unless tags["Cluster"]? == name
-        next unless public_ip = instance.public_ip_address
         next unless node_name = tags["Name"]?
 
-        @nodes[node_name].public_ip = public_ip
         @nodes[node_name].tags = tags
       end
 
