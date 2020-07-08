@@ -21,15 +21,17 @@ module Bitte
         ).reservations.map(&.instances).flatten
 
         asg.instances.map do |asgi|
-          i = instances.find{|instance| instance.instance_id == asgi.instance_id }
+          i = instances.find { |instance| instance.instance_id == asgi.instance_id }
+          next unless i
+
           tags = i.tags_hash
-          if i && i["Cluster"]? == self.name
+          if i && tags["Cluster"]? == self.name
             Node.new(
               cluster: self,
               name: asgi.instance_id,
               private_ip: i.private_ip_address.not_nil!,
               public_ip: i.public_ip_address,
-            ).tap{|node| node.tags = tags }
+            ).tap { |node| node.tags = tags }
           else
             raise "Can't find #{asgi.instance_id}"
           end
@@ -51,6 +53,13 @@ module Bitte
 
     def hydrate
       return if hydrated
+
+      mem = IO::Memory.new
+      sh!("terraform", args: ["output", "-json", "instances"], output: mem)
+      ips = Hash(String, String).from_json(mem.to_s)
+      ips.each do |node_name, ip|
+        @nodes[node_name].public_ip = ip
+      end
 
       aws_instances.each do |instance|
         tags = instance.tags_hash
