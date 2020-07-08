@@ -10,7 +10,7 @@ module Bitte
       define_help description: "Show information about clusters and instances"
 
       def run
-        client = AWS::Client.new(region: region, profile: profile)
+        client = AWS::Client.new
 
         data = client.auto_scaling_groups.auto_scaling_groups.flat_map { |asg|
           instances = client.describe_instances(

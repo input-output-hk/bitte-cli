@@ -2,11 +2,13 @@ module Bitte
   class CLI
     module Helpers
       def sh!(cmd : String,
-              args : Enumerable(String)?,
+              args : Array(String)?,
               env : Process::Env = nil,
               input : Process::Stdio = Process::Redirect::Pipe,
-              output : IO = LogIO.new(log),
-              error : IO = LogIO.new(log))
+              output : IO? = nil,
+              error : IO? = nil,
+              log : Log? = self.log,
+             )
 
         log.debug { "run: #{cmd} #{args.join(" ")}" }
 
@@ -15,8 +17,8 @@ module Bitte
           args: args,
           env: env,
           input: input,
-          output: output,
-          error: error,
+          output: output || LogIO.new(log),
+          error: error || LogIO.new(log),
         ) do |process|
           yield process
         end
@@ -30,16 +32,17 @@ module Bitte
               input : Process::Stdio = Process::Redirect::Close,
               output : IO = LogIO.new(log),
               error : IO = LogIO.new(log))
-        sh!(cmd, args: args, env: env, input: input, output: output, error: error){|_| }
+        sh!(cmd, args: args, env: env, input: input, output: output, error: error, log: log){|_| }
       end
 
       def sh!(cmd : String,
               *args : String,
               env : Process::Env = nil,
               input : Process::Stdio = Process::Redirect::Close,
-              output : IO = LogIO.new(log),
-              error : IO = LogIO.new(log))
-        sh!(cmd, args: args.to_a, env: env, input: input, output: output, error: error){|_| }
+              output : IO? = nil,
+              error : IO? = nil,
+              log : Log? = self.log)
+        sh!(cmd, args: args.to_a, env: env, input: input, output: output, error: error, log: log){|_| }
       end
 
       def sh!(cmd : String,

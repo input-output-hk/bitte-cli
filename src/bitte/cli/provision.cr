@@ -36,10 +36,15 @@ module Bitte
           generate_client_cert(instance)
           generate_server_cert(instance)
           generate_pem(instance)
+
+          # TODO: make this parallel once https://github.com/NixOS/nix/issues/3794 is fixed
+          copy_nix(instance)
+
           spawn do
             begin
-              copy_nix(instance)
-              rebuild(instance)
+              build(instance)
+              copy_secrets(instance)
+              switch(instance)
             rescue ex
               log.error(exception: ex) { "error during provision" }
             ensure
@@ -65,25 +70,25 @@ module Bitte
       end
 
       def copy_nix(instance)
+        sh! "nix", "copy",
+          "--substitute-on-destination",
+          "--to", "ssh://root@#{instance.public_ip}",
+          cluster.nix
+      end
+
+      def build(instance)
         sh! "rsync", args: [
           "-e", (["ssh"] + SSH::COMMON_ARGS + ssh_key ).join(" "),
           "-r", "#{cluster.flake}/", "root@#{instance.public_ip}:source/",
         ]
 
-        sh! "nix", "copy",
-          "--substitute-on-destination",
-          "--to", "ssh://root@#{instance.public_ip}",
-          cluster.nix
-
         sh! "ssh", args: SSH::COMMON_ARGS + ssh_key + [
           "root@#{instance.public_ip}",
           "#{cluster.nix}/bin/nix build --experimental-features 'flakes nix-command' './source##{instance.flake_attr}'"
         ]
-
-        copy_secrets(instance)
       end
 
-      def rebuild(instance)
+      def switch(instance)
         sh! "nixos-rebuild",
           "--flake", "#{cluster.flake}##{instance.uid}",
           "switch", "--target-host", "root@#{instance.public_ip}"

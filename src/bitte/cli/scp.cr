@@ -26,7 +26,7 @@ module Bitte
         end
 
         def ip
-          if node = cluster[arguments.host]
+          if node = cluster.instances[arguments.host]
             node.public_ip
           else
             raise "No instance with name #{arguments.host} found"
@@ -34,12 +34,7 @@ module Bitte
         end
 
         def cluster
-          Cluster.new(
-            profile: parent.flags.as(CLI::Flags).profile,
-            flake: parent.flags.as(CLI::Flags).flake,
-            name: parent.flags.as(CLI::Flags).cluster,
-            region: parent.flags.as(CLI::Flags).region
-          )
+          TerraformCluster.load
         end
       end
 
@@ -64,7 +59,7 @@ module Bitte
         end
 
         def ip
-          if node = cluster[arguments.host]
+          if node = cluster.instances[arguments.host]
             node.public_ip
           else
             raise "No instance with name #{arguments.host} found"
@@ -72,12 +67,7 @@ module Bitte
         end
 
         def cluster
-          Cluster.new(
-            profile: parent.flags.as(CLI::Flags).profile,
-            flake: parent.flags.as(CLI::Flags).flake,
-            name: parent.flags.as(CLI::Flags).cluster,
-            region: parent.flags.as(CLI::Flags).region
-          )
+          TerraformCluster.load
         end
       end
     end
