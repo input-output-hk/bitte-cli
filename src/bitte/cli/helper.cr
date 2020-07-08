@@ -52,7 +52,7 @@ module Bitte
       end
 
       def ssh_key
-        path = secrets/"ssh-#{cluster_name}"
+        path = secrets/"ssh-#{cluster.name}"
         if File.exists?(path.to_s)
           ["-i", path.to_s]
         else
@@ -73,7 +73,11 @@ module Bitte
       end
 
       def log
-        Log.for(self.class.to_s)
+        Log.for(log_name)
+      end
+
+      def log_name
+        self.class.to_s
       end
 
       def nix_eval(attr, apply)

@@ -9,23 +9,47 @@ module Bitte
 
       define_help description: "Initial provisioning from Terraform!"
 
+      property cluster : TerraformCluster?
+      property log_name : String?
+
+      def log_name
+        @log_name ||= self.class.to_s
+      end
+
+      def cluster
+        @cluster ||= TerraformCluster.load
+      end
+
       def run
         log.info { "Provisioning" }
 
-        create_certs
-        create_secrets
         set_ssh_config
-        copy_nix
-        rebuild
-      end
 
-      def create_certs
+        # TODO: add the encrypt key here
+        create_secrets
         generate_ca
-        topology.each do |_, node_config|
-          # TODO: one for each ASG?
-          generate_client_cert(node_config)
-          generate_server_cert(node_config)
-          generate_pem(node_config)
+
+        ch = Channel(Nil).new
+
+        cluster.instances.each do |name, instance|
+          @log_name = name
+          generate_client_cert(instance)
+          generate_server_cert(instance)
+          generate_pem(instance)
+          spawn do
+            begin
+              copy_nix(instance)
+              rebuild(instance)
+            rescue ex
+              log.error(exception: ex) { "error during provision" }
+            ensure
+              ch.send nil
+            end
+          end
+        end
+
+        cluster.instances.each do |_|
+          ch.receive
         end
       end
 
@@ -40,88 +64,45 @@ module Bitte
         ENV["NIX_SSHOPTS"] ||= (SSH::COMMON_ARGS + ssh_key).join(" ")
       end
 
-      def copy_nix
-        cluster.nodes.each do |name, node|
-          log.info { "Copying Nix to #{name} ..." }
+      def copy_nix(instance)
+        sh! "rsync", args: [
+          "-e", (["ssh"] + SSH::COMMON_ARGS + ssh_key ).join(" "),
+          "-r", "#{cluster.flake}/", "root@#{instance.public_ip}:source/",
+        ]
 
-          flake_source = IO::Memory.new
-          sh! "nix", output: flake_source, args: [
-            "eval", "--raw", "#{flake}#self.outPath"
-          ]
+        sh! "nix", "copy",
+          "--substitute-on-destination",
+          "--to", "ssh://root@#{instance.public_ip}",
+          cluster.nix
 
-          sh! "rsync", args: [
-            "-e", (["ssh"] + SSH::COMMON_ARGS + ssh_key ).join(" "),
-            "-r", "#{ flake_source }/", "root@#{node.public_ip}:source/",
-          ]
+        sh! "ssh", args: SSH::COMMON_ARGS + ssh_key + [
+          "root@#{instance.public_ip}",
+          "#{cluster.nix}/bin/nix build --experimental-features 'flakes nix-command' './source##{instance.flake_attr}'"
+        ]
 
-          nix_flakes = IO::Memory.new
-          sh! "nix", output: nix_flakes, args: [
-            "eval", "--raw", "#{flake}#nixFlakes.outPath"
-          ]
-
-          sh! "nix", "copy",
-            "--substitute-on-destination",
-            "--to", "ssh://root@#{node.public_ip}",
-            "#{flake}#nixFlakes"
-
-          sh! "ssh", args: SSH::COMMON_ARGS + ssh_key + [
-            "root@#{node.public_ip}",
-            "#{nix_flakes}/bin/nix build --experimental-features 'flakes nix-command' './source#nixosConfigurations.#{cluster_name}-#{name}.config.system.build.toplevel'"
-          ]
-
-          sh! "nix", "copy",
-            "--substitute-on-destination",
-            "--to", "ssh://root@#{node.public_ip}",
-            "#{flake}#nixosConfigurations.#{cluster_name}-#{name}.config.system.build.toplevel"
-
-          copy_secrets(node)
-        end
+        copy_secrets(instance)
       end
 
-      def rebuild
-        ch = Channel(Nil).new
-
-        cluster.nodes.each do |name, node|
-          spawn do
-            begin
-            sh! "nixos-rebuild",
-              "--flake", "#{flake}##{cluster_name}-#{name}",
-              "switch", "--target-host", "root@#{node.public_ip}"
-            rescue ex
-              log.error(exception: ex) { "nixos-rebuild failed"}
-            ensure
-              ch.send nil
-            end
-          end
-        end
-
-        cluster.nodes.each do |_, _|
-          ch.receive
-        end
+      def rebuild(instance)
+        sh! "nixos-rebuild",
+          "--flake", "#{cluster.flake}##{instance.uid}",
+          "switch", "--target-host", "root@#{instance.public_ip}"
       end
 
       # TODO: replace with rsync
-      def copy_secrets(node)
-        dst = "root@#{node.public_ip}"
+      def copy_secrets(instance)
+        dst = "root@#{instance.public_ip}"
         sh! "ssh", dst, "mkdir", "-p", "/etc/consul.d"
         sh! "scp", "./secrets/consul.master.token.json", "#{dst}:/etc/consul.d/master-token.json"
-        sh! "scp", "./secrets/#{cluster_name}.pem", "#{dst}:/run/keys/ca.pem"
-        sh! "scp", "./encrypted/#{cluster_name}/#{node.name}.enc.json", "#{dst}:/run/keys/certs.enc.json"
-        Dir.glob("encrypted/#{cluster_name}/*") do |pem|
+        sh! "scp", "./secrets/#{cluster.name}.pem", "#{dst}:/run/keys/ca.pem"
+        sh! "scp", "./encrypted/#{cluster.name}/#{instance.name}.enc.json", "#{dst}:/run/keys/certs.enc.json"
+        sh! "scp", "./encrypted/#{cluster.name}/client.enc.json", "#{dst}:/run/keys/client.enc.json"
+        Dir.glob("encrypted/#{cluster.name}/*") do |pem|
           sh! "scp", pem, "#{dst}:/run/keys/#{File.basename(pem)}"
         end
       end
 
-      def cluster
-        Cluster.new(
-          profile: parent.flags.as(CLI::Flags).profile,
-          flake: flake,
-          name: cluster_name,
-          region: parent.flags.as(CLI::Flags).region
-        )
-      end
-
-      def generate_client_cert(node)
+      def generate_client_cert(instance)
         enc = encrypted/cluster_name/"client.enc.json"
 
         if File.exists?(enc) && mtime(secrets/"#{cluster_name}-key.pem") <= mtime(enc)
@@ -129,7 +110,7 @@ module Bitte
         end
 
         config = ca_config_file
-        cert_config = cert_config_file_client(node)
+        cert_config = cert_config_file_client(instance)
 
         FileUtils.mkdir_p((encrypted/cluster_name).to_s)
 
@@ -137,7 +118,7 @@ module Bitte
           sh!("sops", output: sopsfile, args: [
             "--encrypt",
             "--input-type", "json",
-            "--kms", node.kms,
+            "--kms", cluster.kms,
             "/dev/stdin",
           ]) do |sops|
             # we could plug in a multiwriter here that extracts the pem so we
@@ -157,15 +138,15 @@ module Bitte
       end
 
 
-      def generate_server_cert(node)
-        enc = encrypted/cluster_name/"#{node.name}.enc.json"
+      def generate_server_cert(instance)
+        enc = encrypted/cluster_name/"#{instance.name}.enc.json"
 
         if File.exists?(enc) && mtime(secrets/"#{cluster_name}-key.pem") <= mtime(enc)
           return
         end
 
         config = ca_config_file
-        cert_config = cert_config_file_server(node)
+        cert_config = cert_config_file_server(instance)
 
         FileUtils.mkdir_p((encrypted/cluster_name).to_s)
 
@@ -173,7 +154,7 @@ module Bitte
           sh!("sops", output: sopsfile, args: [
             "--encrypt",
             "--input-type", "json",
-            "--kms", node.kms,
+            "--kms", cluster.kms,
             "/dev/stdin",
           ]) do |sops|
             # we could plug in a multiwriter here that extracts the pem so we
@@ -192,9 +173,9 @@ module Bitte
         [config, cert_config].compact.each(&.delete)
       end
 
-      def generate_pem(node)
-        pem = encrypted/cluster_name/"#{node.name}.pem"
-        enc = encrypted/cluster_name/"#{node.name}.enc.json"
+      def generate_pem(instance)
+        pem = encrypted/cluster_name/"#{instance.name}.pem"
+        enc = encrypted/cluster_name/"#{instance.name}.enc.json"
 
         if File.exists?(pem) && mtime(enc) <= mtime(pem)
           return
@@ -209,27 +190,27 @@ module Bitte
         end
       end
 
-      def cert_config_file_server(node)
-        File.tempfile "#{node.name}.json" do |file|
+      def cert_config_file_server(instance)
+        File.tempfile "#{instance.name}.json" do |file|
           file.puts({
-            CN:    "#{node.name}.node.consul",
+            CN:    "#{instance.name}.node.consul",
             names: ca_names,
             key:   ca_key,
             hosts: [
-              node.name,
-              "#{node.name}.node.consul",
+              instance.name,
+              "#{instance.name}.node.consul",
               "vault.service.consul",
               "consul.service.consul",
               "nomad.service.consul",
-              "server.#{node.region}.consul",
+              "server.#{cluster.region}.consul",
               "127.0.0.1",
-              node.private_ip,
+              instance.private_ip,
             ],
           }.to_pretty_json)
         end
       end
 
-      def cert_config_file_client(node)
+      def cert_config_file_client(instance)
         File.tempfile "client.json" do |file|
           file.puts({
             CN:    "client.node.consul",
@@ -308,10 +289,6 @@ module Bitte
         nix_eval "#{flake}#clusters.#{cluster_name}.topology.nodes" do |output|
           Hash(String, TopologyNode).from_json(output.to_s)
         end
-      end
-
-      def cluster_name
-        parent.flags.as(CLI::Flags).cluster
       end
 
       def cluster_name

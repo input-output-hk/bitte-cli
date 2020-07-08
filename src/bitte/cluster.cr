@@ -1,4 +1,58 @@
 module Bitte
+  class TerraformCluster
+    include JSON::Serializable
+
+    extend CLI::Helpers
+
+    def self.load
+      mem = IO::Memory.new
+      sh!("terraform", args: ["output", "-json", "cluster"], output: mem)
+      from_json(mem.to_s)
+    end
+
+    property asgs : Hash(String, ASG)
+    property flake : String
+    property instances : Hash(String, Instance)
+    property kms : String
+    property name : String
+    property nix : String
+    property region : String
+    property roles : Roles
+
+    class ASG
+      include JSON::Serializable
+
+      property flake_attr : String
+      property instance_type : String
+      property uid : String
+    end
+
+    class Instance
+      include JSON::Serializable
+
+      property flake_attr : String
+      property instance_type : String
+      property name : String
+      property private_ip : String
+      property public_ip : String
+      property tags : Hash(String, String)
+      property uid : String
+    end
+
+    class Roles
+      include JSON::Serializable
+
+      property client : Role
+      property core : Role
+    end
+
+    class Role
+      include JSON::Serializable
+
+      property arn : String
+    end
+  end
+
   class Cluster
     include CLI::Helpers
 

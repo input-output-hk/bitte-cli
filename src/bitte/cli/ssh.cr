@@ -20,6 +20,8 @@ module Bitte
       define_flag term : String,
         default: ENV["TERM"]? || "xterm"
 
+      property cluster : TerraformCluster?
+
       def run
         ssh_args = COMMON_ARGS + ssh_key + [
           "-x", # Disables X11 forwarding
@@ -32,7 +34,7 @@ module Bitte
       end
 
       def ip
-        if node = cluster[arguments.host]
+        if node = cluster.instances[arguments.host]
           node.public_ip
         else
           raise "No instance with name #{arguments.host} found"
@@ -40,16 +42,7 @@ module Bitte
       end
 
       def cluster
-        Cluster.new(
-          profile: parent.flags.as(CLI::Flags).profile,
-          flake: parent.flags.as(CLI::Flags).flake,
-          name: cluster_name,
-          region: parent.flags.as(CLI::Flags).region
-        )
-      end
-
-      def cluster_name
-        parent.flags.as(CLI::Flags).cluster
+        @cluster ||= TerraformCluster.load
       end
     end
   end
