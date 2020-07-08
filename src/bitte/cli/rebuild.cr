@@ -11,10 +11,16 @@ module Bitte
         description: "node names to include",
         default: Array(String).new
 
+      define_flag dirty : Bool,
+        description: "Use current directory as flake",
+        default: false
+
       property cluster : TerraformCluster?
 
       def run
         set_ssh_config
+
+        flake = flags.dirty ? "." : cluster.flake
 
         ch = Channel(Nil).new
         ch_count = 0
@@ -24,9 +30,10 @@ module Bitte
           parallel_copy channel: ch,
             name: name,
             ip: instance.public_ip,
-            flake: cluster.flake,
+            flake: flake,
             flake_attr: instance.flake_attr,
             uid: instance.uid
+          sleep(ch_count * 2) # this works around https://github.com/NixOS/nix/issues/3794
         end
 
         cluster.asgs.each do |name, asg|
@@ -37,46 +44,16 @@ module Bitte
             parallel_copy channel: ch,
               name: instance.name,
               ip: instance.public_ip,
-              flake: cluster.flake,
+              flake: flake,
               flake_attr: asg.flake_attr,
               uid: asg.uid
+            sleep(ch_count * 2) # this works around https://github.com/NixOS/nix/issues/3794
           end
         end
 
         ch_count.times do
           ch.receive
         end
-
-        # nodes = cluster.nodes.values + cluster.asg_nodes
-        #
-        # if flags.only.any?
-        #   nodes.select! { |node| flags.only.includes?(node.name) }
-        # end
-        #
-        # nodes.each do |node|
-        #   sh! "nix", "copy",
-        #     "--substitute-on-destination",
-        #     "--to", "ssh://root@#{node.public_ip}",
-        #     "#{flake}#nixosConfigurations.#{node.uid}.config.system.build.toplevel"
-        # end
-        #
-        # nodes.each do |node|
-        #   spawn do
-        #     begin
-        #       sh! "nixos-rebuild",
-        #         "--flake", "#{flake}##{node.uid}",
-        #         "switch", "--target-host", "root@#{node.public_ip}"
-        #     rescue ex
-        #       log.error(exception: ex) { "nixos-rebuild failed" }
-        #     ensure
-        #       ch.send nil
-        #     end
-        #   end
-        # end
-        #
-        # nodes.each do |_|
-        #   ch.receive
-        # end
       end
 
       def parallel_copy(channel, name, ip, flake, flake_attr, uid)
