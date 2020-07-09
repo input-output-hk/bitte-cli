@@ -14,14 +14,6 @@ module Bitte
       # TODO: fix race
       property log_name : String?
 
-      def log_name
-        @log_name ||= self.class.to_s
-      end
-
-      def cluster
-        @cluster ||= TerraformCluster.load
-      end
-
       def run
         log.info { "Provisioning" }
 
@@ -33,6 +25,7 @@ module Bitte
 
         cluster.instances.each do |name, instance|
           @log_name = name
+          wait_for_ssh(instance.public_ip)
           generate_client_cert(instance)
           generate_server_cert(instance)
           generate_pem(instance)
@@ -65,55 +58,33 @@ module Bitte
         ENV["NIX_SSHOPTS"] ||= (SSH::COMMON_ARGS + ssh_key).join(" ")
       end
 
-      def copy_nix(instance)
-        sh! "nix", "copy",
-          "--substitute-on-destination",
-          "--to", "ssh://root@#{instance.public_ip}",
-          cluster.nix
-      end
-
-      def build(instance)
-        sh! "rsync", args: [
-          "-e", (["ssh"] + SSH::COMMON_ARGS + ssh_key ).join(" "),
-          "-r", "#{cluster.flake}/", "root@#{instance.public_ip}:source/",
-        ]
-
-        sh! "ssh", args: SSH::COMMON_ARGS + ssh_key + [
-          "root@#{instance.public_ip}",
-          "#{cluster.nix}/bin/nix build --experimental-features 'flakes nix-command' './source##{instance.flake_attr}'"
-        ]
-      end
-
-      def switch(instance)
-        sh! "nixos-rebuild",
-          "--flake", "#{cluster.flake}##{instance.uid}",
-          "switch", "--target-host", "root@#{instance.public_ip}"
-      end
-
       # TODO: replace with rsync
       def copy_secrets(instance)
         dst = "root@#{instance.public_ip}"
-        sh! "ssh", dst, "mkdir", "-p", "/etc/consul.d"
-        sh! "scp", "./secrets/consul.master.token.json", "#{dst}:/etc/consul.d/master-token.json"
-        sh! "scp", "./secrets/#{cluster.name}.pem", "#{dst}:/run/keys/ca.pem"
-        sh! "scp", "./encrypted/#{cluster.name}/#{instance.name}.enc.json", "#{dst}:/run/keys/certs.enc.json"
-        sh! "scp", "./encrypted/#{cluster.name}/client.enc.json", "#{dst}:/run/keys/client.enc.json"
-        Dir.glob("encrypted/#{cluster.name}/*") do |pem|
-          sh! "scp", pem, "#{dst}:/run/keys/#{File.basename(pem)}"
+        sh! "ssh", args: SSH::COMMON_ARGS + ssh_key + [ dst, "mkdir", "-p", "/etc/consul.d" ]
+        sh! "scp", (secrets/"consul.master.token.json" ).to_s, "#{dst}:/etc/consul.d/master-token.json"
+        sh! "scp", (secrets/"#{cluster.name}.pem").to_s, "#{dst}:/run/keys/ca.pem"
+        sh! "scp", (encrypted/cluster.kms/"#{instance.name}.enc.json").to_s, "#{dst}:/run/keys/certs.enc.json"
+        sh! "scp", (encrypted/cluster.kms/"client.enc.json").to_s, "#{dst}:/run/keys/client.enc.json"
+        Dir.glob(( encrypted/cluster.name/"*" )) do |file|
+          sh! "scp", file, "#{dst}:/run/keys/#{File.basename(file)}"
+        end
+        Dir.glob(( encrypted/cluster.kms/"*" )) do |file|
+          sh! "scp", file, "#{dst}:/run/keys/#{File.basename(file)}"
         end
       end
 
       def generate_client_cert(instance)
-        enc = encrypted/cluster_name/"client.enc.json"
+        enc = encrypted/cluster.kms/"client.enc.json"
 
-        if File.exists?(enc) && mtime(secrets/"#{cluster_name}-key.pem") <= mtime(enc)
+        if File.exists?(enc) && mtime(secrets/"#{cluster.name}-key.pem") <= mtime(enc)
           return
         end
 
         config = ca_config_file
         cert_config = cert_config_file_client(instance)
 
-        FileUtils.mkdir_p((encrypted/cluster_name).to_s)
+        FileUtils.mkdir_p(enc.parent.to_s)
 
         File.open(enc, "w+") do |sopsfile|
           sh!("sops", output: sopsfile, args: [
@@ -126,8 +97,8 @@ module Bitte
             # don't have to call sops twice...
             sh!("cfssl", output: sops.input, args: [
               "gencert",
-              "-ca", (secrets / "#{cluster_name}.pem").to_s,
-              "-ca-key", (secrets / "#{cluster_name}-key.pem").to_s,
+              "-ca", (secrets / "#{cluster.name}.pem").to_s,
+              "-ca-key", (secrets / "#{cluster.name}-key.pem").to_s,
               "-config", config.not_nil!.path,
               "-profile", "default",
               cert_config.not_nil!.path,
@@ -140,16 +111,16 @@ module Bitte
 
 
       def generate_server_cert(instance)
-        enc = encrypted/cluster_name/"#{instance.name}.enc.json"
+        enc = encrypted/cluster.kms/"#{instance.name}.enc.json"
 
-        if File.exists?(enc) && mtime(secrets/"#{cluster_name}-key.pem") <= mtime(enc)
+        if File.exists?(enc) && mtime(secrets/"#{cluster.name}-key.pem") <= mtime(enc)
           return
         end
 
         config = ca_config_file
         cert_config = cert_config_file_server(instance)
 
-        FileUtils.mkdir_p((encrypted/cluster_name).to_s)
+        FileUtils.mkdir_p(enc.parent.to_s)
 
         File.open(enc, "w+") do |sopsfile|
           sh!("sops", output: sopsfile, args: [
@@ -162,8 +133,8 @@ module Bitte
             # don't have to call sops twice...
             sh!("cfssl", output: sops.input, args: [
               "gencert",
-              "-ca", (secrets / "#{cluster_name}.pem").to_s,
-              "-ca-key", (secrets / "#{cluster_name}-key.pem").to_s,
+              "-ca", (secrets / "#{cluster.name}.pem").to_s,
+              "-ca-key", (secrets / "#{cluster.name}-key.pem").to_s,
               "-config", config.not_nil!.path,
               "-profile", "default",
               cert_config.not_nil!.path,
@@ -175,12 +146,15 @@ module Bitte
       end
 
       def generate_pem(instance)
-        pem = encrypted/cluster_name/"#{instance.name}.pem"
-        enc = encrypted/cluster_name/"#{instance.name}.enc.json"
+        pem = encrypted/cluster.name/"#{instance.name}.pem"
+        enc = encrypted/cluster.kms/"#{instance.name}.enc.json"
 
         if File.exists?(pem) && mtime(enc) <= mtime(pem)
           return
         end
+
+        FileUtils.mkdir_p(pem.parent.to_s)
+        FileUtils.mkdir_p(enc.parent.to_s)
 
         File.open(pem, "w+") do |pem_file|
           sh!("sops", output: pem_file, args: [
@@ -237,11 +211,11 @@ module Bitte
 
         FileUtils.mkdir_p(secrets.to_s)
 
-        sh!("cfssljson", args: ["-bare", (secrets/cluster_name).to_s]) do |cfssljson|
+        sh!("cfssljson", args: ["-bare", (secrets/cluster.name).to_s]) do |cfssljson|
           sh!("cfssl", ["gencert", "-initca", ca_tempfile.path], output: cfssljson.input)
         end
 
-        FileUtils.rm(( secrets/"#{cluster_name}.csr" ).to_s)
+        FileUtils.rm(( secrets/"#{cluster.name}.csr" ).to_s)
       ensure
         ca_tempfile.delete if ca_tempfile
       end
@@ -282,14 +256,16 @@ module Bitte
       end
 
       def ca_exists?
-        File.exists?(secrets / "#{cluster_name}-key.pem") &&
-          File.exists?(secrets / "#{cluster_name}.pem")
+        File.exists?(secrets / "#{cluster.name}-key.pem") &&
+          File.exists?(secrets / "#{cluster.name}.pem")
       end
 
-      def topology
-        nix_eval "#{flake}#clusters.#{cluster_name}.topology.nodes" do |output|
-          Hash(String, TopologyNode).from_json(output.to_s)
-        end
+      def log_name
+        @log_name ||= self.class.to_s
+      end
+
+      def cluster
+        @cluster ||= TerraformCluster.load
       end
 
       def cluster_name

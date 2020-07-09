@@ -1,3 +1,5 @@
+require "uri"
+
 module Bitte
   class CLI
     register_sub_command rebuild : Rebuild, description: "nixos-rebuild the targets"
@@ -27,6 +29,7 @@ module Bitte
 
         cluster.instances.each do |name, instance|
           ch_count += 1
+          wait_for_ssh(instance.public_ip)
           parallel_copy channel: ch,
             name: name,
             ip: instance.public_ip,
@@ -35,7 +38,7 @@ module Bitte
             uid: instance.uid
           sleep(ch_count * 2) # this works around https://github.com/NixOS/nix/issues/3794
         end
-
+#
         cluster.asgs.each do |name, asg|
           log.info { "Copying closures to ASG #{name}" }
 
@@ -56,15 +59,67 @@ module Bitte
         end
       end
 
-      def parallel_copy(channel, name, ip, flake, flake_attr, uid)
+      def substituters
+        [
+          "https://cache.nixos.org",
+          "https://hydra.iohk.io",
+          "https://manveru.cachix.org",
+        ]
+      end
+
+      def trusted_public_keys
+        [
+          "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=",
+          "manveru.cachix.org-1:L5nJHSinfA2K5dDCG3KAEadwf/e3qqhuBr7yCwSksXo=",
+          "hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=",
+        ]
+      end
+
+      def parallel_copy(channel, name, ip, flake, flake_attr, uid, attempts = 10)
         logger = log.for(name)
 
         spawn do
           begin
             logger.info { "Copying closure to #{name} (#{ip})" }
+
+            # sh! "nix", "copy",
+            #   "--substitute-on-destination",
+            #   "--to", "ssh://root@#{ip}",
+            #   cluster.nix
+            #
+            # sh! "rsync", args: [
+            #   "-e", (["ssh"] + SSH::COMMON_ARGS + ssh_key ).join(" "),
+            #   "-r", "#{flake}/", "root@#{ip}:source/",
+            # ]
+            #
+            # sh! "ssh", args: SSH::COMMON_ARGS + ssh_key + [
+            #   "root@#{ip}",
+            #   [
+            #     "#{cluster.nix}/bin/nix",
+            #     "--experimental-features",
+            #     "'flakes nix-command'",
+            #     "shell", "nixpkgs#git", "-c",
+            #     "#{cluster.nix}/bin/nix",
+            #     "--experimental-features",
+            #     "'flakes nix-command'",
+            #     "build",
+            #     "--substituters", "'#{ substituters.join(" ") }'",
+            #     "--trusted-public-keys", "'#{trusted_public_keys.join(" ")}'",
+            #     "'./source##{flake_attr}'"
+            #   ].join(" ")
+            # ]
+
+            uri = URI.parse("ssh://root@#{ip}")
+            uri.query = HTTP::Params{
+              "substituters" => substituters.join(" "),
+              "binary-cache-public-keys" => trusted_public_keys.join(" "),
+            }.to_s
+
             sh! "nix", "copy",
               "--substitute-on-destination",
-              "--to", "ssh://root@#{ip}",
+              "--trusted-public-keys", trusted_public_keys.join(" "),
+              "--substituters", substituters.join(" "),
+              "--to", uri.to_s,
               "#{flake}##{flake_attr}",
               log: logger
 
@@ -77,7 +132,12 @@ module Bitte
 
             logger.info { "finished." }
           rescue ex
-            log.error(exception: ex) { "failed copying to #{name} (#{ip})" }
+            if attempts > 0
+              sleep rand(1..5)
+              parallel_copy(channel, name, ip, flake, flake_attr, uid, attempts - 1)
+            else
+              log.error(exception: ex) { "failed copying to #{name} (#{ip})" }
+            end
           ensure
             channel.send nil
           end
@@ -87,15 +147,6 @@ module Bitte
       def set_ssh_config
         ENV["NIX_SSHOPTS"] ||= (SSH::COMMON_ARGS + ssh_key).join(" ")
       end
-
-      # def cluster
-      #   Cluster.new(
-      #     profile: parent.flags.as(CLI::Flags).profile,
-      #     flake: flake,
-      #     name: cluster_name,
-      #     region: parent.flags.as(CLI::Flags).region
-      #   )
-      # end
 
       def cluster
         @cluster ||= TerraformCluster.load

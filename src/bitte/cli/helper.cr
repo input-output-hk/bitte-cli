@@ -1,3 +1,5 @@
+require "socket"
+
 module Bitte
   class CLI
     module Helpers
