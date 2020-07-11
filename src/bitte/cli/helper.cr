@@ -9,18 +9,18 @@ module Bitte
               input : Process::Stdio = Process::Redirect::Pipe,
               output : IO? = nil,
               error : IO? = nil,
-              log : Log? = self.log,
+              logger : Log? = self.log,
              )
 
-        log.debug { "run: #{cmd} #{args.join(" ")}" }
+        logger.debug { "run: #{cmd} #{args.join(" ")}" }
 
         Process.run(
           cmd,
           args: args,
           env: env,
           input: input,
-          output: output || LogIO.new(log),
-          error: error || LogIO.new(log),
+          output: output || LogIO.new(logger),
+          error: error || LogIO.new(logger),
         ) do |process|
           yield process
         end
@@ -32,9 +32,10 @@ module Bitte
               args : Enumerable(String)?,
               env : Process::Env = nil,
               input : Process::Stdio = Process::Redirect::Close,
-              output : IO = LogIO.new(log),
-              error : IO = LogIO.new(log))
-        sh!(cmd, args: args, env: env, input: input, output: output, error: error, log: log){|_| }
+              output : IO? = nil,
+              error : IO? = nil,
+              logger : Log? = self.log)
+        sh!(cmd, args: args, env: env, input: input, output: output, error: error, logger: logger){|_| }
       end
 
       def sh!(cmd : String,
@@ -43,8 +44,8 @@ module Bitte
               input : Process::Stdio = Process::Redirect::Close,
               output : IO? = nil,
               error : IO? = nil,
-              log : Log? = self.log)
-        sh!(cmd, args: args.to_a, env: env, input: input, output: output, error: error, log: log){|_| }
+              logger : Log? = self.log)
+        sh!(cmd, args: args.to_a, env: env, input: input, output: output, error: error, logger: logger){|_| }
       end
 
       def sh!(cmd : String,
@@ -57,12 +58,16 @@ module Bitte
       end
 
       def ssh_key
-        path = secrets/"ssh-#{cluster.name}"
+        path = secrets/"ssh-#{cluster_name}"
         if File.exists?(path.to_s)
           ["-i", path.to_s]
         else
           [] of String
         end
+      end
+
+      def cluster_name
+        cluster.name
       end
 
       def secrets
@@ -99,12 +104,12 @@ module Bitte
 
       # We wait ~2 minutes for a connection
       def wait_for_ssh(ip)
-        Log.info { "Connecting to #{ip}:22..." }
+        Log.debug { "Connecting to #{ip}:22..." }
 
         120.downto(0) do |i|
           begin
             TCPSocket.open(ip, 22) do
-              log.info { "Connected to #{ip}." }
+              log.debug { "Connected to #{ip}." }
             end
 
             return

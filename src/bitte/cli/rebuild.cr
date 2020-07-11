@@ -28,6 +28,7 @@ module Bitte
         ch_count = 0
 
         cluster.instances.each do |name, instance|
+          next if skip?(name)
           ch_count += 1
           wait_for_ssh(instance.public_ip)
           parallel_copy channel: ch,
@@ -40,9 +41,8 @@ module Bitte
         end
 #
         cluster.asgs.each do |name, asg|
-          log.info { "Copying closures to ASG #{name}" }
-
           asg.instances.each do |instance|
+            next if skip?(name)
             ch_count += 1
             parallel_copy channel: ch,
               name: instance.name,
@@ -56,6 +56,14 @@ module Bitte
 
         ch_count.times do
           ch.receive
+        end
+      end
+
+      def skip?(name)
+        if flags.only.any?
+          !flags.only.includes?(name)
+        else
+          false
         end
       end
 
@@ -109,26 +117,18 @@ module Bitte
             #   ].join(" ")
             # ]
 
-            uri = URI.parse("ssh://root@#{ip}")
-            uri.query = HTTP::Params{
-              "substituters" => substituters.join(" "),
-              "binary-cache-public-keys" => trusted_public_keys.join(" "),
-            }.to_s
-
             sh! "nix", "copy",
               "--substitute-on-destination",
-              "--trusted-public-keys", trusted_public_keys.join(" "),
-              "--substituters", substituters.join(" "),
-              "--to", uri.to_s,
+              "--to", "ssh://root@#{ip}",
               "#{flake}##{flake_attr}",
-              log: logger
+              logger: logger
 
             logger.info { "Copied closure, starting nixos-rebuild ..." }
 
             sh! "nixos-rebuild", "switch",
               "--target-host", "root@#{ip}",
               "--flake", "#{flake}##{uid}",
-              log: logger
+              logger: logger
 
             logger.info { "finished." }
           rescue ex
@@ -150,11 +150,6 @@ module Bitte
 
       def cluster
         @cluster ||= TerraformCluster.load
-      end
-
-      def cluster_name
-        parent.flags.as(CLI::Flags).cluster
-        :wa
       end
 
       def flake
