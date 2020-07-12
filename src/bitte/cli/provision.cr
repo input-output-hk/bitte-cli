@@ -14,45 +14,27 @@ module Bitte
       define_flag cluster : String, description: "name of the cluster", required: true
 
       def run
-        log.info { "Provisioning" }
+        logger = Log.for(name)
+        logger.info { "Waiting for user_data to be applied..." }
 
         set_ssh_config
 
-        # TODO: add the encrypt key here
-        create_secrets
-        wait_for_ssh(ip)
-        copy_secrets
-      end
+        ready = false
 
-      def create_secrets
-        unless File.exists?("./secrets/consul.master.token.json")
-          json = {
-            acl:     {tokens: {master: UUID.random.to_s}},
-            encrypt: `consul keygen`.strip,
-          }.to_pretty_json
-          raise "Couldn't create consul encrypt key" unless $?.success?
-          File.write("./secrets/consul.master.token.json", json)
+        until ready
+          sleep 1
+
+          begin
+            output = IO::Memory.new
+            sh! "ssh", args: SSH::COMMON_ARGS + ssh_key + ["root@#{ip}", "cat", "/etc/ready"], logger: logger, output: output
+            ready = output.to_s =~ /true/
+          rescue RetryableError
+          end
         end
       end
 
       def set_ssh_config
         ENV["NIX_SSHOPTS"] ||= (SSH::COMMON_ARGS + ssh_key).join(" ")
-      end
-
-      # TODO: replace with rsync
-      def copy_secrets
-        logger = Log.for(name)
-        dst = "root@#{ip}"
-        sh! "ssh", args: SSH::COMMON_ARGS + ssh_key + [dst, "mkdir", "-p", "/etc/consul.d"], logger: logger
-        sh! "scp", (secrets/"consul.master.token.json").to_s, "#{dst}:/etc/consul.d/master-token.json", logger: logger
-      end
-
-      def skip?(name)
-        if flags.only.any?
-          !flags.only.includes?(name)
-        else
-          false
-        end
       end
 
       def ip
