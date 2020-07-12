@@ -18,11 +18,12 @@ module Bitte
         logger.info { "Waiting for user_data to be applied..." }
 
         set_ssh_config
+        wait_for_ssh(ip)
 
         ready = false
 
         until ready
-          sleep 1
+          sleep 5
 
           begin
             output = IO::Memory.new
@@ -31,6 +32,8 @@ module Bitte
           rescue RetryableError
           end
         end
+
+        logger.warn { "Ready to deploy. Don't forget to copy ACME certs first if you have a backup!" }
       end
 
       def set_ssh_config

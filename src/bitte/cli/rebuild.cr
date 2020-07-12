@@ -133,7 +133,7 @@ module Bitte
             logger.info { "finished." }
           rescue ex
             if attempts > 0
-              sleep rand(1..5)
+              sleep [2,3,5,7,11].sample.seconds
               parallel_copy(channel, name, ip, flake, flake_attr, uid, attempts - 1)
             else
               log.error(exception: ex) { "failed copying to #{name} (#{ip})" }
