@@ -5,6 +5,39 @@ module Bitte
     class SCP < Admiral::Command
       define_help description: "SCP to/from nodes"
 
+      register_sub_command rsync : Rsync, description: "rsync files & folders"
+
+      class Rsync < Admiral::Command
+        include Helpers
+        define_help description: "Rsync files & folders"
+
+        define_argument host
+
+        define_flag term : String,
+          default: ENV["TERM"]? || "xterm"
+
+        def run
+          src = @argv.shift
+          dst = @argv.shift
+          scp_args = SSH::COMMON_ARGS + [
+            src.to_s, "root@#{ip}:#{dst}",
+          ]
+          sh! "scp", args: scp_args
+        end
+
+        def ip
+          if node = cluster.instances[arguments.host]
+            node.public_ip
+          else
+            raise "No instance with name #{arguments.host} found"
+          end
+        end
+
+        def cluster
+          TerraformCluster.load
+        end
+      end
+
       register_sub_command to : To, description: "SCP files & folders to nodes"
 
       class To < Admiral::Command

@@ -23,6 +23,9 @@ require "./bitte/cli.cr"
 require "./bitte/cli/helper.cr"
 require "./bitte/**"
 
-Log.setup_from_env(default_level: Log::Severity::Info)
+Log.setup_from_env(
+  default_level: Log::Severity::Info,
+  backend: Log::IOBackend.new(STDERR)
+)
 
 Bitte::CLI.run

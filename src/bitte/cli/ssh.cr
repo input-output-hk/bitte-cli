@@ -23,14 +23,23 @@ module Bitte
       property cluster : TerraformCluster?
 
       def run
-        ssh_args = COMMON_ARGS + ssh_key + [
+        args = ssh_args
+        log.debug { "ssh #{args.join(" ")}" }
+
+        if @argv.empty?
+          Process.exec("ssh", args: args, env: {"TERM" => "xterm"})
+        else
+          Process.exec("ssh", args: args, env: {"TERM" => "xterm"}, output: STDOUT)
+        end
+      end
+
+      def ssh_args
+        COMMON_ARGS + ssh_key + [
           "-x", # Disables X11 forwarding
-          "-t", # Force pseudo-terminal allocation
+          ( "-t" if @argv.empty? ), # force pseudo-tty
           "-p", "22",
           "root@#{ip}",
-        ]
-        log.debug { "ssh #{ssh_args.join(" ")}" }
-        Process.exec("ssh", args: ssh_args, env: {"TERM" => "xterm"})
+        ].compact + @argv.map{|a| Process.quote_posix(a.to_s) }
       end
 
       def ip

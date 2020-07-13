@@ -33,7 +33,7 @@ module Bitte
           wait_for_ssh(instance.public_ip)
           parallel_copy channel: ch,
             name: name,
-            ip: instance.public_ip,
+            ip: instance.public_ip.not_nil!,
             flake: flake,
             flake_attr: instance.flake_attr,
             uid: instance.uid
@@ -46,7 +46,7 @@ module Bitte
             ch_count += 1
             parallel_copy channel: ch,
               name: instance.name,
-              ip: instance.public_ip,
+              ip: instance.public_ip.not_nil!,
               flake: flake,
               flake_attr: asg.flake_attr,
               uid: asg.uid
@@ -67,39 +67,40 @@ module Bitte
         end
       end
 
-      def parallel_copy(channel, name, ip, flake, flake_attr, uid, attempts = 10)
-        logger = log.for(name)
-
+      def parallel_copy(channel : Channel(Nil), name : String, ip : String, flake : String, flake_attr : String, uid : String, attempts = 10)
         spawn do
           begin
-            begin
-              logger.info { "Copying closure to #{name} (#{ip})" }
-
-              sh! "nix", "copy",
-                "--substitute-on-destination",
-                "--to", "ssh://root@#{ip}",
-                "#{flake}##{flake_attr}",
-                logger: logger
-
-              logger.info { "Copied closure, starting nixos-rebuild ..." }
-
-              sh! "nixos-rebuild", "switch",
-                "--target-host", "root@#{ip}",
-                "--flake", "#{flake}##{uid}",
-                logger: logger
-
-              logger.info { "finished." }
-            rescue ex
-              if attempts > 0
-                sleep [2, 3, 5, 7, 11].sample.seconds
-                parallel_copy(channel, name, ip, flake, flake_attr, uid, attempts - 1)
-              else
-                log.error(exception: ex) { "failed copying to #{name} (#{ip})" }
-              end
-            end
+            parallel_copy(name, ip, flake, flake_attr, uid, attempts)
           ensure
             channel.send nil
           end
+        end
+      end
+
+      def parallel_copy(name : String, ip : String, flake : String, flake_attr : String, uid : String, attempts = 10)
+        logger = log.for(name)
+        logger.info { "Copying closure to #{name} (#{ip})" }
+
+        sh! "nix", "copy",
+          "--substitute-on-destination",
+          "--to", "ssh://root@#{ip}",
+          "#{flake}##{flake_attr}",
+          logger: logger
+
+        logger.info { "Copied closure, starting nixos-rebuild ..." }
+
+        sh! "nixos-rebuild", "switch",
+          "--target-host", "root@#{ip}",
+          "--flake", "#{flake}##{uid}",
+          logger: logger
+
+        logger.info { "finished." }
+      rescue ex
+        if attempts > 0
+          sleep [2, 3, 5, 7, 11].sample.seconds
+          parallel_copy(name, ip, flake, flake_attr, uid, attempts - 1)
+        else
+          log.error(exception: ex) { "failed copying to #{name} (#{ip})" }
         end
       end
 
