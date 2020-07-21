@@ -39,7 +39,7 @@ module Bitte
             uid: instance.uid
           sleep(ch_count * 2) # this works around https://github.com/NixOS/nix/issues/3794
         end
-        #
+
         cluster.asgs.each do |name, asg|
           asg.instances.each do |instance|
             next if skip?(name)

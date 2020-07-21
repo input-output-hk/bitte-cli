@@ -18,7 +18,7 @@ module Bitte
       define_argument host
 
       define_flag term : String,
-        default: ENV["TERM"]? || "xterm"
+        default: "xterm"
 
       property cluster : TerraformCluster?
 
@@ -27,19 +27,19 @@ module Bitte
         log.debug { "ssh #{args.join(" ")}" }
 
         if @argv.empty?
-          Process.exec("ssh", args: args, env: {"TERM" => "xterm"})
+          Process.exec("ssh", args: args, env: {"TERM" => flags.term})
         else
-          Process.exec("ssh", args: args, env: {"TERM" => "xterm"}, output: STDOUT)
+          Process.exec("ssh", args: args, env: {"TERM" => flags.term}, output: STDOUT)
         end
       end
 
       def ssh_args
         COMMON_ARGS + ssh_key + [
-          "-x", # Disables X11 forwarding
-          ( "-t" if @argv.empty? ), # force pseudo-tty
+          "-x",                   # Disables X11 forwarding
+          ("-t" if @argv.empty?), # force pseudo-tty
           "-p", "22",
           "root@#{ip}",
-        ].compact + @argv.map{|a| Process.quote_posix(a.to_s) }
+        ].compact + @argv.map { |a| Process.quote_posix(a.to_s) }
       end
 
       def ip

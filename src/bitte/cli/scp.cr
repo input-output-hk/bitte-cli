@@ -22,7 +22,7 @@ module Bitte
           scp_args = SSH::COMMON_ARGS + [
             src.to_s, "root@#{ip}:#{dst}",
           ]
-          sh! "scp", args: scp_args
+          sh! "rsync", args: scp_args
         end
 
         def ip
