@@ -46,6 +46,7 @@
             nixFlakes
             crystal
             crystal2nix
+            shards
             libssh2
             terraform-with-plugins
             cfssl

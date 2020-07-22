@@ -32,6 +32,7 @@ module Bitte
       property flake_attr : String
       property instance_type : String
       property uid : String
+      property arn : String
 
       record Instance,
          asg : ASG,
@@ -42,6 +43,8 @@ module Bitte
 
       def instances
         asgs.flat_map { |asg|
+          next unless asg.arn == arn
+
           instances = aws_client.describe_instances(
             asg.instances.map(&.instance_id)
           ).reservations.map(&.instances).flatten

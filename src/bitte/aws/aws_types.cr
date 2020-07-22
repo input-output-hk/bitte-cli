@@ -32,6 +32,9 @@ module AWS::Types
     class AutoScalingGroup
       include JSON::Serializable
 
+      @[JSON::Field(key: "AutoScalingGroupARN")]
+      property arn : String
+
       @[JSON::Field(key: "Instances")]
       property instances : Array(Instance)
 
