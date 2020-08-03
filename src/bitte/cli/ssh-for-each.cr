@@ -21,7 +21,9 @@ module Bitte
           parallel_ssh ch, name, instance.public_ip, @argv.map(&.to_s)
         end
 
-        cluster.asgs.each do |name, asg|
+        return unless asgs = cluster.asgs
+
+        asgs.each do |name, asg|
           asg.instances.each do |instance|
             next unless ip = instance.public_ip
             ch_count += 1

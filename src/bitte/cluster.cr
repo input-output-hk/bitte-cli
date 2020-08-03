@@ -8,14 +8,15 @@ module Bitte
       mem = IO::Memory.new
       sh!("terraform", args: ["output", "-json", "cluster"], output: mem)
       from_json(mem.to_s).tap do |cluster|
-        cluster.asgs.each do |name, asg|
+        next unless asgs = cluster.asgs
+        asgs.each do |name, asg|
           asg.cluster = cluster
           asg.name = name
         end
       end
     end
 
-    property asgs : Hash(String, ASG)
+    property asgs : Hash(String, ASG)?
     property flake : String
     property instances : Hash(String, Instance)
     property kms : String
