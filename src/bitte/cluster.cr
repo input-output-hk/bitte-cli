@@ -32,12 +32,18 @@ module Bitte
       property cluster : TerraformCluster?
       property flake_attr : String
       property instance_type : String
+      property region : String
       property uid : String
       property arn : String
 
       record Instance,
          asg : ASG,
          name : String,
+         type : String,
+         availability_zone : String,
+         lifecycle_state : String,
+         health_status : String,
+         launch_configuration_name : String?,
          private_ip : String,
          public_ip : String?,
          tags = Hash(String, String).new
@@ -60,6 +66,11 @@ module Bitte
               ASG::Instance.new(
                 asg: self,
                 name: asgi.instance_id,
+                type: asgi.instance_type,
+                availability_zone: asgi.availability_zone,
+                health_status: asgi.health_status,
+                lifecycle_state: asgi.lifecycle_state,
+                launch_configuration_name: asgi.launch_configuration_name,
                 private_ip: i.private_ip_address.not_nil!,
                 public_ip: i.public_ip_address,
                 tags: tags,
@@ -76,7 +87,7 @@ module Bitte
       end
 
       def aws_client
-        AWS::Client.new
+        AWS::Client.new(region)
       end
 
       def cluster

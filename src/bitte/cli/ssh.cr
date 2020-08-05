@@ -13,7 +13,7 @@ module Bitte
         "-o", "StrictHostKeyChecking=accept-new",
       ]
 
-      define_help description: "SSH to a machine"
+      define_help short: "h", description: "SSH to a machine"
 
       define_argument host
 

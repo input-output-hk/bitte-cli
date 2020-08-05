@@ -5,7 +5,7 @@ module Bitte
     class SSHForEach < Admiral::Command
       include Helpers
 
-      define_help description: "Execute command on all machines"
+      define_help short: "h", description: "Execute command on all machines"
 
       define_flag term : String,
         default: ENV["TERM"]? || "xterm"

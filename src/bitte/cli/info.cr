@@ -7,34 +7,28 @@ module Bitte
     class Info < Admiral::Command
       include Helpers
 
-      define_help description: "Show information about clusters and instances"
+      define_help short: "h", description: "Show information about clusters and instances"
+
+      property cluster : TerraformCluster?
 
       def run
-        client = AWS::Client.new
+        # client = AWS::Client.new(region)
+        asgs = cluster.asgs || Hash(String, TerraformCluster::ASG).new
 
-        data = client.auto_scaling_groups.auto_scaling_groups.flat_map { |asg|
-          instances = client.describe_instances(
-            asg.instances.map(&.instance_id)
-          ).reservations.map(&.instances).flatten
-
-          asg.instances.map do |asgi|
-            i = instances.find{|instance| instance.instance_id == asgi.instance_id }
-            if i
-              [
-                asgi.instance_id,
-                asgi.instance_type,
-                asgi.availability_zone,
-                asgi.lifecycle_state,
-                asgi.health_status,
-                asgi.launch_configuration_name || "",
-                i.private_ip_address || "",
-                i.public_ip_address || "",
-              ]
-            else
-              raise "Can't find #{asgi.instance_id}"
-            end
+        data = asgs.flat_map do |_, asg|
+          asg.instances.map do |instance|
+            [
+              instance.name,
+              instance.type,
+              instance.availability_zone,
+              instance.lifecycle_state,
+              instance.health_status,
+              instance.launch_configuration_name || "",
+              instance.private_ip || "",
+              instance.public_ip || "",
+            ]
           end
-        }
+        end
 
         table = Tablo::Table.new(data) do |t|
           t.add_column("InstanceId") { |n| n[0] }
@@ -53,16 +47,8 @@ module Bitte
         puts table
       end
 
-      def profile
-        parent.flags.as(CLI::Flags).profile
-      end
-
-      def region
-        parent.flags.as(CLI::Flags).region
-      end
-
-      def cluster_name
-        parent.flags.as(CLI::Flags).cluster
+      def cluster
+        @cluster ||= TerraformCluster.load
       end
     end
   end

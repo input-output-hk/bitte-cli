@@ -7,7 +7,7 @@ module Bitte
     class Rebuild < Admiral::Command
       include Helpers
 
-      define_help description: "nixos-rebuild"
+      define_help short: "h", description: "nixos-rebuild"
 
       define_flag only : Array(String),
         description: "node names to include",

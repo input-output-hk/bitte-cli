@@ -3,13 +3,13 @@ module Bitte
     register_sub_command scp : SCP, description: "SCP files & folders to or from nodes"
 
     class SCP < Admiral::Command
-      define_help description: "SCP to/from nodes"
+      define_help short: "h", description: "SCP to/from nodes"
 
       register_sub_command rsync : Rsync, description: "rsync files & folders"
 
       class Rsync < Admiral::Command
         include Helpers
-        define_help description: "Rsync files & folders"
+        define_help short: "h", description: "Rsync files & folders"
 
         define_argument host
 
@@ -42,7 +42,7 @@ module Bitte
 
       class To < Admiral::Command
         include Helpers
-        define_help description: "SCP files & folders to a node"
+        define_help short: "h", description: "SCP files & folders to a node"
 
         define_argument host
 
@@ -75,7 +75,7 @@ module Bitte
 
       class From < Admiral::Command
         include Helpers
-        define_help description: "SCP files & folders from a node"
+        define_help short: "h", description: "SCP files & folders from a node"
 
         define_argument host
 

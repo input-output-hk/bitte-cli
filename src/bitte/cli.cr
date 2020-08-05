@@ -1,7 +1,7 @@
 module Bitte
   class CLI < Admiral::Command
     define_version "1.0.0"
-    define_help description: "Deploy all the things!"
+    define_help short: "h", description: "Deploy all the things!"
 
     define_flag cluster : String,
       description: "Name of the cluster",

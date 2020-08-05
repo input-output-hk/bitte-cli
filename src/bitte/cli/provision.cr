@@ -7,7 +7,7 @@ module Bitte
     class Provision < Admiral::Command
       include Helpers
 
-      define_help description: "Initial provisioning from Terraform!"
+      define_help short: "h", description: "Initial provisioning from Terraform!"
 
       define_flag ip : String, description: "ip of the node", required: true
       define_flag name : String, description: "name of the node", required: true

@@ -2,8 +2,14 @@ require "./aws_types.cr"
 
 module AWS
   class Client
+    property region : String
+
+    def initialize(@region)
+    end
+
     def aws(cmd, subcmd, args = [] of String)
       aws_args = [
+        "--region", region,
         "--output", "json",
         cmd, subcmd ] + args
 

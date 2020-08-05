@@ -8,7 +8,7 @@ module Bitte
     class Certs < Admiral::Command
       include Helpers
 
-      define_help description: "Generate TLS certs"
+      define_help short: "h", description: "Generate TLS certs"
 
       # Poor man's Make
       def run
