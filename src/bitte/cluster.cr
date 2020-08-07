@@ -18,12 +18,20 @@ module Bitte
 
     property asgs : Hash(String, ASG)?
     property flake : String
-    property instances : Hash(String, Instance)
+    property instances : Hash(String, Instance)?
     property kms : String
     property name : String
     property nix : String
     property region : String
     property roles : Roles
+
+    def instances
+      @instances || Hash(String, Instance).new
+    end
+
+    def asgs
+      @asgs || Hash(String, ASG).new
+    end
 
     class ASG
       include JSON::Serializable

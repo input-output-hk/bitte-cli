@@ -12,7 +12,6 @@ module Bitte
       property cluster : TerraformCluster?
 
       def run
-        # client = AWS::Client.new(region)
         asgs = cluster.asgs || Hash(String, TerraformCluster::ASG).new
 
         data = asgs.flat_map do |_, asg|
@@ -48,7 +47,14 @@ module Bitte
       end
 
       def cluster
-        @cluster ||= TerraformCluster.load
+        @cluster ||=
+          with_workspace "#{cluster_name}.clients" {
+            TerraformCluster.load
+          }
+      end
+
+      def cluster_name
+        parent.flags.as(CLI::Flags).cluster
       end
     end
   end

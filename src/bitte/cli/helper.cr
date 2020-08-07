@@ -121,6 +121,46 @@ module Bitte
 
         raise "Couldn't connect to #{ip}"
       end
+
+      def with_workspace(name)
+        original = tf_workspace_show
+
+        if original == name
+          return yield
+        end
+
+        available = tf_workspace_list
+
+        if available.includes?(name)
+          tf_workspace_select name
+        else
+          tf_workspace_new name
+        end
+
+        yield
+      ensure
+        tf_workspace_select original if original
+      end
+
+      def tf_workspace_select(name) : Nil
+        sh! "terraform", "workspace", "select", name
+      end
+
+      def tf_workspace_new(name) : Nil
+        sh! "terraform", "workspace", "new", name
+      end
+
+      def tf_workspace_show : String
+        output = IO::Memory.new
+        sh! "terraform", "workspace", "show", output: output
+        output.to_s.strip
+      end
+
+      def tf_workspace_list : Array(String)
+        output = IO::Memory.new
+        sh! "terraform", "workspace", "list", output: output
+        output.to_s.split - ["*"]
+      end
     end
   end
 end
