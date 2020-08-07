@@ -12,6 +12,8 @@ module Bitte
       define_flag ip : String, description: "ip of the node", required: true
       define_flag name : String, description: "name of the node", required: true
       define_flag cluster : String, description: "name of the cluster", required: true
+      define_flag flake : String, description: "flake location", required: true
+      define_flag attr : String, description: "flake host attr", required: true
 
       def run
         logger = Log.for(name)
@@ -34,6 +36,23 @@ module Bitte
         end
 
         logger.warn { "Ready to deploy. Don't forget to copy ACME certs first if you have a backup!" }
+
+        sh! "nix", "copy",
+          "--substitute-on-destination",
+          "--to", "ssh://root@#{ip}",
+          "#{flake}#nixosConfigurations.#{flake_attr}.config.system.build.toplevel",
+          logger: logger
+
+        logger.info { "Copied closure, starting nixos-rebuild ..." }
+
+        sh! "nixos-rebuild", "switch",
+          "--target-host", "root@#{ip}",
+          "--flake", "#{flake}##{flake_attr}",
+          logger: logger
+      end
+
+      def ssh(*cmds)
+        sh! "ssh", args: SSH::COMMON_ARGS + ssh_key + ["root@#{ip}"] + cmds.to_a, logger: logger, output: output
       end
 
       def set_ssh_config
@@ -50,6 +69,14 @@ module Bitte
 
       def cluster_name
         flags.cluster
+      end
+
+      def flake
+        flags.flake
+      end
+
+      def flake_attr
+        flags.attr
       end
     end
   end
