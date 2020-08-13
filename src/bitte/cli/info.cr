@@ -48,7 +48,7 @@ module Bitte
 
       def cluster
         @cluster ||=
-          with_workspace "#{cluster_name}.clients" {
+          with_workspace "#{cluster_name}_clients" {
             TerraformCluster.load
           }
       end

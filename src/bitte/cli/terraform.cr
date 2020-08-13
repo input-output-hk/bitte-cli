@@ -10,7 +10,7 @@ module Bitte
       define_argument realm : String, default: "core", required: true
 
       def run
-        with_workspace "#{cluster}.#{realm}" do
+        with_workspace "#{cluster}_#{realm}" do
           sh! "nix", "build",
             "#{flake}#clusters.#{cluster}.tf.#{realm}.output",
             "-o", "config.tf.json"
