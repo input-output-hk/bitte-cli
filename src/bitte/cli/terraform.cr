@@ -10,30 +10,17 @@ module Bitte
       define_argument realm : String, default: "core", required: true
 
       def run
-        with_workspace "#{cluster}_#{realm}" do
+        with_workspace realm do
           sh! "nix", "build",
             "#{flake}#clusters.#{cluster}.tf.#{realm}.output",
-            "-o", "config.tf.json"
+            "-o", "config.tf.json.ln"
 
-          sh! "terraform", "plan", "-out", plan_file
+          File.readlink("config.tf.json.ln")
+          FileUtils.cp(File.readlink("config.tf.json.ln"), "config.tf.json")
+          FileUtils.rm("config.tf.json.ln")
 
-          wait_for_user
-
-          sh! "terraform", "apply", plan_file
+          sh! "terraform", "apply"
         end
-      end
-
-      def wait_for_user
-        log.info { "applying the plan in 20 seconds!" }
-        log.info { "Press return to apply immediately, Ctrl-C to cancel" }
-
-        STDIN.read_timeout = 20
-        STDIN.gets
-      rescue IO::TimeoutError
-      end
-
-      def plan_file
-        "#{cluster}.#{realm}.plan"
       end
 
       def realm : String
