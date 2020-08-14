@@ -17,6 +17,8 @@ module Bitte
       )
 
       creds["credentials"]["app.terraform.io"]["token"]
+    rescue ex
+      log.error(exception: ex) { "Could not found Terraform credentials, make sure you ran `terraform login`" }
     end
 
     def self.headers

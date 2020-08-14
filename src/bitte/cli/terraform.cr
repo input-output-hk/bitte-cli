@@ -10,11 +10,11 @@ module Bitte
       define_argument realm : String, required: true
 
       def run
-        with_workspace realm do
-          sh! "nix", "build",
-            "#{flake}#clusters.#{cluster}.tf.#{realm}.output",
-            "-o", "config.tf.json.ln"
+        sh! "nix", "build",
+          "#{flake}#clusters.#{cluster}.tf.#{realm}.output",
+          "-o", "config.tf.json.ln"
 
+        with_workspace realm do
           File.readlink("config.tf.json.ln")
           FileUtils.rm_rf("config.tf.json")
           FileUtils.cp(File.readlink("config.tf.json.ln"), "config.tf.json")
