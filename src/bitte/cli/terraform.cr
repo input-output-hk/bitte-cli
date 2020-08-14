@@ -18,7 +18,7 @@ module Bitte
         FileUtils.cp(File.readlink("config.tf.json.ln"), "config.tf.json")
 
         with_workspace realm do
-          sh! "terraform", "apply"
+          sh! "terraform", "apply", "-auto-approve"
         end
       ensure
         FileUtils.rm_rf("config.tf.json.ln")
