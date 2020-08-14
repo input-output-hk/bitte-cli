@@ -19,7 +19,7 @@
         in nixos.config.system.build.nixos-rebuild;
 
         terraform-with-plugins = prev.terraform.withPlugins (plugins:
-          nixpkgs.lib.attrVals [ "null" "local" "aws" "tls" "sops" ] plugins);
+          nixpkgs.lib.attrVals [ "null" "local" "aws" "tls" "sops" "acme" ] plugins);
 
         inherit (inclusive.lib) inclusive;
 
