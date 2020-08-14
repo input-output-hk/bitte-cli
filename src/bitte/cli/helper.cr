@@ -122,19 +122,18 @@ module Bitte
         raise "Couldn't connect to #{ip}"
       end
 
-      def with_workspace(name)
+      def with_workspace(cluster, workspace_name)
         original = tf_workspace_show
 
-        if original != name
+        if original != workspace_name
           list = tf_workspace_list
-          log.debug { "Workspace list result: #{list.inspect}" }
-          tf_workspace_new(name) unless list.includes?(name)
-          tf_workspace_select name
+          tf_workspace_new(cluster, workspace_name) unless list.includes?("#{cluster}_#{workspace_name}")
+          tf_workspace_select workspace_name
         end
 
         yield
       ensure
-        tf_workspace_select original if original && original != name
+        tf_workspace_select original if original && original != workspace_name
       end
 
       def tf_workspace_select(name) : Nil
@@ -142,8 +141,8 @@ module Bitte
         sh! "terraform", "init"
       end
 
-      def tf_workspace_new(name) : Nil
-        Bitte::Terraform.create_workspace(tf_organization, name)
+      def tf_workspace_new(cluster, workspace_name) : Nil
+        Bitte::Terraform.create_workspace(tf_organization, "#{cluster}_#{workspace_name}")
       end
 
       def tf_workspace_show : String
@@ -153,7 +152,8 @@ module Bitte
       end
 
       def tf_workspace_list : Array(String)
-        Bitte::Terraform.list_workspaces(tf_organization).map(&.attributes.name)
+        workspaces = Bitte::Terraform.list_workspaces(tf_organization)
+        workspaces ? workspaces.map(&.attributes.name) : Array(String).new
       end
 
       def tf_organization

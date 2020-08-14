@@ -28,6 +28,11 @@ module Bitte
       )
 
       Bitte::Terraform::Workspaces.from_json(res.body.to_s)
+    rescue ex
+      Log.for("terraform").error(exception: ex) {
+        "Could not parse JSON"
+      }
+      nil
     end
 
     def self.create_workspace(org, name)
@@ -47,7 +52,7 @@ module Bitte
     end
 
     def self.list_workspaces(org)
-      workspaces(org).data
+      workspaces(org).try(&.data)
     end
 
     def self.localize_workspaces
@@ -178,9 +183,6 @@ module Bitte
 
         @[JSON::Field(key: "latest-run")]
         property latest_run : AgentPool
-
-        @[JSON::Field(key: "current-state-version")]
-        property current_state_version : CurrentStateVersion
 
         @[JSON::Field(key: "agent-pool")]
         property agent_pool : AgentPool
