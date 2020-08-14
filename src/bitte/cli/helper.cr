@@ -157,13 +157,16 @@ module Bitte
       end
 
       def tf_organization
-        state = NamedTuple(
-          backend: NamedTuple(
-            config: NamedTuple(
-              organization: String))).from_json(
-          File.read(".terraform/terraform.tfstate"))
+        ENV["TERRAFORM_ORGANIZATION"]? ||
+          begin
+            state = NamedTuple(
+              backend: NamedTuple(
+                config: NamedTuple(
+                  organization: String))).from_json(
+              File.read(".terraform/terraform.tfstate"))
 
-        state[:backend][:config][:organization]
+            state[:backend][:config][:organization]
+          end
       end
     end
   end
