@@ -151,9 +151,7 @@ module Bitte
       end
 
       def tf_workspace_list : Array(String)
-        output = IO::Memory.new
-        sh! "terraform", "workspace", "list", output: output
-        output.to_s.split - ["*"]
+        Bitte::Terraform.list_workspaces(tf_organization).map(&.attributes.name)
       end
 
       def tf_organization

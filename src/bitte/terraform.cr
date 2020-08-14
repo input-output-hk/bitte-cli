@@ -2,15 +2,6 @@ require "json"
 
 module Bitte
   module Terraform
-    def self.workspaces
-      res = HTTP::Client.get(
-        "https://app.terraform.io/api/v2/organizations/#{org}/workspaces",
-        headers: headers
-      )
-
-      Bitte::Terraform::Workspaces.from_json(res.body.to_s)
-    end
-
     def self.token
       creds = Hash(String, Hash(String, Hash(String, String))).from_json(
         File.read(File.expand_path("~/.terraform.d/credentials.tfrc.json", home: true))
@@ -30,6 +21,15 @@ module Bitte
       }
     end
 
+    def self.workspaces(org)
+      res = HTTP::Client.get(
+        "https://app.terraform.io/api/v2/organizations/#{org}/workspaces",
+        headers: headers
+      )
+
+      Bitte::Terraform::Workspaces.from_json(res.body.to_s)
+    end
+
     def self.create_workspace(org, name)
       HTTP::Client.post(
         "https://app.terraform.io/api/v2/organizations/#{org}/workspaces",
@@ -46,6 +46,10 @@ module Bitte
       )
     end
 
+    def self.list_workspaces(org)
+      workspaces(org).data
+    end
+
     def self.localize_workspaces
       workspaces.data.each do |workspace|
         next unless required.includes?(workspace.attributes.name)
@@ -55,7 +59,7 @@ module Bitte
         next if workspace.attributes.execution_mode == "local"
 
         HTTP::Client.patch(
-          "https://app.terraform.io/api/v2/organizations/#{org}/workspaces/#{workspace.id}",
+          "https://app.terraform.io/api/v2/organizations/#{tf_organization}/workspaces/#{workspace.id}",
           headers: headers,
           body: {
             data: {
