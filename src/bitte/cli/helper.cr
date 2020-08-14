@@ -126,7 +126,9 @@ module Bitte
         original = tf_workspace_show
 
         if original != name
-          tf_workspace_new(name) unless tf_workspace_list.includes?(name)
+          list = tf_workspace_list
+          log.debug { "Workspace list result: #{list.inspect}" }
+          tf_workspace_new(name) unless list.includes?(name)
           tf_workspace_select name
         end
 
