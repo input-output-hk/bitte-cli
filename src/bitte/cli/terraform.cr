@@ -14,11 +14,10 @@ module Bitte
           "#{flake}#clusters.#{cluster}.tf.#{realm}.output",
           "-o", "config.tf.json.ln"
 
-        with_workspace realm do
-          File.readlink("config.tf.json.ln")
-          FileUtils.rm_rf("config.tf.json")
-          FileUtils.cp(File.readlink("config.tf.json.ln"), "config.tf.json")
+        FileUtils.rm_rf("config.tf.json")
+        FileUtils.cp(File.readlink("config.tf.json.ln"), "config.tf.json")
 
+        with_workspace realm do
           sh! "terraform", "apply"
         end
       ensure
