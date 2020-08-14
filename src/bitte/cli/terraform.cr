@@ -19,7 +19,7 @@ module Bitte
           FileUtils.rm_rf("config.tf.json")
           FileUtils.cp(File.readlink("config.tf.json.ln"), "config.tf.json")
 
-          sh! "terraform", "apply"
+          sh! "terraform", "apply", "-auto-approve"
         end
       ensure
         FileUtils.rm_rf("config.tf.json.ln")
