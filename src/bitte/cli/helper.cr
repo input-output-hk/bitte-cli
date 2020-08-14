@@ -1,3 +1,5 @@
+require "http/client"
+require "../terraform"
 require "socket"
 
 module Bitte
@@ -9,9 +11,7 @@ module Bitte
               input : Process::Stdio = Process::Redirect::Pipe,
               output : IO? = nil,
               error : IO? = nil,
-              logger : Log? = self.log,
-             )
-
+              logger : Log? = self.log)
         logger.debug { "run: #{cmd} #{args.join(" ")}" }
 
         Process.run(
@@ -20,7 +20,7 @@ module Bitte
           env: env,
           input: input,
           output: output || LogIO.new(logger),
-          error: error || LogIO.new(logger),
+          error: error || LogIO.new(logger)
         ) do |process|
           yield process
         end
@@ -35,7 +35,7 @@ module Bitte
               output : IO? = nil,
               error : IO? = nil,
               logger : Log? = self.log)
-        sh!(cmd, args: args, env: env, input: input, output: output, error: error, logger: logger){|_| }
+        sh!(cmd, args: args, env: env, input: input, output: output, error: error, logger: logger) { |_| }
       end
 
       def sh!(cmd : String,
@@ -45,7 +45,7 @@ module Bitte
               output : IO? = nil,
               error : IO? = nil,
               logger : Log? = self.log)
-        sh!(cmd, args: args.to_a, env: env, input: input, output: output, error: error, logger: logger){|_| }
+        sh!(cmd, args: args.to_a, env: env, input: input, output: output, error: error, logger: logger) { |_| }
       end
 
       def sh!(cmd : String,
@@ -54,7 +54,7 @@ module Bitte
               input : Process::Stdio = Process::Redirect::Close,
               output : IO = LogIO.new(log),
               error : IO = LogIO.new(log))
-        sh!(cmd, args: args.to_a, env: env, input: input, output: output, error: error){|process| yield process }
+        sh!(cmd, args: args.to_a, env: env, input: input, output: output, error: error) { |process| yield process }
       end
 
       def ssh_key
@@ -125,29 +125,23 @@ module Bitte
       def with_workspace(name)
         original = tf_workspace_show
 
-        if original == name
-          return yield
-        end
-
-        available = tf_workspace_list
-
-        if available.includes?(name)
+        if original != name
+          tf_workspace_new(name) unless tf_workspace_list.includes?(name)
           tf_workspace_select name
-        else
-          tf_workspace_new name
         end
 
         yield
       ensure
-        tf_workspace_select original if original
+        tf_workspace_select original if original && original != name
       end
 
       def tf_workspace_select(name) : Nil
         sh! "terraform", "workspace", "select", name
+        sh! "terraform", "init"
       end
 
       def tf_workspace_new(name) : Nil
-        sh! "terraform", "workspace", "new", name
+        Bitte::Terraform.create_workspace(tf_organization, name)
       end
 
       def tf_workspace_show : String
@@ -160,6 +154,16 @@ module Bitte
         output = IO::Memory.new
         sh! "terraform", "workspace", "list", output: output
         output.to_s.split - ["*"]
+      end
+
+      def tf_organization
+        state = NamedTuple(
+          backend: NamedTuple(
+            config: NamedTuple(
+              organization: String))).from_json(
+          File.read(".terraform/terraform.tfstate"))
+
+        state[:backend][:config][:organization]
       end
     end
   end

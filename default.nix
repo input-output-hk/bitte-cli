@@ -1,6 +1,6 @@
 { stdenv, makeWrapper, crystal, inclusive, nixFlakes, nixos-rebuild, openssh
 , awscli, gitMinimal, coreutils, systemd, gnugrep, terraform-with-plugins
-, consul, sops, libssh2, pkgconfig, cfssl, rsync }: {
+, consul, sops, libssh2, pkgconfig, cfssl, rsync, openssl }: {
   bitte = let
     inner = crystal.buildCrystalPackage {
       pname = "bitte-cli";
@@ -9,7 +9,7 @@
 
       src = inclusive ./. [ ./shard.lock ./shard.yml ./src ];
 
-      buildInputs = [ libssh2 ];
+      buildInputs = [ libssh2 openssl ];
 
       shardsFile = ./shard.nix;
 

@@ -7,7 +7,7 @@ module Bitte
 
       define_help short: "h", description: "Create config.tf.json from the flake and apply it"
 
-      define_argument realm : String, default: "core", required: true
+      define_argument realm : String, required: true
 
       def run
         with_workspace realm do
@@ -16,11 +16,13 @@ module Bitte
             "-o", "config.tf.json.ln"
 
           File.readlink("config.tf.json.ln")
+          FileUtils.rm_rf("config.tf.json")
           FileUtils.cp(File.readlink("config.tf.json.ln"), "config.tf.json")
-          FileUtils.rm("config.tf.json.ln")
 
           sh! "terraform", "apply"
         end
+      ensure
+        FileUtils.rm_rf("config.tf.json.ln")
       end
 
       def realm : String
@@ -33,6 +35,10 @@ module Bitte
 
       def cluster
         parent.flags.as(CLI::Flags).cluster
+      end
+
+      def cluster_name
+        cluster
       end
     end
   end

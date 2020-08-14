@@ -51,6 +51,8 @@
             terraform-with-plugins
             cfssl
             sops
+            openssl
+            pkgconfig
           ];
         };
     });
