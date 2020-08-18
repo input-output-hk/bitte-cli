@@ -12,6 +12,8 @@ module Bitte
 
       define_flag domain : String, required: true
 
+      CSR_CONTAINER = NamedTuple(data: NamedTuple(csr: String))
+
       def run
         ENV["VAULT_ADDR"] = "https://3.121.27.212:8200"
         ENV["VAULT_CACERT"] = "secrets/ca.pem"
@@ -23,7 +25,7 @@ module Bitte
         sh! "vault", "write", "pki/intermediate/generate/internal",
           %( common_name="vault.#{flags.domain}" ), output: mem
 
-        csr_container = NamedTuple(data: NamedTuple(csr: String)).from_json(mem.to_s)
+        csr_container = CSR_CONTAINER.from_json(mem.to_s)
         csr = csr_container[:data][:csr]
         File.write("secrets/issuing-ca.csr", csr)
 
@@ -35,7 +37,10 @@ module Bitte
           "-profile", "intermediate",
           "secrets/issuing-ca.csr", output: mem
 
-        issuing = mem.to_s.gsub(/\n/, "")
+        issuing_csr_container = CSR_CONTAINER.from_json(mem.to_s)
+        issuing_csr = issuing_csr_container[:data][:csr]
+
+        issuing = issuing_csr.gsub(/\n/, "")
         issuing += File.read("secrets/ca.pem")
         File.write("secrets/issuing.pem", issuing)
 
