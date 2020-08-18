@@ -5,6 +5,55 @@ module Bitte
     class SSH < Admiral::Command
       include Helpers
 
+      class Runner
+        include Helpers
+
+        property host : String, term : String, given_args : Array(String), cluster : TerraformCluster
+
+        def initialize(@host, @term, @given_args)
+          @cluster = TerraformCluster.load
+        end
+
+        def exec
+          args = ssh_args
+          log.debug { "ssh #{args.join(" ")}" }
+
+          if @given_args.empty?
+            Process.exec("ssh", args: args, env: {"TERM" => term})
+          else
+            Process.exec("ssh", args: args, env: {"TERM" => term}, output: STDOUT)
+          end
+        end
+
+        def run(output = STDOUT)
+          args = ssh_args
+          log.debug { "ssh #{args.join(" ")}" }
+
+          if @given_args.empty?
+            Process.run("ssh", args: args, env: {"TERM" => term})
+          else
+            Process.run("ssh", args: args, env: {"TERM" => term}, output: output)
+          end
+        end
+
+        def ssh_args
+          COMMON_ARGS + ssh_key + [
+            "-x",                         # Disables X11 forwarding
+            ("-t" if @given_args.empty?), # force pseudo-tty
+            "-p", "22",
+            "root@#{ip}",
+          ].compact + @given_args
+        end
+
+        def ip
+          if node = cluster.instances[@host]
+            node.public_ip
+          else
+            raise "No instance with name #{@host} found"
+          end
+        end
+      end
+
       COMMON_ARGS = [
         "-C", # Requests compression of all data
         "-o", "NumberOfPasswordPrompts=0",
@@ -17,41 +66,14 @@ module Bitte
 
       define_argument host
 
-      define_flag term : String,
-        default: "xterm"
-
-      property cluster : TerraformCluster?
+      define_flag term : String, default: "xterm"
 
       def run
-        args = ssh_args
-        log.debug { "ssh #{args.join(" ")}" }
-
-        if @argv.empty?
-          Process.exec("ssh", args: args, env: {"TERM" => flags.term})
+        if host = arguments.host
+          Runner.new(host, flags.term, @argv.map { |a| Process.quote_posix(a.to_s) }).exec
         else
-          Process.exec("ssh", args: args, env: {"TERM" => flags.term}, output: STDOUT)
+          raise "host must be given"
         end
-      end
-
-      def ssh_args
-        COMMON_ARGS + ssh_key + [
-          "-x",                   # Disables X11 forwarding
-          ("-t" if @argv.empty?), # force pseudo-tty
-          "-p", "22",
-          "root@#{ip}",
-        ].compact + @argv.map { |a| Process.quote_posix(a.to_s) }
-      end
-
-      def ip
-        if node = cluster.instances[arguments.host]
-          node.public_ip
-        else
-          raise "No instance with name #{arguments.host} found"
-        end
-      end
-
-      def cluster
-        @cluster ||= TerraformCluster.load
       end
     end
   end
