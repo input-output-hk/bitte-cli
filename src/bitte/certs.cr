@@ -38,13 +38,25 @@ module Bitte
           "secrets/issuing-ca.csr", output: mem
 
         issuing_csr_container = NamedTuple(cert: String).from_json(mem.to_s)
-        issuing_csr = issuing_csr_container[:cert]
+        issuing_pem = issuing_csr_container[:cert]
 
-        File.write("secrets/issuing.pem",
-          [issuing_csr, File.read("secrets/ca.pem")].map(&.strip).join("\n")
+        File.write("secrets/issuing.pem", issuing_pem.strip)
+
+        File.write("secrets/issuing_full.pem",
+          [issuing_pem, File.read("secrets/ca.pem")].map(&.strip).join("\n")
         )
 
-        sh! "vault", "write", "pki/intermediate/set-signed", "certificate=@secrets/issuing.pem"
+        sh! "vault", "write", "pki/intermediate/set-signed", "certificate=@secrets/issuing_full.pem"
+
+        full = [
+          File.read("secrets/ca.pem"),
+          issuing_pem,
+          File.read("secrets/cert.pem"),
+        ].map(&.strip).join("\n")
+
+        File.write("secrets/full.pem", full)
+
+        sh! "sops", "--set", %(["full"] #{full.to_json}), "encrypted/cert.json"
       end
 
       def ca_config_file
