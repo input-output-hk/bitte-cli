@@ -21,6 +21,36 @@ module Bitte
       }
     end
 
+    def self.show_workspace(org, name)
+      HTTP::Client.get(
+        "https://app.terraform.io/api/v2/organizations/#{org}/workspaces/#{name}",
+        headers: headers
+      )
+    end
+
+    def self.current_state_version(org, name)
+      res = show_workspace(org, name)
+
+      related = JSON.parse(res.body.to_s)["data"]["relationships"]["current-state-version"]["links"]["related"].as_s
+
+      HTTP::Client.get(
+        "https://app.terraform.io#{related}",
+        headers: headers
+      )
+    end
+
+    def self.current_state_version_output(org, cluster_name, name)
+      res = current_state_version(org, "#{cluster_name}_#{name}")
+      state_id = JSON.parse(res.body.to_s)["data"]["relationships"]["outputs"]["data"][0]["id"].as_s
+
+      res = HTTP::Client.get(
+        "https://app.terraform.io/api/v2/state-version-outputs/#{state_id}",
+        headers: headers
+      )
+
+      res.body.to_s
+    end
+
     def self.workspaces(org)
       res = HTTP::Client.get(
         "https://app.terraform.io/api/v2/organizations/#{org}/workspaces",

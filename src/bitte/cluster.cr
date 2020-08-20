@@ -4,10 +4,14 @@ module Bitte
 
     extend CLI::Helpers
 
-    def self.load
-      mem = IO::Memory.new
-      sh!("terraform", args: ["output", "-json", "cluster"], output: mem)
-      from_json(mem.to_s).tap do |cluster|
+    def self.load(workspace)
+      cluster_name = ENV["BITTE_CLUSTER"]
+      state = Terraform.current_state_version_output(tf_organization, cluster_name, workspace)
+
+      outer = NamedTuple(data: NamedTuple(attributes: NamedTuple(value: TerraformCluster)))
+        .from_json(state)
+
+      outer[:data][:attributes][:value].tap do |cluster|
         next unless asgs = cluster.asgs
         asgs.each do |name, asg|
           asg.cluster = cluster
@@ -38,11 +42,15 @@ module Bitte
 
       property name : String?
       property cluster : TerraformCluster?
-      property flake_attr : String
-      property instance_type : String
       property region : String
       property uid : String
       property arn : String
+
+      @[JSON::Field(key: "flake-attr")]
+      property flake_attr : String
+
+      @[JSON::Field(key: "instance-type")]
+      property instance_type : String
 
       record Instance,
          asg : ASG,
@@ -110,13 +118,21 @@ module Bitte
     class Instance
       include JSON::Serializable
 
-      property flake_attr : String
-      property instance_type : String
-      property name : String
-      property private_ip : String
-      property public_ip : String
       property tags : Hash(String, String)
       property uid : String
+      property name : String
+
+      @[JSON::Field(key: "flake-attr")]
+      property flake_attr : String
+
+      @[JSON::Field(key: "instance-type")]
+      property instance_type : String
+
+      @[JSON::Field(key: "private-ip")]
+      property private_ip : String
+
+      @[JSON::Field(key: "public-ip")]
+      property public_ip : String
     end
 
     class Roles

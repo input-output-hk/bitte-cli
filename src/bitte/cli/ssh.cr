@@ -11,7 +11,7 @@ module Bitte
         property host : String, term : String, given_args : Array(String), cluster : TerraformCluster
 
         def initialize(@host, @term, @given_args)
-          @cluster = TerraformCluster.load
+          @cluster = TerraformCluster.load("core")
         end
 
         def exec

@@ -12,6 +12,38 @@ module Bitte
       property cluster : TerraformCluster?
 
       def run
+        puts_core
+        puts_asgs
+      end
+
+      def puts_core
+        puts "Core"
+
+        data = cluster.instances.map do |_, instance|
+          [
+            instance.name,
+            instance.instance_type,
+            instance.flake_attr,
+            instance.private_ip,
+            instance.public_ip,
+          ]
+        end
+
+        table = Tablo::Table.new(data) do |t|
+          t.add_column("Name") { |n| n[0] }
+          t.add_column("Type") { |n| n[1] }
+          t.add_column("FlakeAttr") { |n| n[2] }
+          t.add_column("Private IP") { |n| n[3] }
+          t.add_column("Public IP") { |n| n[4] }
+        end
+
+        table.shrinkwrap!
+        puts table
+      end
+
+      def puts_asgs
+        puts "Auto Scaling Groups"
+
         asgs = cluster.asgs || Hash(String, TerraformCluster::ASG).new
 
         data = asgs.flat_map do |_, asg|
@@ -41,16 +73,11 @@ module Bitte
         end
 
         table.shrinkwrap!
-
-        puts "Auto Scaling Groups"
         puts table
       end
 
       def cluster
-        @cluster ||=
-          with_workspace(cluster_name, "clients") {
-            TerraformCluster.load
-          }
+        @cluster ||= TerraformCluster.load("clients")
       end
 
       def cluster_name

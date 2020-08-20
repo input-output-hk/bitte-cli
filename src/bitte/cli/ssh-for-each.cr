@@ -57,7 +57,7 @@ module Bitte
       end
 
       def cluster
-        @cluster ||= TerraformCluster.load
+        @cluster ||= TerraformCluster.load("core")
       end
     end
   end

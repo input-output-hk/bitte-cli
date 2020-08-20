@@ -111,7 +111,7 @@ module Bitte
       end
 
       def cluster
-        @cluster ||= TerraformCluster.load
+        @cluster ||= TerraformCluster.load("clients")
       end
 
       def flake

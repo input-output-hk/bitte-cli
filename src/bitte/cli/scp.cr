@@ -34,7 +34,7 @@ module Bitte
         end
 
         def cluster
-          TerraformCluster.load
+          TerraformCluster.load("core")
         end
       end
 
@@ -67,7 +67,7 @@ module Bitte
         end
 
         def cluster
-          TerraformCluster.load
+          TerraformCluster.load("core")
         end
       end
 
@@ -100,7 +100,7 @@ module Bitte
         end
 
         def cluster
-          TerraformCluster.load
+          TerraformCluster.load("core")
         end
       end
     end
