@@ -23,8 +23,8 @@ module Bitte
         set_ssh_config
         wait_for_ssh(ip)
 
-        sh! "ssh", args: SSH::COMMON_ARGS + ssh_key + [
-          "root@#{ip}", "until grep true /etc/ready; do sleep 1; done"
+        sh! "ssh", args: temp_ssh_args + [
+          "root@#{ip}", "until grep true /etc/ready &>/dev/null; do sleep 1; done",
         ], logger: logger
 
         logger.warn { "Ready to deploy." }
@@ -49,11 +49,17 @@ module Bitte
       end
 
       def ssh(*cmds)
-        sh! "ssh", args: SSH::COMMON_ARGS + ssh_key + ["root@#{ip}"] + cmds.to_a, logger: logger, output: output
+        sh! "ssh", args: temp_ssh_args + [
+          "root@#{ip}",
+        ] + cmds.to_a, logger: logger, output: output
+      end
+
+      def temp_ssh_args
+        SSH::COMMON_ARGS + ["-o", "StrictHostKeyChecking=no"] + ssh_key
       end
 
       def set_ssh_config
-        ENV["NIX_SSHOPTS"] ||= (SSH::COMMON_ARGS + ssh_key).join(" ")
+        ENV["NIX_SSHOPTS"] ||= temp_ssh_args.join(" ")
       end
 
       def cache
