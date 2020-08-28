@@ -28,8 +28,12 @@ module Bitte
     property nix : String
     property region : String
     property roles : Roles
-    property s3_cache : String?
-    property s3_bucket : String?
+
+    @[JSON::Field(key: "s3-cache")]
+    property s3_cache : String
+
+    @[JSON::Field(key: "s3-bucket")]
+    property s3_bucket : String
 
     def instances
       @instances || Hash(String, Instance).new

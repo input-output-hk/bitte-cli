@@ -91,11 +91,6 @@ module Bitte
         logger.info { "Copying closure to #{name} (#{ip})" }
 
         sh! "nix", "copy",
-          "--to", "#{cluster.s3_cache}&secret-key=secrets/nix-secret-key-file",
-          "#{flake}##{flake_attr}",
-          logger: logger
-
-        sh! "nix", "copy",
           "--substitute-on-destination",
           "--to", "ssh://root@#{ip}",
           "#{flake}##{flake_attr}",
