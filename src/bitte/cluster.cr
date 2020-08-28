@@ -28,6 +28,8 @@ module Bitte
     property nix : String
     property region : String
     property roles : Roles
+    property s3_cache : String?
+    property s3_bucket : String?
 
     def instances
       @instances || Hash(String, Instance).new

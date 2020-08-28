@@ -81,7 +81,19 @@ module Bitte
 
       def parallel_copy(name : String, ip : String, flake : String, flake_attr : String, uid : String, attempts = 10)
         logger = log.for(name)
+        logger.info { "Copying closure to #{cluster.s3_cache}" }
+
+        sh! "nix", "copy",
+          "--to", "#{cluster.s3_cache}&secret-key=secrets/nix-secret-key-file",
+          "#{flake}##{flake_attr}",
+          logger: logger
+
         logger.info { "Copying closure to #{name} (#{ip})" }
+
+        sh! "nix", "copy",
+          "--to", "#{cluster.s3_cache}&secret-key=secrets/nix-secret-key-file",
+          "#{flake}##{flake_attr}",
+          logger: logger
 
         sh! "nix", "copy",
           "--substitute-on-destination",

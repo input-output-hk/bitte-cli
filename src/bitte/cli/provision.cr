@@ -14,6 +14,7 @@ module Bitte
       define_flag cluster : String, description: "name of the cluster", required: true
       define_flag flake : String, description: "flake location", required: true
       define_flag attr : String, description: "flake host attr", required: true
+      define_flag cache : String, description: "push to this cache first", required: true
 
       def run
         logger = Log.for(name)
@@ -22,20 +23,16 @@ module Bitte
         set_ssh_config
         wait_for_ssh(ip)
 
-        ready = false
+        sh! "ssh", args: SSH::COMMON_ARGS + ssh_key + [
+          "root@#{ip}", "until grep true /etc/ready; do sleep 1; done"
+        ], logger: logger
 
-        until ready
-          sleep 5
+        logger.warn { "Ready to deploy." }
 
-          begin
-            output = IO::Memory.new
-            sh! "ssh", args: SSH::COMMON_ARGS + ssh_key + ["root@#{ip}", "cat", "/etc/ready"], logger: logger, output: output
-            ready = output.to_s =~ /true/
-          rescue RetryableError
-          end
-        end
-
-        logger.warn { "Ready to deploy. Don't forget to copy ACME certs first if you have a backup!" }
+        sh! "nix", "copy",
+          "--to", cache,
+          "#{flake}#nixosConfigurations.#{flake_attr}.config.system.build.toplevel",
+          logger: logger
 
         sh! "nix", "copy",
           "--substitute-on-destination",
@@ -57,6 +54,10 @@ module Bitte
 
       def set_ssh_config
         ENV["NIX_SSHOPTS"] ||= (SSH::COMMON_ARGS + ssh_key).join(" ")
+      end
+
+      def cache
+        "#{flags.cache}&secret-key=secrets/nix-secret-key-file"
       end
 
       def ip

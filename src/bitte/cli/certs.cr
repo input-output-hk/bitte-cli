@@ -13,7 +13,7 @@ module Bitte
       define_flag domain : String, required: true
 
       def run
-        ENV["VAULT_ADDR"] = "https://3.121.27.212:8200"
+        ENV["VAULT_ADDR"] = "https://vault.#{flags.domain}:8200"
         ENV["VAULT_CACERT"] = "secrets/ca.pem"
         ENV["VAULT_FORMAT"] = "json"
         sh! "vault", "login", "-method", "aws", "-no-print"
@@ -46,12 +46,14 @@ module Bitte
           [issuing_pem, File.read("secrets/ca.pem")].map(&.strip).join("\n")
         )
 
-        sh! "vault", "write", "pki/intermediate/set-signed", "certificate=@secrets/issuing_full.pem"
+        sh! "vault", "write",
+          "pki/intermediate/set-signed",
+          "certificate=@secrets/issuing_full.pem"
 
         full = [
-          File.read("secrets/ca.pem"),
-          issuing_pem,
           File.read("secrets/cert.pem"),
+          issuing_pem,
+          File.read("secrets/ca.pem"),
         ].map(&.strip).join("\n")
 
         File.write("secrets/full.pem", full)
@@ -85,19 +87,6 @@ module Bitte
             },
           },
         }
-      end
-
-      def ca_key
-        {algo: "ecdsa", size: 256}
-      end
-
-      def ca_names
-        [{
-          O:  "IOHK",
-          C:  "JP",
-          ST: "Kantō",
-          L:  "Tokyo",
-        }]
       end
     end
   end
