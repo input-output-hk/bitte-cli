@@ -2,6 +2,10 @@ require "json"
 
 module Bitte
   module Terraform
+    def self.log
+      Log.for("terraform")
+    end
+
     def self.token
       creds = Hash(String, Hash(String, Hash(String, String))).from_json(
         File.read(File.expand_path("~/.terraform.d/credentials.tfrc.json", home: true))
@@ -9,7 +13,7 @@ module Bitte
 
       creds["credentials"]["app.terraform.io"]["token"]
     rescue ex
-      Log.for("terraform").error(exception: ex) {
+      log.error(exception: ex) {
         "Could not found Terraform credentials, make sure you ran `terraform login`"
       }
     end
@@ -22,14 +26,15 @@ module Bitte
     end
 
     def self.show_workspace(org, name)
-      HTTP::Client.get(
-        "https://app.terraform.io/api/v2/organizations/#{org}/workspaces/#{name}",
-        headers: headers
-      )
+      url = "https://app.terraform.io/api/v2/organizations/#{org}/workspaces/#{name}"
+      log.debug { "GET #{url}" }
+      HTTP::Client.get( url, headers: headers )
     end
 
     def self.current_state_version(org, name)
       res = show_workspace(org, name)
+
+      log.debug{ res.body.to_s }
 
       related = JSON.parse(res.body.to_s)["data"]["relationships"]["current-state-version"]["links"]["related"].as_s
 

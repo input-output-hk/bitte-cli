@@ -35,7 +35,7 @@ module Bitte
       end
 
       def parallel_ssh(channel, name : String, ip : String, args, attempts = 10)
-        host_ssh_args = SSH::COMMON_ARGS + ssh_key + ["root@#{ip}"] + args
+        host_ssh_args = SSH.common_args + ssh_key + ["root@#{ip}"] + args
 
         spawn do
           logger = Log.for(name)

@@ -11,11 +11,12 @@ module AWS
       aws_args = [
         "--region", region,
         "--output", "json",
-        cmd, subcmd ] + args
+        cmd, subcmd,
+      ] + args
 
-        output = IO::Memory.new
-        Process.run("aws", args: aws_args, output: output, error: STDERR)
-        output.to_s
+      output = IO::Memory.new
+      Process.run("aws", args: aws_args, output: output, error: STDERR)
+      output.to_s
     end
 
     def auto_scaling_groups
@@ -40,8 +41,30 @@ module AWS
 
     def reap(instance_id)
       aws("autoscaling", "set-instance-health", [
-        "--instance-id", instance_id, "--health-status", "Unhealthy"
+        "--instance-id", instance_id, "--health-status", "Unhealthy",
       ])
+    end
+
+    def describe_images(**filters)
+      kvs = filters.map { |k, v| %(Name=#{k},Values="#{v}") }
+      AWS::Types::DescribeImages::Images.from_json(
+        aws("ec2", "describe-images", ["--filters"] + kvs))
+    end
+
+    def deregister_image(image_id : String)
+      aws("ec2", "deregister-image", ["--image-id", image_id])
+    end
+
+    def delete_snapshot(snapshot_id : String)
+      aws("ec2", "deregister-image", ["--snapshot-id", snapshot_id])
+    end
+
+    def s3_rm(url, recursive = false)
+      if recursive
+        aws("s3", "rm", ["--recursive", url])
+      else
+        aws("s3", "rm", [url])
+      end
     end
   end
 end

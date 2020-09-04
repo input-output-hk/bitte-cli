@@ -55,7 +55,7 @@ module Bitte
       end
 
       def temp_ssh_args
-        SSH::COMMON_ARGS + ["-o", "StrictHostKeyChecking=no"] + ssh_key
+        SSH.common_args(strict_host_key_checking: "no") + ssh_key
       end
 
       def set_ssh_config

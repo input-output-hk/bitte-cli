@@ -5,6 +5,16 @@ module Bitte
     class SSH < Admiral::Command
       include Helpers
 
+      def self.common_args(strict_host_key_checking = "accept-new")
+        [
+          "-C", # Requests compression of all data
+          "-o", "NumberOfPasswordPrompts=0",
+          "-o", "ServerAliveInterval=60",
+          "-o", "ControlPersist=600",
+          "-o", "StrictHostKeyChecking=#{strict_host_key_checking}",
+        ]
+      end
+
       class Runner
         include Helpers
 
@@ -37,7 +47,7 @@ module Bitte
         end
 
         def ssh_args
-          COMMON_ARGS + ssh_key + [
+          SSH.common_args + ssh_key + [
             "-x",                         # Disables X11 forwarding
             ("-t" if @given_args.empty?), # force pseudo-tty
             "-p", "22",
@@ -53,14 +63,6 @@ module Bitte
           end
         end
       end
-
-      COMMON_ARGS = [
-        "-C", # Requests compression of all data
-        "-o", "NumberOfPasswordPrompts=0",
-        "-o", "ServerAliveInterval=60",
-        "-o", "ControlPersist=600",
-        "-o", "StrictHostKeyChecking=accept-new",
-      ]
 
       define_help short: "h", description: "SSH to a machine"
 

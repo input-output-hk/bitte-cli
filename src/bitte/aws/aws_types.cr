@@ -175,4 +175,112 @@ module AWS::Types
       property value : String
     end
   end
+
+  module DescribeImages
+    class Images
+      include JSON::Serializable
+
+      @[JSON::Field(key: "Images")]
+      property images : Array(Image)
+    end
+
+    class Image
+      include JSON::Serializable
+
+      @[JSON::Field(key: "Architecture")]
+      property architecture : String
+
+      @[JSON::Field(key: "CreationDate")]
+      property creation_date : String
+
+      @[JSON::Field(key: "ImageId")]
+      property image_id : String
+
+      @[JSON::Field(key: "ImageLocation")]
+      property image_location : String
+
+      @[JSON::Field(key: "ImageType")]
+      property image_type : String
+
+      @[JSON::Field(key: "Public")]
+      property public : Bool
+
+      @[JSON::Field(key: "OwnerId")]
+      property owner_id : String
+
+      @[JSON::Field(key: "Platform")]
+      property platform : String
+
+      @[JSON::Field(key: "PlatformDetails")]
+      property platform_details : String
+
+      @[JSON::Field(key: "UsageOperation")]
+      property usage_operation : String
+
+      @[JSON::Field(key: "State")]
+      property state : String
+
+      @[JSON::Field(key: "BlockDeviceMappings")]
+      property block_device_mappings : Array(BlockDeviceMapping)
+
+      @[JSON::Field(key: "EnaSupport")]
+      property ena_support : Bool
+
+      @[JSON::Field(key: "Hypervisor")]
+      property hypervisor : String
+
+      @[JSON::Field(key: "ImageOwnerAlias")]
+      property image_owner_alias : String
+
+      @[JSON::Field(key: "Name")]
+      property name : String
+
+      @[JSON::Field(key: "RootDeviceName")]
+      property root_device_name : String
+
+      @[JSON::Field(key: "RootDeviceType")]
+      property root_device_type : String
+
+      @[JSON::Field(key: "SriovNetSupport")]
+      property sriov_net_support : String
+
+      @[JSON::Field(key: "VirtualizationType")]
+      property virtualization_type : String
+
+      @[JSON::Field(key: "Description")]
+      property description : String?
+    end
+
+    class BlockDeviceMapping
+      include JSON::Serializable
+
+      @[JSON::Field(key: "DeviceName")]
+      property device_name : String
+
+      @[JSON::Field(key: "Ebs")]
+      property ebs : Ebs?
+
+      @[JSON::Field(key: "VirtualName")]
+      property virtual_name : String?
+    end
+
+    class Ebs
+      include JSON::Serializable
+
+      @[JSON::Field(key: "DeleteOnTermination")]
+      property delete_on_termination : Bool
+
+      @[JSON::Field(key: "SnapshotId")]
+      property snapshot_id : String
+
+      @[JSON::Field(key: "VolumeSize")]
+      property volume_size : Int32
+
+      @[JSON::Field(key: "VolumeType")]
+      property volume_type : String
+
+      @[JSON::Field(key: "Encrypted")]
+      property encrypted : Bool
+    end
+  end
 end

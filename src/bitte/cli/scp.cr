@@ -19,7 +19,7 @@ module Bitte
         def run
           src = @argv.shift
           dst = @argv.shift
-          scp_args = SSH::COMMON_ARGS + [
+          scp_args = SSH.common_args + [
             src.to_s, "root@#{ip}:#{dst}",
           ]
           sh! "rsync", args: scp_args
@@ -52,7 +52,7 @@ module Bitte
         def run
           src = @argv.shift
           dst = @argv.shift
-          scp_args = SSH::COMMON_ARGS + [
+          scp_args = SSH.common_args + [
             src.to_s, "root@#{ip}:#{dst}",
           ]
           sh! "scp", args: scp_args
@@ -85,7 +85,7 @@ module Bitte
         def run
           src = @argv.shift
           dst = @argv.shift
-          scp_args = SSH::COMMON_ARGS + [
+          scp_args = SSH.common_args + [
             "root@#{ip}:#{src}", dst.to_s,
           ]
           sh! "scp", args: scp_args

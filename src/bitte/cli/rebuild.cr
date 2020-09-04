@@ -114,7 +114,7 @@ module Bitte
       end
 
       def set_ssh_config
-        ENV["NIX_SSHOPTS"] ||= (SSH::COMMON_ARGS + ssh_key).join(" ")
+        ENV["NIX_SSHOPTS"] ||= (SSH.common_args + ssh_key).join(" ")
       end
 
       def cluster
