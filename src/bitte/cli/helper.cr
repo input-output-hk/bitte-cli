@@ -123,6 +123,7 @@ module Bitte
       end
 
       def with_workspace(cluster, workspace_name)
+        sh! "nix", "run", ".#clusters.#{cluster}.tf.#{workspace_name}.config"
         original = tf_workspace_show
 
         if original != workspace_name

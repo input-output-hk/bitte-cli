@@ -34,8 +34,6 @@ module Bitte
     def self.current_state_version(org, name)
       res = show_workspace(org, name)
 
-      log.debug{ res.body.to_s }
-
       related = JSON.parse(res.body.to_s)["data"]["relationships"]["current-state-version"]["links"]["related"].as_s
 
       HTTP::Client.get(

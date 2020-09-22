@@ -41,9 +41,9 @@ module Bitte
         end
 
         if asgs = cluster.asgs
-          asgs.each do |name, asg|
+          asgs.each do |_, asg|
             asg.instances.each do |instance|
-              next if skip?(name)
+              next if skip?(instance.name)
               ch_count += 1
               parallel_copy channel: ch,
                 name: instance.name,
@@ -82,6 +82,9 @@ module Bitte
       def parallel_copy(name : String, ip : String, flake : String, flake_attr : String, uid : String, attempts = 10)
         logger = log.for(name)
         logger.info { "Copying closure to #{cluster.s3_cache}" }
+
+        ENV["IP"] = ip
+        sh! "nix", "run", "#{flake}#nixosConfigurations.#{uid}.config.secrets.generateScript"
 
         sh! "nix", "copy",
           "--to", "#{cluster.s3_cache}&secret-key=secrets/nix-secret-key-file",
