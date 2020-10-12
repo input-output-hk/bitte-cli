@@ -130,6 +130,8 @@ module Bitte
           list = tf_workspace_list
           tf_workspace_new(cluster, workspace_name) unless list.includes?("#{cluster}_#{workspace_name}")
           tf_workspace_select workspace_name
+        else
+          sh! "terraform", "init"
         end
 
         yield
