@@ -9,7 +9,7 @@
   };
 
   outputs = { self, nixpkgs, crystal, inclusive, utils, ... }:
-    utils.lib.eachDefaultSystem (system: rec {
+    utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ] (system: rec {
       overlay = final: prev: {
         nixos-rebuild = let
           nixos = nixpkgs.lib.nixosSystem {
