@@ -55,5 +55,7 @@
             pkgconfig
           ];
         };
+
+        hydraJobs = packages;
     });
 }
