@@ -2,13 +2,13 @@
   description = "Flake to build bitte";
 
   inputs = {
-    nixpkgs-crystal.url = "github:manveru/nixpkgs/crystal-0.35";
+    crystal.url = "github:kreisys/crystal";
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     inclusive.url = "github:manveru/nix-inclusive";
     utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-crystal, inclusive, utils, ... }:
+  outputs = { self, nixpkgs, crystal, inclusive, utils, ... }:
     utils.lib.eachDefaultSystem (system: rec {
       overlay = final: prev: {
         nixos-rebuild = let
@@ -23,7 +23,7 @@
 
         inherit (inclusive.lib) inclusive;
 
-        inherit (nixpkgs-crystal.legacyPackages.${system})
+        inherit (crystal.legacyPackages.${system})
           crystal shards crystal2nix;
 
         inherit (prev.callPackage ./. { inherit (final) nixos-rebuild; }) bitte;
