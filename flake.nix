@@ -3,61 +3,60 @@
 
   inputs = {
     crystal.url = "github:kreisys/crystal";
-    nixpkgs.follows = "crystal/nixpkgs";
-    inclusive.url = "github:input-output-hk/nix-inclusive";
-    utils.url = "github:numtide/flake-utils";
+    utils.url = "github:kreisys/flake-utils";
+
+    # TODO maybe just a patch instead of pulling a whole 'nother nixpkgs?
+    "nixpkgs/nixos-rebuild-no-systemctl".url = "github:kreisys/nixpkgs/nixos-rebuild-no-systemctl";
   };
 
-  outputs = { self, nixpkgs, inclusive, utils, ... }@inputs:
-    utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ] (system: rec {
-      overlay = final: prev: {
-        nixos-rebuild = let
+  outputs = { self, nixpkgs, crystal, utils, ... }: utils.lib.simpleFlake {
+    inherit nixpkgs;
+
+    name = "bitte";
+    systems = [ "x86_64-darwin" "x86_64-linux" ];
+
+    overlay = final: prev: {
+      inherit (final.callPackages ./shards {}) shards;
+
+      nixos-rebuild =
+        let
           nixos = nixpkgs.lib.nixosSystem {
-            inherit system;
-            modules = [{ nix.package = prev.nixFlakes; }];
+            inherit (final) system;
+            modules = let toolsModule = "installer/tools/tools.nix"; in
+            [{
+              disabledModules = [ toolsModule ];
+              imports = [ "${self.inputs."nixpkgs/nixos-rebuild-no-systemctl"}/nixos/modules/${toolsModule}" ];
+              config.nix.package = prev.nixFlakes;
+            }];
           };
-        in nixos.config.system.build.nixos-rebuild;
+        in
+        nixos.config.system.build.nixos-rebuild;
 
-        terraform-with-plugins = prev.terraform.withPlugins (plugins:
-          nixpkgs.lib.attrVals [ "null" "local" "aws" "tls" "sops" "acme" ] plugins);
+        bitte = final.callPackage ./package.nix { };
+    };
 
-        inherit (inclusive.lib) inclusive;
+    preOverlays = [ crystal ];
 
-        inherit (inputs.crystal.legacyPackages.${system})
-          crystal shards crystal2nix;
+    packages = { bitte }: {
+      inherit bitte;
+      defaultPackage = bitte;
+    };
 
-        inherit (prev.callPackage ./. { inherit (final) nixos-rebuild; }) bitte;
-      };
+    shell = { mkShell, pkgs }:
+    mkShell {
+      buildInputs = with pkgs; [
+        nixFlakes
+        crystal
+        crystal2nix
+        shards
+        libssh2
+        cfssl
+        sops
+        openssl
+        pkgconfig
+      ];
 
-      legacyPackages = import nixpkgs {
-        inherit system;
-        overlays = [ overlay ];
-      };
-
-      packages = {
-        inherit (legacyPackages) bitte nixos-rebuild nixFlakes sops crystal;
-      };
-
-      defaultPackage = legacyPackages.bitte;
-
-      devShell = with self.legacyPackages.${system};
-        mkShell {
-          buildInputs = [
-            nixFlakes
-            self.legacyPackages.${system}.crystal
-            crystal2nix
-            shards
-            libssh2
-            terraform-with-plugins
-            cfssl
-            sops
-            openssl
-            pkgconfig
-            glibc
-            boehmgc
-          ];
-        };
-
-        hydraJobs = packages;
-    });
+      nobuildPhase = "touch $out";
+    };
+  };
 }

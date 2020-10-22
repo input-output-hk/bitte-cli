@@ -122,8 +122,21 @@ module Bitte
         raise "Couldn't connect to #{ip}"
       end
 
+      def deployer_platform
+        {% if flag?(:x86_64) && flag?(:darwin) %}
+          "x86_64-darwin"
+        {% else %}
+          "x86_64-linux"
+        {% end %}
+      end
+
       def with_workspace(cluster, workspace_name)
-        sh! "nix", "run", ".#clusters.#{cluster}.tf.#{workspace_name}.config"
+        begin
+          sh! "nix", "run", ".#clusters.#{deployer_platform}.#{cluster}.tf.#{workspace_name}.config"
+        rescue
+          # for compatibility
+          sh! "nix", "run", ".#clusters.#{cluster}.tf.#{workspace_name}.config"
+        end
         original = tf_workspace_show
 
         if original != workspace_name
