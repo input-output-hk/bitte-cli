@@ -6,17 +6,26 @@
     nixpkgs.follows = "crystal/nixpkgs";
     inclusive.url = "github:input-output-hk/nix-inclusive";
     utils.url = "github:numtide/flake-utils";
+
+    "nixpkgs/nixos-rebuild-no-systemctl".url = "github:kreisys/nixpkgs/nixos-rebuild-no-systemctl";
   };
 
   outputs = { self, nixpkgs, inclusive, utils, ... }@inputs:
     utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ] (system: rec {
       overlay = final: prev: {
-        nixos-rebuild = let
-          nixos = nixpkgs.lib.nixosSystem {
-            inherit system;
-            modules = [{ nix.package = prev.nixFlakes; }];
-          };
-        in nixos.config.system.build.nixos-rebuild;
+        nixos-rebuild =
+          let
+            nixos = nixpkgs.lib.nixosSystem {
+              inherit system;
+              modules = let toolsModule = "installer/tools/tools.nix"; in
+                [{
+                  disabledModules = [ toolsModule ];
+                  imports = [ "${self.inputs."nixpkgs/nixos-rebuild-no-systemctl"}/nixos/modules/${toolsModule}" ];
+                  config.nix.package = prev.nixFlakes;
+                }];
+            };
+          in
+          nixos.config.system.build.nixos-rebuild;
 
         terraform-with-plugins = prev.terraform.withPlugins (plugins:
           nixpkgs.lib.attrVals [ "null" "local" "aws" "tls" "sops" "acme" ] plugins);
@@ -58,6 +67,6 @@
           ];
         };
 
-        hydraJobs = packages;
+      hydraJobs = packages;
     });
 }
