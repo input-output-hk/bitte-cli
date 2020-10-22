@@ -1,5 +1,5 @@
 { stdenv, makeWrapper, crystal, inclusive, nixFlakes, nixos-rebuild, openssh
-, awscli, gitMinimal, coreutils, systemd, gnugrep, terraform-with-plugins
+, awscli, gitMinimal, coreutils, gnugrep, terraform-with-plugins
 , consul, sops, libssh2, pkgconfig, cfssl, rsync, openssl, vault-bin }: {
   bitte = let
     inner = crystal.buildCrystalPackage {
@@ -32,7 +32,6 @@
       nixos-rebuild
       openssh
       sops
-      systemd
       terraform-with-plugins
       cfssl
       rsync
