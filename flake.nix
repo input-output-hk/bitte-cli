@@ -30,6 +30,27 @@
         terraform-with-plugins = prev.terraform.withPlugins (plugins:
           nixpkgs.lib.attrVals [ "null" "local" "aws" "tls" "sops" "acme" ] plugins);
 
+        bitte = rec {
+          cli = final.callPackage ./default.nix { };
+          defaultPackage = cli;
+          devShell = with final;
+            mkShell {
+              buildInputs = [
+                nixFlakes
+                crystal
+                crystal2nix
+                shards
+                libssh2
+                terraform-with-plugins
+                cfssl
+                sops
+                openssl
+                pkgconfig
+              ];
+            };
+
+        };
+
         inherit (inclusive.lib) inclusive;
 
         inherit (inputs.crystal.legacyPackages.${system})
@@ -67,6 +88,34 @@
           ];
         };
 
-      hydraJobs = packages;
-    });
+        defaultPackage = legacyPackages.bitte;
+
+        devShell = with self.legacyPackages.${system};
+          mkShell {
+            buildInputs = [
+              nixFlakes
+              crystal
+              crystal2nix
+              shards
+              libssh2
+              terraform-with-plugins
+              cfssl
+              sops
+              openssl
+              pkgconfig
+            ];
+          };
+
+        hydraJobs = packages;
+      });
+      simpleFlake = utils.lib.simpleFlake {
+        inherit name systems overlay self nixpkgs;
+        preOverlays = [ crystal.overlay ];
+      };
+
+    in
+    simpleFlake // {
+      inherit overlay;
+      hydraJobs = self.packages;
+    };
 }
