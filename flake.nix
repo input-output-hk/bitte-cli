@@ -47,8 +47,9 @@
                 openssl
                 pkgconfig
               ];
-            };
 
+              nobuildPhase = "touch $out";
+            };
         };
 
         inherit (inclusive.lib) inclusive;
