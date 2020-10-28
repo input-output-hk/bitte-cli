@@ -70,4 +70,6 @@ stdenv.mkDerivation {
     wrapProgram $out/bin/bitte \
       --set PATH ${PATH}
   '';
+
+  passthru.exePath = "/bin/bitte";
 }

@@ -13,6 +13,7 @@
   outputs = { self, nixpkgs, inclusive, utils, ... }@inputs:
     utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ] (system: rec {
       overlay = final: prev: {
+        inherit (final.crystal-flake) crystal crystal2nix;
         nixos-rebuild =
           let
             nixos = nixpkgs.lib.nixosSystem {
@@ -33,6 +34,7 @@
         bitte = rec {
           cli = final.callPackage ./default.nix { };
           defaultPackage = cli;
+
           devShell = with final;
             mkShell {
               buildInputs = [
@@ -118,5 +120,11 @@
     simpleFlake // {
       inherit overlay;
       hydraJobs = self.packages;
+      defaultApp = builtins.mapAttrs
+        (_: drv:
+          utils.lib.mkApp {
+            inherit drv;
+          }
+        ) self.defaultPackage;
     };
 }
