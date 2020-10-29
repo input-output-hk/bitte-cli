@@ -62,55 +62,6 @@
         inherit (prev.callPackage ./. { inherit (final) nixos-rebuild; }) bitte;
       };
 
-      legacyPackages = import nixpkgs {
-        inherit system;
-        overlays = [ overlay ];
-      };
-
-      packages = {
-        inherit (legacyPackages) bitte nixos-rebuild nixFlakes sops crystal;
-      };
-
-      defaultPackage = legacyPackages.bitte;
-
-      devShell = with self.legacyPackages.${system};
-        mkShell {
-          buildInputs = [
-            nixFlakes
-            self.legacyPackages.${system}.crystal
-            crystal2nix
-            shards
-            libssh2
-            terraform-with-plugins
-            cfssl
-            sops
-            openssl
-            pkgconfig
-            glibc
-            boehmgc
-          ];
-        };
-
-        defaultPackage = legacyPackages.bitte;
-
-        devShell = with self.legacyPackages.${system};
-          mkShell {
-            buildInputs = [
-              nixFlakes
-              crystal
-              crystal2nix
-              shards
-              libssh2
-              terraform-with-plugins
-              cfssl
-              sops
-              openssl
-              pkgconfig
-            ];
-          };
-
-        hydraJobs = packages;
-      });
       simpleFlake = utils.lib.simpleFlake {
         inherit name systems overlay self nixpkgs;
         preOverlays = [ crystal.overlay ];
