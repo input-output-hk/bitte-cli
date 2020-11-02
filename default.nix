@@ -7,7 +7,10 @@
       version = "0.1.0";
       format = "crystal";
 
-      src = inclusive ./. [ ./shard.lock ./shard.yml ./src ];
+      # NOTE inclusive freezes under latest nix which is used by Hydra
+      #      uncomment this once it's solved...
+      # src = inclusive ./. [ ./shard.lock ./shard.yml ./src ];
+      src = ./.;
 
       buildInputs = [ libssh2 openssl ];
 
