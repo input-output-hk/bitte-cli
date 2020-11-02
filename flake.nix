@@ -4,7 +4,7 @@
   inputs = {
     crystal.url = "github:kreisys/crystal";
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    inclusive.url = "github:manveru/nix-inclusive";
+    inclusive.url = "github:input-output-hk/nix-inclusive";
     utils.url = "github:numtide/flake-utils";
   };
 
