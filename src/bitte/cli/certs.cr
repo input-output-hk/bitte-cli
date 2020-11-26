@@ -13,9 +13,11 @@ module Bitte
       define_flag domain : String, required: true
 
       def run
-        ENV["VAULT_ADDR"] = "https://vault.#{flags.domain}:8200"
+        ENV["VAULT_ADDR"] = "https://vault.#{flags.domain}"
         ENV["VAULT_CACERT"] = "secrets/ca.pem"
         ENV["VAULT_FORMAT"] = "json"
+        ENV["VAULT_SKIP_VERIFY"] = "true"
+
         sh! "vault", "login", "-method", "aws", "-no-print"
 
         mem = IO::Memory.new
