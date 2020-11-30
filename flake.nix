@@ -32,7 +32,7 @@
           nixpkgs.lib.attrVals [ "null" "local" "aws" "tls" "sops" "acme" ] plugins);
 
         bitte = rec {
-          cli = final.callPackage ./default.nix { };
+          cli = final.callPackage ./package.nix { };
           defaultPackage = cli;
 
           devShell = with final;
