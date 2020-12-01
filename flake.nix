@@ -14,6 +14,7 @@
     utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ] (system: rec {
       overlay = final: prev: {
         inherit (final.crystal-flake) crystal crystal2nix;
+        shards = final.callPackage ./shards {};
         nixos-rebuild =
           let
             nixos = nixpkgs.lib.nixosSystem {
