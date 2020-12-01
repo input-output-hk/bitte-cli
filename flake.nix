@@ -38,6 +38,7 @@
 
           devShell = with final;
             mkShell {
+              nobildPhase = "true";
               buildInputs = [
                 nixFlakes
                 crystal
