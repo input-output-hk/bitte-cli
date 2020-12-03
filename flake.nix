@@ -7,6 +7,7 @@
     inclusive.url = "github:input-output-hk/nix-inclusive";
     utils.url = "github:numtide/flake-utils";
 
+    # TODO maybe just a patch instead of pulling a whole 'nother nixpkgs?
     "nixpkgs/nixos-rebuild-no-systemctl".url = "github:kreisys/nixpkgs/nixos-rebuild-no-systemctl";
   };
 
