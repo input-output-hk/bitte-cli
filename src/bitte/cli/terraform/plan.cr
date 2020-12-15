@@ -18,7 +18,7 @@ module Bitte
 
         def run
           with_workspace(cluster, workspace) do
-            sh! "terraform", "plan"
+            sh! "terraform", "plan", "-out=#{workspace}.plan"
           end
         end
 
@@ -31,10 +31,11 @@ module Bitte
         end
       end
 
+      register_sub_command apply : Apply, description: "apply"
       class Apply < Admiral::Command
         include Helpers
 
-        define_help short: "h", description: "Create a terraform plan from the config"
+        define_help short: "h", description: "Apply a terraform plan"
 
         def run
           with_workspace(cluster, workspace) do
