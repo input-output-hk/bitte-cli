@@ -56,11 +56,26 @@ module Bitte
         end
 
         def ip
-          if node = cluster.instances[@host]
+          instance_ip || asg_ip || raise "No instance with name #{@host} found"
+        end
+
+        def instance_ip
+          if node = cluster.instances[@host]?
             node.public_ip
-          else
-            raise "No instance with name #{@host} found"
           end
+        end
+
+        def asg_ip
+          cluster = TerraformCluster.load("clients")
+          asgs = cluster.asgs || Hash(String, TerraformCluster::ASG).new
+          asgs.each do |_, asg|
+            asg.instances.each do |instance|
+              next unless instance.name == @host || instance.private_ip == @host || instance.public_ip == @host
+              return instance.public_ip if instance.public_ip
+            end
+          end
+
+          nil
         end
       end
 
