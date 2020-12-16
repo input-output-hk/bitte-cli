@@ -44,7 +44,6 @@
 
     shell = { mkShell, crystal, crystal2nix, shards }:
     mkShell {
-      nobildPhase = "true";
       buildInputs = [
         # nixFlakes
         crystal
