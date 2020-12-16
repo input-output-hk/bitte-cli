@@ -128,6 +128,7 @@ module Bitte
 
         if original != workspace_name
           list = tf_workspace_list
+          Log.for("terraform").debug{ "found workspaces: #{list.inspect}" }
           tf_workspace_new(cluster, workspace_name) unless list.includes?("#{cluster}_#{workspace_name}")
           tf_workspace_select workspace_name
         else
@@ -145,6 +146,7 @@ module Bitte
       end
 
       def tf_workspace_new(cluster, workspace_name) : Nil
+        Log.for("terraform").info { "Creating workspace #{workspace_name} in #{tf_organization}" }
         Bitte::Terraform.create_workspace(tf_organization, "#{cluster}_#{workspace_name}")
       end
 
@@ -160,16 +162,16 @@ module Bitte
       end
 
       def tf_organization
-        ENV["TERRAFORM_ORGANIZATION"]? ||
-          begin
-            state = NamedTuple(
-              backend: NamedTuple(
-                config: NamedTuple(
-                  organization: String))).from_json(
-              File.read(".terraform/terraform.tfstate"))
+        from_env = ENV["TERRAFORM_ORGANIZATION"]?
+        return from_env if from_env
 
-            state[:backend][:config][:organization]
-          end
+        state = NamedTuple(
+          backend: NamedTuple(
+            config: NamedTuple(
+              organization: String))).from_json(
+          File.read(".terraform/terraform.tfstate"))
+
+        state[:backend][:config][:organization]
       end
     end
   end

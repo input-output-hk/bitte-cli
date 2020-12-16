@@ -3,12 +3,12 @@
 
   inputs = {
     crystal.url = "github:kreisys/crystal";
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.follows = "crystal/nixpkgs";
     inclusive.url = "github:input-output-hk/nix-inclusive";
     utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, crystal, inclusive, utils, ... }:
+  outputs = { self, nixpkgs, inclusive, utils, ... }@inputs:
     utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ] (system: rec {
       overlay = final: prev: {
         nixos-rebuild = let
@@ -23,7 +23,7 @@
 
         inherit (inclusive.lib) inclusive;
 
-        inherit (crystal.legacyPackages.${system})
+        inherit (inputs.crystal.legacyPackages.${system})
           crystal shards crystal2nix;
 
         inherit (prev.callPackage ./. { inherit (final) nixos-rebuild; }) bitte;
@@ -44,7 +44,7 @@
         mkShell {
           buildInputs = [
             nixFlakes
-            crystal
+            self.legacyPackages.${system}.crystal
             crystal2nix
             shards
             libssh2
@@ -53,6 +53,8 @@
             sops
             openssl
             pkgconfig
+            glibc
+            boehmgc
           ];
         };
 

@@ -5,18 +5,19 @@ module Bitte
     class Terraform < Admiral::Command
       include Helpers
 
-      define_help short: "h", description: "Plan the terraform apply"
+      define_help short: "h", description: "Create config.tf.json from the flake"
       define_argument workspace : String, required: true
-      register_sub_command plan : Plan, description: "plan"
+      register_sub_command apply : Apply, description: "apply"
 
-      class Plan < Admiral::Command
+      class Apply < Admiral::Command
         include Helpers
 
         define_help short: "h", description: "Create a terraform plan from the config"
 
         def run
           with_workspace(cluster, workspace) do
-            sh! "terraform", "plan", "-out", "#{workspace}.plan"
+            sh! "terraform", "apply", "#{workspace}.plan"
+            FileUtils.rm_rf("#{workspace}.plan")
           end
         end
 
