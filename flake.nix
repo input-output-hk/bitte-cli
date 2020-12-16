@@ -35,7 +35,7 @@
         bitte = final.callPackage ./package.nix { };
     };
 
-    preOverlays = [ crystal.overlay ];
+    preOverlays = [ crystal ];
 
     packages = { bitte }: {
       inherit bitte;
