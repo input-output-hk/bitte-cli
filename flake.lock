@@ -51,14 +51,27 @@
         "type": "indirect"
       }
     },
+    "nixpkgs_2": {
+      "locked": {
+        "lastModified": 1609725427,
+        "narHash": "sha256-Yn97AVjFvQunGmwK3nnr7LihzMnp72jyaYNRRaJvAZ4=",
+        "owner": "Nixos",
+        "repo": "nixpkgs",
+        "rev": "c5c6009fb436efe5732e07cd0e5692f495321752",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Nixos",
+        "ref": "nixos-20.09",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "crystal": "crystal",
         "inclusive": "inclusive",
-        "nixpkgs": [
-          "crystal",
-          "nixpkgs"
-        ],
+        "nixpkgs": "nixpkgs_2",
         "utils": "utils_2"
       }
     },

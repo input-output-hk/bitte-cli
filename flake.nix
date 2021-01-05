@@ -3,7 +3,7 @@
 
   inputs = {
     crystal.url = "github:kreisys/crystal";
-    nixpkgs.follows = "crystal/nixpkgs";
+    nixpkgs.url = "github:Nixos/nixpkgs/nixos-20.09";
     inclusive.url = "github:input-output-hk/nix-inclusive";
     utils.url = "github:numtide/flake-utils";
   };
