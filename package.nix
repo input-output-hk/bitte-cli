@@ -28,7 +28,7 @@ let
 
     crystalBinaries.bitte = {
       src = "src/bitte.cr";
-      options = [ "--verbose" "--debug" ];
+      options = [ "--verbose" "--debug" "-Dflag" ];
     };
   };
 
