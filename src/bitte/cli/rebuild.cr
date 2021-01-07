@@ -13,16 +13,12 @@ module Bitte
         description: "node names to include",
         default: Array(String).new
 
-      define_flag dirty : Bool,
-        description: "Use current directory as flake",
-        default: false
-
       property cluster : TerraformCluster?
 
       def run
         set_ssh_config
 
-        flake = flags.dirty ? "." : cluster.flake
+        flake = "."
 
         ch = Channel(Nil).new
         ch_count = 0
