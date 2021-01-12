@@ -29,6 +29,7 @@ module Bitte
 
         logger.warn { "Ready to deploy." }
 
+        sh! "ssh-keygen", "-R", ip
         sh! "nix", "copy",
           "--to", cache,
           "#{flake}#nixosConfigurations.#{flake_attr}.config.system.build.toplevel",
