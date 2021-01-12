@@ -2,14 +2,14 @@
   description = "Flake to build bitte";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    crystal.url = "github:kreisys/crystal";
     utils.url = "github:kreisys/flake-utils";
 
     # TODO maybe just a patch instead of pulling a whole 'nother nixpkgs?
     "nixpkgs/nixos-rebuild-no-systemctl".url = "github:kreisys/nixpkgs/nixos-rebuild-no-systemctl";
   };
 
-  outputs = { self, nixpkgs, utils, ... }: utils.lib.simpleFlake {
+  outputs = { self, nixpkgs, crystal, utils, ... }: utils.lib.simpleFlake {
     inherit nixpkgs;
 
     name = "bitte";
@@ -34,6 +34,8 @@
 
         bitte = final.callPackage ./package.nix { };
     };
+
+    preOverlays = [ crystal ];
 
     packages = { bitte }: {
       inherit bitte;
