@@ -13,10 +13,15 @@ module Bitte
         include Helpers
 
         define_help short: "h", description: "Create a terraform plan from the config"
+        define_flag destroy : Bool, default: false, description: "Create a destruction plan"
 
         def run
           with_workspace(cluster, workspace) do
-            sh! "terraform", "plan", "-out", "#{workspace}.plan"
+            if flags.destroy
+              sh! "terraform", "plan", "-out", "#{workspace}.plan", "-destroy"
+            else
+              sh! "terraform", "plan", "-out", "#{workspace}.plan"
+            end
           end
         end
 
