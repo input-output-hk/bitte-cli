@@ -131,6 +131,8 @@ module Bitte
       end
 
       def with_workspace(cluster, workspace_name)
+        sh! "nix", "run", ".#nixosConfigurations.#{cluster}-monitoring.config.secrets.preGenerateScript"
+
         begin
           sh! "nix", "run", ".#clusters.#{deployer_platform}.#{cluster}.tf.#{workspace_name}.config"
         rescue
