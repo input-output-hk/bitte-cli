@@ -19,7 +19,7 @@ module Bitte
       def puts_core
         puts "Core"
 
-        data = cluster.instances.map do |_, instance|
+        data = core_cluster.instances.map do |_, instance|
           [
             instance.name,
             instance.instance_type,
@@ -78,6 +78,10 @@ module Bitte
 
       def cluster
         @cluster ||= TerraformCluster.load("clients")
+      end
+
+      def core_cluster
+        @cluster ||= TerraformCluster.load("core")
       end
 
       def cluster_name
