@@ -13,13 +13,20 @@ module Bitte
         description: "node names to include",
         default: Array(String).new
 
+      define_flag delay : Int32,
+        description: "seconds to delay between rebuilds",
+        default: 0
+
       property cluster : TerraformCluster?
 
       def run
         set_ssh_config
 
-        flake = "."
+        copy
+        rebuild
+      end
 
+      def copy
         ch = Channel(Nil).new
         ch_count = 0
 
@@ -30,10 +37,8 @@ module Bitte
           parallel_copy channel: ch,
             name: name,
             ip: instance.public_ip.not_nil!,
-            flake: flake,
             flake_attr: instance.flake_attr,
             uid: instance.uid
-          sleep(ch_count * 2) # this works around https://github.com/NixOS/nix/issues/3794
         end
 
         if asgs = cluster.asgs
@@ -44,16 +49,55 @@ module Bitte
               parallel_copy channel: ch,
                 name: instance.name,
                 ip: instance.public_ip.not_nil!,
-                flake: flake,
                 flake_attr: asg.flake_attr,
                 uid: asg.uid
-              sleep(ch_count * 2) # this works around https://github.com/NixOS/nix/issues/3794
             end
           end
         end
 
         ch_count.times do
           ch.receive
+        end
+      end
+
+      def rebuild
+        tasks = [] of Proc(Nil)
+        pending = [] of String
+
+        cluster.instances.each do |name, instance|
+          next if skip?(name)
+          pending << name
+          tasks << ->() {
+            rebuild name: name,
+              ip: instance.public_ip.not_nil!,
+              flake_attr: instance.flake_attr,
+              uid: instance.uid
+          }
+        end
+
+        if asgs = cluster.asgs
+          asgs.each do |_, asg|
+            asg.instances.each do |instance|
+              next if skip?(instance.name)
+              pending << instance.name
+              tasks << ->(){
+                rebuild name: instance.name,
+                  ip: instance.public_ip.not_nil!,
+                  flake_attr: asg.flake_attr,
+                  uid: asg.uid
+              }
+            end
+          end
+        end
+
+        log.info { "rebuilding #{pending.join(" ")}" }
+
+        tasks.each do |task|
+          task.call
+          if delay > 0.seconds && task != tasks.last
+            log.debug { "waiting #{delay}..." }
+            sleep delay
+          end
         end
       end
 
@@ -65,17 +109,21 @@ module Bitte
         end
       end
 
-      def parallel_copy(channel : Channel(Nil), name : String, ip : String, flake : String, flake_attr : String, uid : String, attempts = 10)
+      def delay
+        flags.delay.seconds
+      end
+
+      def parallel_copy(channel : Channel(Nil), name : String, ip : String, flake_attr : String, uid : String, attempts = 10)
         spawn do
           begin
-            parallel_copy(name, ip, flake, flake_attr, uid, attempts)
+            parallel_copy(name, ip, flake_attr, uid, attempts)
           ensure
             channel.send nil
           end
         end
       end
 
-      def parallel_copy(name : String, ip : String, flake : String, flake_attr : String, uid : String, attempts = 10)
+      def parallel_copy(name : String, ip : String, flake_attr : String, uid : String, attempts = 10)
         logger = log.for(name)
         logger.info { "Copying closure to #{cluster.s3_cache}" }
 
@@ -95,7 +143,19 @@ module Bitte
           "#{flake}##{flake_attr}",
           logger: logger
 
-        logger.info { "Copied closure, starting nixos-rebuild ..." }
+        logger.info { "Copied closure" }
+      rescue ex
+        if attempts > 0
+          sleep [2, 3, 5, 7, 11].sample.seconds
+          parallel_copy(name, ip, flake_attr, uid, attempts - 1)
+        else
+          log.error(exception: ex) { "failed copying to #{name} (#{ip})" }
+        end
+      end
+
+      def rebuild(name : String, ip : String, flake_attr : String, uid : String, attempts = 10) : Nil
+        logger = log.for(name)
+        logger.info { "nixos-rebuild for #{flake}##{uid}" }
 
         sh! "nixos-rebuild", "switch",
           "--target-host", "root@#{ip}",
@@ -106,7 +166,7 @@ module Bitte
       rescue ex
         if attempts > 0
           sleep [2, 3, 5, 7, 11].sample.seconds
-          parallel_copy(name, ip, flake, flake_attr, uid, attempts - 1)
+          rebuild(name, ip, flake_attr, uid, attempts - 1)
         else
           log.error(exception: ex) { "failed copying to #{name} (#{ip})" }
         end
@@ -121,7 +181,7 @@ module Bitte
       end
 
       def flake
-        parent.flags.as(CLI::Flags).flake
+        "."
       end
     end
   end
