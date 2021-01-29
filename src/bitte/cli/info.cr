@@ -9,7 +9,8 @@ module Bitte
 
       define_help short: "h", description: "Show information about clusters and instances"
 
-      property cluster : TerraformCluster?
+      property core_cluster : TerraformCluster?
+      property clients_cluster : TerraformCluster?
 
       def run
         puts_core
@@ -44,7 +45,7 @@ module Bitte
       def puts_asgs
         puts "Auto Scaling Groups"
 
-        asgs = cluster.asgs || Hash(String, TerraformCluster::ASG).new
+        asgs = clients_cluster.asgs || Hash(String, TerraformCluster::ASG).new
 
         data = asgs.flat_map do |_, asg|
           asg.instances.map do |instance|
@@ -76,12 +77,12 @@ module Bitte
         puts table
       end
 
-      def cluster
-        @cluster ||= TerraformCluster.load("clients")
+      def clients_cluster
+        @clients_cluster ||= TerraformCluster.load("clients")
       end
 
       def core_cluster
-        @cluster ||= TerraformCluster.load("core")
+        @core_cluster ||= TerraformCluster.load("core")
       end
 
       def cluster_name
