@@ -33,29 +33,13 @@
         "type": "indirect"
       }
     },
-    "nixpkgs/nixos-rebuild-no-systemctl": {
-      "locked": {
-        "lastModified": 1603912078,
-        "narHash": "sha256-T6zhWX0PG6J+yWXGjG3D7khiTeHzLu0pQ2MTHGwRz2A=",
-        "owner": "kreisys",
-        "repo": "nixpkgs",
-        "rev": "b02d5ae5a23b0532023453e5c0e861fd507b726c",
-        "type": "github"
-      },
-      "original": {
-        "owner": "kreisys",
-        "ref": "nixos-rebuild-no-systemctl",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1608147201,
-        "narHash": "sha256-Th+tiy5RH2hiXBvS++3wtuyj9h7JZy/kiY2cvgBdFxY=",
+        "lastModified": 1612282043,
+        "narHash": "sha256-MzoN8nI1eydYHuWBAXBcw9Na0XndZHa/VjoxZRWSX68=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "ca2723567e629e9f1542c34bf20ba20f7c6d4dc9",
+        "rev": "fab6fcdceb2560a4ab943830a2b1632458c7a6ff",
         "type": "github"
       },
       "original": {
@@ -67,7 +51,6 @@
       "inputs": {
         "crystal": "crystal",
         "nixpkgs": "nixpkgs_2",
-        "nixpkgs/nixos-rebuild-no-systemctl": "nixpkgs/nixos-rebuild-no-systemctl",
         "utils": "utils_2"
       }
     },

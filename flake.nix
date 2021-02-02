@@ -4,10 +4,6 @@
   inputs = {
     crystal.url = "github:kreisys/crystal";
     utils.url = "github:kreisys/flake-utils";
-
-    # TODO maybe just a patch instead of pulling a whole 'nother nixpkgs?
-    "nixpkgs/nixos-rebuild-no-systemctl".url =
-      "github:kreisys/nixpkgs/nixos-rebuild-no-systemctl";
   };
 
   outputs = { self, nixpkgs, crystal, utils, ... }:
@@ -20,24 +16,17 @@
       overlay = final: prev: {
         inherit (final.callPackages ./shards { }) shards;
 
-        nixos-rebuild = let
-          nixos = nixpkgs.lib.nixosSystem {
-            inherit (final) system;
-            modules = let toolsModule = "installer/tools/tools.nix";
-            in [{
-              disabledModules = [ toolsModule ];
-              imports = [
-                "${
-                  self.inputs."nixpkgs/nixos-rebuild-no-systemctl"
-                }/nixos/modules/${toolsModule}"
-              ];
-              config.nix.package = prev.nixFlakes;
-            }];
-          };
-        in nixos.config.system.build.nixos-rebuild;
+      nixos-rebuild = prev.nixos-rebuild.overrideAttrs (o: {
+        src = final.runCommand "nixos-rebuild.sh" {
+          inherit (o) src;
+        } ''
+          substitute $src $out \
+          --replace systemctl false
+        '';
+      });
 
-        bitte = final.callPackage ./package.nix { };
-      };
+      bitte = final.callPackage ./package.nix { };
+    };
 
       preOverlays = [ crystal ];
 
