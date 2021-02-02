@@ -16,17 +16,18 @@
       overlay = final: prev: {
         inherit (final.callPackages ./shards { }) shards;
 
-      nixos-rebuild = prev.nixos-rebuild.overrideAttrs (o: {
-        src = final.runCommand "nixos-rebuild.sh" {
-          inherit (o) src;
-        } ''
-          substitute $src $out \
-          --replace systemctl false
-        '';
-      });
+        nixos-rebuild = prev.nixos-rebuild.overrideAttrs (o: {
+          src = final.runCommand "nixos-rebuild.sh"
+            {
+              inherit (o) src;
+            } ''
+            substitute $src $out \
+            --replace systemctl false
+          '';
+        });
 
-      bitte = final.callPackage ./package.nix { };
-    };
+        bitte = final.callPackage ./package.nix { };
+      };
 
       preOverlays = [ crystal ];
 
