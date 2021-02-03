@@ -130,6 +130,8 @@ module Bitte
         ENV["IP"] = ip
         sh! "nix", "run", "#{flake}#nixosConfigurations.#{uid}.config.secrets.generateScript"
 
+        sh! "nix", "build", "#{flake}##{flake_attr}", logger: logger
+
         sh! "nix", "copy",
           "--to", "#{cluster.s3_cache}&secret-key=secrets/nix-secret-key-file",
           "#{flake}##{flake_attr}",
