@@ -1,4 +1,5 @@
 { stdenv
+, lib
 , fetchFromGitHub
 , crystal_0_34
 , crystal_0_35
@@ -30,7 +31,7 @@ let
       # tries to execute git which fails spectacularly
       doCheck = false;
 
-      meta = with stdenv.lib; {
+      meta = with lib; {
         description = "Dependency manager for the Crystal language";
         license = licenses.asl20;
         maintainers = with maintainers; [ peterhoeg ];

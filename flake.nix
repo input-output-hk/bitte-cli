@@ -4,6 +4,7 @@
   inputs = {
     crystal.url = "github:kreisys/crystal";
     utils.url = "github:kreisys/flake-utils";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
   outputs = { self, nixpkgs, crystal, utils, ... }:
@@ -29,7 +30,12 @@
         bitte = final.callPackage ./package.nix { };
       };
 
-      preOverlays = [ crystal ];
+      preOverlays = [
+        crystal
+        (final: prev: {
+          crystal = if final.stdenv.isDarwin then prev.crystal else nixpkgs.legacyPackages.x86_64-linux.crystal;
+        })
+      ];
 
       packages = { bitte }: {
         inherit bitte;
