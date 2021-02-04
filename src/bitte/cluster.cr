@@ -23,7 +23,7 @@ module Bitte
     property asgs : Hash(String, ASG)?
     property flake : String
     property instances : Hash(String, Instance)?
-    property kms : String
+    # property kms : String
     property name : String
     property nix : String
     property region : String
@@ -32,8 +32,8 @@ module Bitte
     @[JSON::Field(key: "s3-cache")]
     property s3_cache : String
 
-    @[JSON::Field(key: "s3-bucket")]
-    property s3_bucket : String
+    # @[JSON::Field(key: "s3-bucket")]
+    # property s3_bucket : String
 
     def instances
       @instances || Hash(String, Instance).new

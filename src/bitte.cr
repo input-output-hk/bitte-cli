@@ -5,7 +5,7 @@ module Bitte
   class TopologyNode
     include JSON::Serializable
 
-    property kms : String
+    # property kms : String
     property region : String
     property name : String
 
@@ -16,6 +16,16 @@ end
 
 if ARGV == ["schön"]
   puts "Danke sehr"
+  exit
+end
+
+if ARGV == ["sehr"]
+  puts "Danke schön"
+  exit
+end
+
+if ARGV.empty?
+  puts "Danke"
   exit
 end
 

@@ -1,14 +1,14 @@
-version: 1.0
+version: 2.0
 shards:
   admiral:
-    github: jwaldrip/admiral.cr
+    git: https://github.com/jwaldrip/admiral.cr.git
     version: 1.11.2
 
   ssh2:
-    github: spider-gazelle/ssh2.cr
+    git: https://github.com/spider-gazelle/ssh2.cr.git
     version: 1.4.2
 
   tablo:
-    github: hutou/tablo
+    git: https://github.com/hutou/tablo.git
     version: 0.9.3
 
