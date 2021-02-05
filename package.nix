@@ -1,4 +1,5 @@
 { stdenv
+, lib
 , makeWrapper
 , crystal
 , nixos-rebuild
@@ -32,7 +33,7 @@ let
     };
   };
 
-  PATH = stdenv.lib.makeBinPath [
+  PATH = lib.makeBinPath [
     awscli
     coreutils
     gitMinimal
