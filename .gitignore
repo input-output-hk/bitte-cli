@@ -1,5 +1,5 @@
 lib/
-/bitte
 /result
 /.terraform
 /config.tf.json
+/target

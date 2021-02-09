@@ -18,10 +18,7 @@
         inherit (final.callPackages ./shards { }) shards;
 
         nixos-rebuild = prev.nixos-rebuild.overrideAttrs (o: {
-          src = final.runCommand "nixos-rebuild.sh"
-            {
-              inherit (o) src;
-            } ''
+          src = final.runCommand "nixos-rebuild.sh" { inherit (o) src; } ''
             substitute $src $out \
             --replace systemctl false
           '';
@@ -33,7 +30,10 @@
       preOverlays = [
         crystal
         (final: prev: {
-          crystal = if final.stdenv.isDarwin then prev.crystal else nixpkgs.legacyPackages.x86_64-linux.crystal;
+          crystal = if final.stdenv.isDarwin then
+            prev.crystal
+          else
+            nixpkgs.legacyPackages.x86_64-linux.crystal;
         })
       ];
 
@@ -44,6 +44,8 @@
 
       shell = { mkShell, pkgs }:
         mkShell {
+          RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
+
           buildInputs = with pkgs; [
             nixFlakes
             pkgs.crystal
@@ -53,7 +55,13 @@
             cfssl
             sops
             openssl
-            pkgconfig
+            pkg-config
+
+            rustc
+            cargo
+            (rustracer.overrideAttrs (old: { checkPhase = null; }))
+            rust-analyzer
+            rustfmt
           ];
 
           nobuildPhase = "touch $out";
