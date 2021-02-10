@@ -55,6 +55,8 @@
         defaultPackage = bitte-rost;
       };
 
+      hydraJobs = { bitte-kristall, bitte-rost }@ps: ps;
+
       devShell = { devshell, pkgs }: devshell.mkShell {
         env = {
           RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
