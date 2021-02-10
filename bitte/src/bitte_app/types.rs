@@ -21,8 +21,6 @@ pub(crate) struct HttpWorkspaces {
 #[derive(Deserialize, Debug)]
 pub(crate) struct HttpWorkspace {
     pub(crate) data: HttpWorkspaceData,
-    #[serde(rename = "type")]
-    pub(crate) workspace_type: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

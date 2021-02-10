@@ -4,6 +4,7 @@ mod rebuild;
 mod terraform;
 mod types;
 mod certs;
+mod ssh;
 
 use clap::ArgMatches;
 use execute::Execute;
@@ -31,6 +32,10 @@ pub(crate) async fn cli_provision(sub: &ArgMatches) {
     provision::cli_provision(sub).await
 }
 
+pub(crate) async fn cli_ssh(sub: &ArgMatches) {
+    ssh::cli_ssh(sub).await
+}
+
 pub(crate) async fn cli_info(_sub: &ArgMatches) {
     let info = fetch_current_state_version("clients")
         .or_else(|_| fetch_current_state_version("core"))
@@ -49,27 +54,6 @@ pub(crate) async fn cli_tf(sub: &ArgMatches) {
         Some(("workspaces", sub_sub)) => terraform::cli_tf_workspaces(workspace, sub_sub).await,
         _ => println!("Unknown command"),
     }
-}
-
-pub(crate) async fn cli_ssh(sub: &ArgMatches) {
-    let host = sub.value_of("host").expect("host argument must be given");
-    let mut args = sub.values_of_lossy("args").unwrap_or(vec![]);
-    let user_host = format!("root@{}", host);
-    let mut flags = vec!["-x".to_string(), "-p".into(), "22".into(), user_host.into()];
-    flags.append(args.as_mut());
-    if args.len() > 0 {
-        flags.append(&mut vec!["-t".to_string()]);
-    }
-    let ssh_args = flags.into_iter();
-
-    let mut cmd = Command::new("ssh");
-    let cmd_with_args = cmd.args(ssh_args);
-    println!("cmd: {:?}", cmd_with_args);
-
-    cmd.spawn()
-        .expect("ssh command failed")
-        .wait()
-        .expect("ssh command didn't finish?");
 }
 
 pub(crate) async fn cli_rebuild(sub: &ArgMatches) {
