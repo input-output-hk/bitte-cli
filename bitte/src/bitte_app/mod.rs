@@ -178,7 +178,7 @@ fn terraform_token() -> Result<String, Box<dyn Error>> {
 fn parse_terraform_credentials() -> TerraformCredentialFile {
     let exp = &tilde("~/.terraform.d/credentials.tfrc.json").to_string();
     let path = Path::new(exp);
-    let file = File::open(path).expect(format!("Coudln't read {}", exp).as_str());
+    let file = File::open(path).expect(format!("Couldn't read {}", exp).as_str());
     let reader = BufReader::new(file);
     let creds: TerraformCredentialFile =
         serde_json::from_reader(reader).expect(format!("Couldn't parse {}", exp).as_str());

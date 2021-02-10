@@ -45,6 +45,7 @@
       shell = { mkShell, pkgs }:
         mkShell {
           RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
+          RUST_BACKTRACE = 1;
 
           buildInputs = with pkgs; [
             nixFlakes
@@ -62,6 +63,7 @@
             (rustracer.overrideAttrs (old: { checkPhase = null; }))
             rust-analyzer
             rustfmt
+            clippy
           ];
 
           nobuildPhase = "touch $out";
