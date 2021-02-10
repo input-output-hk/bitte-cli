@@ -1,5 +1,5 @@
 lib/
-/result
+result
 /.terraform
 /config.tf.json
 /target
