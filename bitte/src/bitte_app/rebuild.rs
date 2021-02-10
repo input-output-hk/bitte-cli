@@ -1,49 +1,34 @@
 use std::{env, path::Path, process::Command, time::Duration};
 
+use clap::ArgMatches;
+
 use super::{
-    bitte_cluster, check_cmd, current_state_version_output, fetch_current_state_version,
-    handle_command_error, types::HttpWorkspaceStateInstance, wait_for_ssh,
+    bitte_cluster, check_cmd, find_instances, handle_command_error, wait_for_ssh, Instance,
 };
 
-pub(crate) async fn rebuild_copy(only: &Vec<String>, delay: Duration) {
-    let current_state_version =
-        fetch_current_state_version("core").expect("terraform state for core is missing");
-    let output = current_state_version_output(&current_state_version)
-        .expect("Problem loading state version from terraform");
+pub(crate) async fn cli_rebuild(sub: &ArgMatches) {
+    let only: Vec<String> = sub.values_of_t("only").unwrap_or(vec![]);
+    let delay = Duration::from_secs(sub.value_of_t::<u64>("delay").unwrap_or(0));
 
-    let instances = output
-        .instances
-        .values()
-        .collect::<Vec<&HttpWorkspaceStateInstance>>()
-        .into_iter();
+    set_ssh_opts(true);
+    copy(only.iter().map(|o| o.as_str()).collect(), delay).await;
+}
 
-    let mut iter = if only.is_empty() {
-        instances.peekable()
-    } else {
-        instances
-            .filter(|instance| {
-                only.iter().any(|needle| {
-                    &instance.private_ip == needle
-                        || &instance.public_ip == needle
-                        || &instance.name == needle
-                })
-            })
-            .collect::<Vec<&HttpWorkspaceStateInstance>>()
-            .into_iter()
-            .peekable()
-    };
+pub(crate) async fn copy(only: Vec<&str>, delay: Duration) {
+    let instances = find_instances(only.clone()).await;
+    let mut iter = instances.iter().peekable();
 
     while let Some(instance) = iter.next() {
         println!("rebuild: {}", instance.name);
         wait_for_ssh(instance.public_ip.clone()).await;
-        copy_to(&instance, output.s3_cache.clone(), 10);
+        copy_to(instance, 10);
         if iter.peek().is_some() {
             tokio::time::sleep(delay).await;
         }
     }
 }
 
-fn copy_to(instance: &HttpWorkspaceStateInstance, s3_cache: String, _attempts: u64) {
+fn copy_to(instance: &Instance, _attempts: u64) {
     env::set_var("IP", instance.public_ip.clone());
     let flake = ".";
 
@@ -58,7 +43,10 @@ fn copy_to(instance: &HttpWorkspaceStateInstance, s3_cache: String, _attempts: u
     .expect("secrets.generateScript failed, you might need to upgrade bitte");
 
     let target = &format!("{}#{}", flake, instance.flake_attr);
-    let cache = format!("{}&secret-key=secrets/nix-secret-key-file", s3_cache);
+    let cache = format!(
+        "{}&secret-key=secrets/nix-secret-key-file",
+        instance.s3_cache
+    );
     let ip = format!("ssh://root@{}", instance.public_ip);
     let rebuild_flake = format!("{}#{}", flake, instance.uid);
 

@@ -99,6 +99,10 @@ pub(crate) struct HttpWorkspaceStateValue {
 pub(crate) struct HttpWorkspaceStateAsg {
     pub(crate) arn: String,
     pub(crate) region: String,
+    #[serde(rename = "flake-attr")]
+    pub(crate) flake_attr: String,
+    pub(crate) uid: String,
+
 }
 
 #[derive(Deserialize)]

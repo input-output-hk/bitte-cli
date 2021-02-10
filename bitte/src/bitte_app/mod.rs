@@ -1,25 +1,24 @@
+mod certs;
 mod info;
 mod provision;
 mod rebuild;
+mod ssh;
 mod terraform;
 mod types;
-mod certs;
-mod ssh;
 
 use clap::ArgMatches;
 use execute::Execute;
 use restson::RestClient;
 use shellexpand::tilde;
-use tokio::{net::TcpStream, time::timeout};
 use std::fs::File;
 use std::process::Command;
 use std::{env, error::Error};
 use std::{fmt, path::Path, process::Stdio};
 use std::{io::BufReader, time::Duration};
+use tokio::{net::TcpStream, time::timeout};
 
 use self::{
-    info::cli_info_print,
-    rebuild::{rebuild_copy, set_ssh_opts},
+    info::{asg_info, cli_info_print, instance_info},
     terraform::current_state_version,
     types::{HttpWorkspace, HttpWorkspaceState, HttpWorkspaceStateValue, TerraformCredentialFile},
 };
@@ -34,6 +33,10 @@ pub(crate) async fn cli_provision(sub: &ArgMatches) {
 
 pub(crate) async fn cli_ssh(sub: &ArgMatches) {
     ssh::cli_ssh(sub).await
+}
+
+pub(crate) async fn cli_rebuild(sub: &ArgMatches) {
+    rebuild::cli_rebuild(sub).await
 }
 
 pub(crate) async fn cli_info(_sub: &ArgMatches) {
@@ -54,14 +57,6 @@ pub(crate) async fn cli_tf(sub: &ArgMatches) {
         Some(("workspaces", sub_sub)) => terraform::cli_tf_workspaces(workspace, sub_sub).await,
         _ => println!("Unknown command"),
     }
-}
-
-pub(crate) async fn cli_rebuild(sub: &ArgMatches) {
-    let only: Vec<String> = sub.values_of_t("only").unwrap_or(vec![]);
-    let delay = Duration::from_secs(sub.value_of_t::<u64>("delay").unwrap_or(0));
-
-    set_ssh_opts(true);
-    rebuild_copy(&only, delay).await;
 }
 
 fn bitte_cluster() -> String {
@@ -200,4 +195,108 @@ fn check_cmd(cmd: &mut Command) {
     println!("run: {:?}", cmd);
     cmd.status()
         .expect(format!("failed to run: {:?}", cmd).as_str());
+}
+
+#[derive(Clone)]
+struct Instance {
+    public_ip: String,
+    name: String,
+    uid: String,
+    flake_attr: String,
+    s3_cache: String,
+}
+
+impl Instance {
+    pub fn new(
+        public_ip: String,
+        name: String,
+        uid: String,
+        flake_attr: String,
+        s3_cache: String,
+    ) -> Instance {
+        Instance {
+            public_ip,
+            name,
+            uid,
+            flake_attr,
+            s3_cache,
+        }
+    }
+}
+
+async fn find_instance(needle: &str) -> Option<Instance> {
+    println!("needle: {}", needle);
+    match find_instances(vec![needle]).await.first() {
+        Some(instance) => Some(instance.clone()),
+        None => None,
+    }
+}
+
+async fn find_instances(patterns: Vec<&str>) -> Vec<Instance> {
+    let current_state_version = fetch_current_state_version("clients")
+        .or_else(|_| fetch_current_state_version("core"))
+        .expect("Coudln't fetch clients or core workspaces");
+
+    let output = current_state_version_output(&current_state_version)
+        .expect("Problem loading state version from terraform");
+
+    let mut results = vec![];
+
+    for instance in output.instances.values().into_iter() {
+        if patterns.iter().any(|pattern| {
+            [
+                instance.private_ip.as_str(),
+                instance.public_ip.as_str(),
+                instance.name.as_str(),
+            ]
+            .contains(pattern)
+        }) {
+            results.push(Instance::new(
+                instance.public_ip.to_string(),
+                instance.name.to_string(),
+                instance.uid.to_string(),
+                instance.flake_attr.to_string(),
+                output.s3_cache.to_string(),
+            ));
+        }
+    }
+
+    if let Some(asgs) = output.asgs {
+        for (_, asg) in asgs {
+            let asg_infos = asg_info(asg.arn.as_str(), asg.region.as_str()).await;
+            for asg_info in asg_infos {
+                let instance_infos =
+                    instance_info(asg_info.instance_id.as_str(), asg.region.as_str()).await;
+                for instance_info in instance_infos {
+                    if patterns.iter().any(|pattern| {
+                        [
+                            instance_info.instance_id.as_ref(),
+                            instance_info.public_dns_name.as_ref(),
+                            instance_info.public_ip_address.as_ref(),
+                            instance_info.private_dns_name.as_ref(),
+                            instance_info.private_ip_address.as_ref(),
+                        ]
+                        .iter()
+                        .map(|x| x.map_or_else(|| "", |y| y.as_str()))
+                        .collect::<String>()
+                        .contains(pattern)
+                    }) {
+                        if let Some(ip) = instance_info.public_ip_address {
+                            results.push(Instance::new(
+                                ip,
+                                instance_info
+                                    .instance_id
+                                    .map_or_else(|| "".to_string(), |x| x),
+                                asg.uid.clone(),
+                                asg.flake_attr.clone(),
+                                output.s3_cache.clone(),
+                            ))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    results
 }
