@@ -19,6 +19,41 @@
         "type": "github"
       }
     },
+    "devshell": {
+      "locked": {
+        "lastModified": 1612486691,
+        "narHash": "sha256-WluAIsf/HMYeg8PnM1sODRmiEOzt1wjjY+l8tbttLSI=",
+        "owner": "numtide",
+        "repo": "devshell",
+        "rev": "02933029b06747c7523f3a6f677df06d4cfdfc7b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "devshell",
+        "type": "github"
+      }
+    },
+    "naersk": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1612192764,
+        "narHash": "sha256-7EnLtZQWP6511G1ZPA7FmJlqAr3hWsAYb24tvTvJ/ec=",
+        "owner": "nmattia",
+        "repo": "naersk",
+        "rev": "6e149bfd726a8ebefa415f2d713ba6d942435abd",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nmattia",
+        "repo": "naersk",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1608073274,
@@ -52,6 +87,8 @@
     "root": {
       "inputs": {
         "crystal": "crystal",
+        "devshell": "devshell",
+        "naersk": "naersk",
         "nixpkgs": "nixpkgs_2",
         "utils": "utils_2"
       }
@@ -73,11 +110,11 @@
     },
     "utils_2": {
       "locked": {
-        "lastModified": 1608147279,
-        "narHash": "sha256-y+xwuD1DfITtdo3O0t58rv5EjZPOqhjMsa6gLow2weI=",
+        "lastModified": 1612931517,
+        "narHash": "sha256-dKdcunfU7RFXD181YEXJJ+7Ibaa7F59X92a9DEbFZqg=",
         "owner": "kreisys",
         "repo": "flake-utils",
-        "rev": "eca8189ade92ad1b887ba56bd00b5786b9d490b1",
+        "rev": "a8ea3dd115fdbe4a300df97b82b922fcc34b390f",
         "type": "github"
       },
       "original": {
