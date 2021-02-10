@@ -3,3 +3,5 @@ lib/
 /.terraform
 /config.tf.json
 /target
+/.direnv
+/*.dwarf
