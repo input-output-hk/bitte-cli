@@ -64,7 +64,7 @@ fn bitte_cluster() -> String {
 }
 
 fn handle_command_error(mut command: std::process::Command) -> Result<String, ExeError> {
-    println!("running: {:?}", command);
+    println!("run: {:?}", command);
     // command.stdout(Stdio::piped());
     command.stderr(Stdio::piped());
 
@@ -225,7 +225,6 @@ impl Instance {
 }
 
 async fn find_instance(needle: &str) -> Option<Instance> {
-    println!("needle: {}", needle);
     match find_instances(vec![needle]).await.first() {
         Some(instance) => Some(instance.clone()),
         None => None,
