@@ -43,9 +43,9 @@
         bitte-rost = with builtins; final.naersk.buildPackage {
           # Without this we end up with a drv called `rust-workspace-unknown`
           # which makes `nix run` try to execute a bin with that name.
-          inherit ((fromTOML (readFile ./bitte/Cargo.toml)).package)
+          inherit ((fromTOML (readFile ./rust/Cargo.toml)).package)
             name version;
-          src = self;
+          root = self;
         };
         bitte = final.bitte-rost;
       };
