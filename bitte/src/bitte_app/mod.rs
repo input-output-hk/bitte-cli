@@ -47,9 +47,7 @@ pub(crate) async fn cli_info(_sub: &ArgMatches) {
 }
 
 pub(crate) async fn cli_tf(sub: &ArgMatches) {
-    let workspace: String = sub
-        .value_of_t("workspace")
-        .expect("workspace argument is missing");
+    let workspace: String = sub.value_of_t_or_exit("workspace");
 
     match sub.subcommand() {
         Some(("plan", sub_sub)) => terraform::cli_tf_plan(workspace, sub_sub).await,

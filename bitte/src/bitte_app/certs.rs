@@ -6,7 +6,7 @@ use serde::Deserialize;
 use super::check_cmd;
 
 pub(crate) async fn cli_certs(sub: &ArgMatches) {
-    let domain: String = sub.value_of_t("domain").expect("domain flag not set");
+    let domain: String = sub.value_of_t_or_exit("domain");
     env::set_var("VAULT_ADDR", format!("https://vault.{}", domain));
     env::set_var("VAULT_CACERT", "secrets/ca.pem");
     env::set_var("VAULT_FORMAT", "json");

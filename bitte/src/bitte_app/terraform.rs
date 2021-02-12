@@ -15,7 +15,7 @@ use super::{
 };
 
 pub(crate) async fn cli_tf_plan(workspace: String, sub: &ArgMatches) {
-    let destroy: bool = sub.value_of_t("destroy;").unwrap_or(false);
+    let destroy: bool = sub.value_of_t("destroy").unwrap_or(false);
     let plan_file = format!("{}.plan", workspace);
 
     prepare_terraform(workspace);

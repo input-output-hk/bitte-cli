@@ -18,11 +18,11 @@ struct Args {
 
 pub(crate) async fn cli_provision(sub: &ArgMatches) {
     let args = &Args {
-        ip: sub.value_of_t("ip").expect("ip flag missing"),
-        cluster: sub.value_of_t("cluster").expect("cluster flag missing"),
-        flake: sub.value_of_t("flake").expect("flake flag missing"),
-        attr: sub.value_of_t("attr").expect("attr flag missing"),
-        cache: sub.value_of_t("cache").expect("cache flag missing"),
+        ip: sub.value_of_t_or_exit("ip"),
+        cluster: sub.value_of_t_or_exit("cluster"),
+        flake: sub.value_of_t_or_exit("flake"),
+        attr: sub.value_of_t_or_exit("attr"),
+        cache: sub.value_of_t_or_exit("cache"),
     };
 
     set_ssh_opts(false);

@@ -5,10 +5,12 @@ use clap::ArgMatches;
 use super::{bitte_cluster, find_instance};
 
 pub(crate) async fn cli_ssh(sub: &ArgMatches) {
-    let needle: String = sub.value_of_t("host").expect("host argument must be given");
+    let needle: String = sub.value_of_t_or_exit("host");
     let mut args = sub.values_of_lossy("args").unwrap_or(vec![]);
 
-    let ip = find_instance(needle.as_str()).await.map_or_else(|| needle.clone(), |i| i.public_ip.clone());
+    let ip = find_instance(needle.as_str())
+        .await
+        .map_or_else(|| needle.clone(), |i| i.public_ip.clone());
     let user_host = format!("root@{}", ip);
     let mut flags = vec!["-x".to_string(), "-p".into(), "22".into()];
 
