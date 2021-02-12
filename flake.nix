@@ -7,7 +7,7 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     devshell.url = "github:numtide/devshell";
     devshell.inputs.nixpkgs.follows = "nixpkgs";
-    naersk.url = "github:nmattia/naersk";
+    naersk.url = "github:input-output-hk/rust.nix/work";
     naersk.inputs.nixpkgs.follows = "nixpkgs";
   };
 
@@ -39,8 +39,9 @@
           '';
         });
 
+        rust = final.rust_1_45;
         bitte-kristall = final.callPackage ./package.nix { };
-        bitte-rost = with builtins; final.naersk.buildPackage {
+        bitte-rost = with builtins; final.rust-nix.buildPackage {
           # Without this we end up with a drv called `rust-workspace-unknown`
           # which makes `nix run` try to execute a bin with that name.
           inherit ((fromTOML (readFile ./rust/Cargo.toml)).package)

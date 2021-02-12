@@ -41,16 +41,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1612192764,
-        "narHash": "sha256-7EnLtZQWP6511G1ZPA7FmJlqAr3hWsAYb24tvTvJ/ec=",
-        "owner": "nmattia",
-        "repo": "naersk",
-        "rev": "6e149bfd726a8ebefa415f2d713ba6d942435abd",
+        "lastModified": 1613096942,
+        "narHash": "sha256-i3+FuKQXs0ael6NQUiSZSznOe6q0XnM32v8aauxfRoU=",
+        "owner": "input-output-hk",
+        "repo": "rust.nix",
+        "rev": "19e72fbcd800833c053c67d73c524a870e74e5dc",
         "type": "github"
       },
       "original": {
-        "owner": "nmattia",
-        "repo": "naersk",
+        "owner": "input-output-hk",
+        "ref": "work",
+        "repo": "rust.nix",
         "type": "github"
       }
     },
