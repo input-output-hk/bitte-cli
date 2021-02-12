@@ -34,27 +34,6 @@
         "type": "github"
       }
     },
-    "naersk": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1613096942,
-        "narHash": "sha256-i3+FuKQXs0ael6NQUiSZSznOe6q0XnM32v8aauxfRoU=",
-        "owner": "input-output-hk",
-        "repo": "rust.nix",
-        "rev": "19e72fbcd800833c053c67d73c524a870e74e5dc",
-        "type": "github"
-      },
-      "original": {
-        "owner": "input-output-hk",
-        "ref": "work",
-        "repo": "rust.nix",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1608073274,
@@ -89,9 +68,30 @@
       "inputs": {
         "crystal": "crystal",
         "devshell": "devshell",
-        "naersk": "naersk",
         "nixpkgs": "nixpkgs_2",
+        "rust": "rust",
         "utils": "utils_2"
+      }
+    },
+    "rust": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1613148821,
+        "narHash": "sha256-DfzLE4HNVuLnKYJfe4FDuNTZEGbiGBv6sbNQmwFWN5g=",
+        "owner": "input-output-hk",
+        "repo": "rust.nix",
+        "rev": "14f7bccda47d9c7ea9cbd647a75e3446085f458f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "input-output-hk",
+        "ref": "work",
+        "repo": "rust.nix",
+        "type": "github"
       }
     },
     "utils": {
