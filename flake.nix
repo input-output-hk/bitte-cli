@@ -39,7 +39,6 @@
           '';
         });
 
-        rust = final.rust_1_45;
         bitte-kristall = final.callPackage ./package.nix { };
         bitte-rost = with builtins; final.rust-nix.buildPackage {
           # Without this we end up with a drv called `rust-workspace-unknown`
@@ -47,6 +46,7 @@
           inherit ((fromTOML (readFile ./rust/Cargo.toml)).package)
             name version;
           root = self;
+          buildInputs = with final; [ pkg-config openssl ];
         };
         bitte = final.bitte-rost;
       };
