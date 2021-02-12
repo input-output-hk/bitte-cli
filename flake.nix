@@ -7,11 +7,11 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     devshell.url = "github:numtide/devshell";
     devshell.inputs.nixpkgs.follows = "nixpkgs";
-    naersk.url = "github:input-output-hk/rust.nix/work";
-    naersk.inputs.nixpkgs.follows = "nixpkgs";
+    rust.url = "github:input-output-hk/rust.nix/work";
+    rust.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, devshell, crystal, naersk, utils, ... }:
+  outputs = { self, nixpkgs, devshell, crystal, rust, utils, ... }:
     utils.lib.simpleFlake {
       inherit nixpkgs;
 
@@ -19,7 +19,7 @@
 
       preOverlays = [
         crystal
-        naersk
+        rust
         devshell
         (final: prev: {
           crystal = if final.stdenv.isDarwin then
