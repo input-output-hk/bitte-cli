@@ -1,9 +1,13 @@
 mod bitte_app;
 
+extern crate pretty_env_logger;
+#[macro_use] extern crate log;
+
 use clap::clap_app;
 
 #[tokio::main]
 async fn main() {
+    pretty_env_logger::init();
     let matches = clap_app!(bitte =>
       (version: "0.0.1")
       (author: "Michael Fellinger <michael.fellinger@iohk.io>")
