@@ -49,7 +49,7 @@ fn sign_intermediate() {
     )
     .expect("Couldn't write issuing_full.pem");
 
-    check_cmd(Command::new("vault").args(vec![
+    check_cmd(Command::new("vault").args(&[
         "write",
         "pki/intermediate/set-signed",
         "certificate=@secrets/issuing_full.pem",

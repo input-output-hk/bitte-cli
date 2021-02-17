@@ -173,7 +173,7 @@ pub fn current_state_version(workspace_id: &str) -> Result<String, Box<dyn Error
 
 fn nix_current_system() -> String {
     let result = Command::new("nix")
-        .args(vec![
+        .args(&[
             "eval",
             "--impure",
             "--raw",

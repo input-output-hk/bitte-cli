@@ -237,7 +237,7 @@ async fn find_instances(patterns: Vec<&str>) -> Vec<Instance> {
     let output = current_state_version_output(&current_state_version)
         .expect("Problem loading state version from terraform");
 
-    let mut results = vec![];
+    let mut results = Vec::new();
 
     for instance in output.instances.values().into_iter() {
         if patterns.iter().any(|pattern| {
