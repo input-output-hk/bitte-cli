@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    fs::{self},
+    fs,
     process::Command,
 };
 
@@ -14,7 +14,7 @@ use super::{
     },
 };
 
-pub(crate) async fn cli_tf_plan(workspace: String, sub: &ArgMatches) {
+pub async fn cli_tf_plan(workspace: String, sub: &ArgMatches) {
     let destroy: bool = sub.value_of_t("destroy").unwrap_or(false);
     let plan_file = format!("{}.plan", workspace);
 
@@ -31,7 +31,7 @@ pub(crate) async fn cli_tf_plan(workspace: String, sub: &ArgMatches) {
         .expect(format!("failed to run: {:?}", full).as_str());
 }
 
-pub(crate) async fn cli_tf_apply(workspace: String, _sub: &ArgMatches) {
+pub async fn cli_tf_apply(workspace: String, _sub: &ArgMatches) {
     let plan_file = format!("{}.plan", workspace);
 
     prepare_terraform(workspace);
@@ -44,7 +44,7 @@ pub(crate) async fn cli_tf_apply(workspace: String, _sub: &ArgMatches) {
         .expect(format!("failed to run: {:?}", full).as_str());
 }
 
-pub(crate) async fn cli_tf_workspaces(_workspace: String, _sub: &ArgMatches) {
+pub async fn cli_tf_workspaces(_workspace: String, _sub: &ArgMatches) {
     let list = tf_workspace_list();
     println!("{:?}", list)
 }
@@ -161,7 +161,7 @@ fn tf_init() {
         .expect("terraform init failed");
 }
 
-pub(crate) fn current_state_version(workspace_id: &str) -> Result<String, Box<dyn Error>> {
+pub fn current_state_version(workspace_id: &str) -> Result<String, Box<dyn Error>> {
     let mut client = terraform_client();
     let current_state_version: Result<HttpWorkspaceCurrentStateVersion, restson::Error> =
         client.get(workspace_id);
@@ -173,7 +173,7 @@ pub(crate) fn current_state_version(workspace_id: &str) -> Result<String, Box<dy
 
 fn nix_current_system() -> String {
     let result = Command::new("nix")
-        .args(vec![
+        .args(&[
             "eval",
             "--impure",
             "--raw",

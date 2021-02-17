@@ -16,7 +16,7 @@ struct Args {
     cache: String,
 }
 
-pub(crate) async fn cli_provision(sub: &ArgMatches) {
+pub async fn cli_provision(sub: &ArgMatches) {
     let args = &Args {
         ip: sub.value_of_t_or_exit("ip"),
         cluster: sub.value_of_t_or_exit("cluster"),
