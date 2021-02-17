@@ -4,6 +4,8 @@ use std::{
     process::Command,
 };
 
+use log::{info, trace, warn};
+
 use clap::ArgMatches;
 
 use super::{
@@ -14,9 +16,24 @@ use super::{
     },
 };
 
+/// Run `terraform plan` in a workspace
+///
+/// # Arguments
+///
+/// * `workspace` - a string that holds the name of a terraform workspace
+/// * `sub` - `&ArgMatches` holding additional cli flags
+///
+/// # Examples
+///
+/// ```
+/// let workspace = "network";
+/// bitte::terraform_tf_plan(workspace, arg_matches);
+/// ```
 pub async fn cli_tf_plan(workspace: String, sub: &ArgMatches) {
     let destroy: bool = sub.value_of_t("destroy").unwrap_or(false);
     let plan_file = format!("{}.plan", workspace);
+
+    info!("Plan file: {:?}", plan_file);
 
     prepare_terraform(workspace);
 
@@ -26,20 +43,21 @@ pub async fn cli_tf_plan(workspace: String, sub: &ArgMatches) {
         full = full.arg("-destroy");
     }
 
-    println!("run: {:?}", full);
+    info!("run: {:?}", full);
     full.status()
         .expect(format!("failed to run: {:?}", full).as_str());
 }
 
 pub async fn cli_tf_apply(workspace: String, _sub: &ArgMatches) {
     let plan_file = format!("{}.plan", workspace);
+    info!("Plan file: {:?}", plan_file);
 
     prepare_terraform(workspace);
 
     let mut cmd = Command::new("terraform");
     let full = cmd.arg("apply").arg(plan_file);
 
-    println!("run: {:?}", full);
+    debug!("run: {:?}", full);
     full.status()
         .expect(format!("failed to run: {:?}", full).as_str());
 }
@@ -60,21 +78,23 @@ fn tf_workspace_list() -> Result<Vec<HttpWorkspaceData>, Box<dyn Error>> {
 }
 
 fn prepare_terraform(workspace: String) {
-    println!("prepare terraform");
+    info!("prepare terraform");
     // To work on Darwin, we need to pass the current system
 
     generate_terraform_config(&workspace);
 
     let original = tf_workspace_show();
-    println!("original: {}, workspace: {}", original, workspace);
+    info!("original: {}, workspace: {}", original, workspace);
     if original != workspace {
         let list: Vec<String> = tf_workspace_list()
             .unwrap_or_else(|_| vec![])
             .iter()
             .map(|w| w.attributes.name.clone())
             .collect();
-        if !list.contains(&format!("{}_{}", bitte_cluster(), workspace)) {
-            tf_workspace_new(&workspace)
+        debug!("{:?}", list);
+        let workspace_fullname = format!("{}_{}", bitte_cluster(), workspace);
+        if !list.contains(&workspace_fullname) {
+            tf_workspace_new(&workspace_fullname)
                 .expect(format!("Failed to create workspace {}", workspace).as_str());
         }
         tf_workspace_select(workspace);
@@ -137,7 +157,7 @@ fn tf_workspace_show() -> String {
     match fs::read(".terraform/environment") {
         Ok(content) => String::from_utf8_lossy(&content).to_string(),
         Err(e) => {
-            println!("error while reading workspace: {}", e);
+            debug!("error while reading workspace: {:?}", e);
             "default".to_string()
         }
     }
