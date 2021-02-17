@@ -40,14 +40,15 @@
         });
 
         bitte-kristall = final.callPackage ./package.nix { };
-        bitte-rost = with builtins; final.rust-nix.buildPackage {
-          # Without this we end up with a drv called `rust-workspace-unknown`
-          # which makes `nix run` try to execute a bin with that name.
-          inherit ((fromTOML (readFile ./rust/Cargo.toml)).package)
-            name version;
-          root = self;
-          buildInputs = with final; [ pkg-config openssl ];
-        };
+        bitte-rost = with builtins;
+          final.rust-nix.buildPackage {
+            # Without this we end up with a drv called `rust-workspace-unknown`
+            # which makes `nix run` try to execute a bin with that name.
+            inherit ((fromTOML (readFile ./rust/Cargo.toml)).package)
+              name version;
+            root = self;
+            buildInputs = with final; [ pkg-config openssl ];
+          };
         bitte = final.bitte-rost;
       };
 
@@ -58,31 +59,39 @@
 
       hydraJobs = { bitte-kristall, bitte-rost }@ps: ps;
 
-      devShell = { devshell, pkgs }: devshell.mkShell {
-        env = {
-          RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
-          RUST_BACKTRACE = 1;
+      devShell = { devshell, pkgs }:
+        devshell.mkShell {
+          env = [
+            {
+              name = "RUST_SRC_PATH";
+              value = pkgs.rustPlatform.rustLibSrc.outPath;
+            }
+
+            {
+              name = "RUST_BACKTRACE";
+              value = "1";
+            }
+          ];
+
+          packages = with pkgs; [
+            nixFlakes
+            pkgs.crystal
+            crystal2nix
+            shards
+            libssh2
+            cfssl
+            sops
+            openssl
+            pkg-config
+
+            # Rust
+            rustc
+            cargo
+            (rustracer.overrideAttrs (_: { checkPhase = null; }))
+            rust-analyzer
+            rustfmt
+            clippy
+          ];
         };
-
-        packages = with pkgs; [
-          nixFlakes
-          pkgs.crystal
-          crystal2nix
-          shards
-          libssh2
-          cfssl
-          sops
-          openssl
-          pkg-config
-
-          # Rust
-          rustc
-          cargo
-          (rustracer.overrideAttrs (_: { checkPhase = null; }))
-          rust-analyzer
-          rustfmt
-          clippy
-        ];
-      };
     };
 }
