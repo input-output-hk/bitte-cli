@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use super::current_state_version_output;
 
-pub(crate) async fn cli_info_print(current_state_version: String) {
+pub async fn cli_info_print(current_state_version: String) {
     let output = current_state_version_output(&current_state_version).unwrap();
 
     let mut instance_table = Table::new();
@@ -62,7 +62,7 @@ pub(crate) async fn cli_info_print(current_state_version: String) {
     };
 }
 
-pub(crate) async fn asg_info(tf_arn: &str, region_name: &str) -> Vec<rusoto_autoscaling::Instance> {
+pub async fn asg_info(tf_arn: &str, region_name: &str) -> Vec<rusoto_autoscaling::Instance> {
     let region = rusoto_core::Region::from_str(region_name).expect("Region not found");
     let client = AutoscalingClient::new(region);
     let request = AutoScalingGroupNamesType::default();
@@ -77,7 +77,7 @@ pub(crate) async fn asg_info(tf_arn: &str, region_name: &str) -> Vec<rusoto_auto
         .collect()
 }
 
-pub(crate) async fn instance_info(instance_id: &str, region_name: &str) -> Vec<rusoto_ec2::Instance> {
+pub async fn instance_info(instance_id: &str, region_name: &str) -> Vec<rusoto_ec2::Instance> {
     let region = rusoto_core::Region::from_str(region_name).expect("Region not found");
     let client = Ec2Client::new(region);
     let request = DescribeInstancesRequest {

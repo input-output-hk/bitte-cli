@@ -6,7 +6,7 @@ use super::{
     bitte_cluster, check_cmd, find_instances, handle_command_error, wait_for_ssh, Instance,
 };
 
-pub(crate) async fn cli_rebuild(sub: &ArgMatches) {
+pub async fn cli_rebuild(sub: &ArgMatches) {
     let only: Vec<String> = sub.values_of_t("only").unwrap_or(vec![]);
     let delay = Duration::from_secs(sub.value_of_t::<u64>("delay").unwrap_or(0));
 
@@ -14,7 +14,7 @@ pub(crate) async fn cli_rebuild(sub: &ArgMatches) {
     copy(only.iter().map(|o| o.as_str()).collect(), delay).await;
 }
 
-pub(crate) async fn copy(only: Vec<&str>, delay: Duration) {
+pub async fn copy(only: Vec<&str>, delay: Duration) {
     let instances = find_instances(only.clone()).await;
     let mut iter = instances.iter().peekable();
 
@@ -56,7 +56,7 @@ fn copy_to(instance: &Instance, _attempts: u64) {
     nixos_rebuild(&rebuild_flake, &ip)
 }
 
-pub(crate) fn nixos_rebuild(target: &String, ip: &String) {
+pub fn nixos_rebuild(target: &String, ip: &String) {
     check_cmd(
         Command::new("nixos-rebuild")
             .arg("switch")
@@ -71,7 +71,7 @@ fn nix_build(target: &String) {
     check_cmd(Command::new("nix").arg("-L").arg("build").arg(target))
 }
 
-pub(crate) fn nix_copy_to_cache(target: &String, cache: String) {
+pub fn nix_copy_to_cache(target: &String, cache: String) {
     check_cmd(
         Command::new("nix")
             .arg("-L")
@@ -82,7 +82,7 @@ pub(crate) fn nix_copy_to_cache(target: &String, cache: String) {
     );
 }
 
-pub(crate) fn nix_copy_to_machine(target: &String, ssh: &String) {
+pub fn nix_copy_to_machine(target: &String, ssh: &String) {
     check_cmd(
         Command::new("nix")
             .arg("-L")
@@ -94,7 +94,7 @@ pub(crate) fn nix_copy_to_machine(target: &String, ssh: &String) {
     );
 }
 
-pub(crate) fn set_ssh_opts(key_checking: bool) {
+pub fn set_ssh_opts(key_checking: bool) {
     if env::var("NIX_SSHOPTS").is_ok() {
         return;
     }

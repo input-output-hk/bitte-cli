@@ -4,119 +4,119 @@ use restson::RestPath;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
-pub(crate) struct TerraformCredentialFile {
-    pub(crate) credentials: HashMap<String, TerraformCredential>,
+pub struct TerraformCredentialFile {
+    pub credentials: HashMap<String, TerraformCredential>,
 }
 
 #[derive(Deserialize, Debug)]
-pub(crate) struct TerraformCredential {
-    pub(crate) token: String,
+pub struct TerraformCredential {
+    pub token: String,
 }
 
 #[derive(Deserialize, Debug)]
-pub(crate) struct HttpWorkspaces {
-    pub(crate) data: Vec<HttpWorkspaceData>,
+pub struct HttpWorkspaces {
+    pub data: Vec<HttpWorkspaceData>,
 }
 
 #[derive(Deserialize, Debug)]
-pub(crate) struct HttpWorkspace {
-    pub(crate) data: HttpWorkspaceData,
+pub struct HttpWorkspace {
+    pub data: HttpWorkspaceData,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct HttpPostWorkspaces {
-    pub(crate) data: HttpPostWorkspaceData,
+pub struct HttpPostWorkspaces {
+    pub data: HttpPostWorkspaceData,
     #[serde(rename = "type")]
-    pub(crate) workspace_type: String,
+    pub workspace_type: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct HttpPostWorkspaceData {
-    pub(crate) attributes: HttpWorkspaceDataAttributes,
+pub struct HttpPostWorkspaceData {
+    pub attributes: HttpWorkspaceDataAttributes,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct HttpWorkspaceData {
-    pub(crate) id: String,
-    pub(crate) attributes: HttpWorkspaceDataAttributes,
+pub struct HttpWorkspaceData {
+    pub id: String,
+    pub attributes: HttpWorkspaceDataAttributes,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct HttpWorkspaceDataAttributes {
-    pub(crate) name: String,
-    pub(crate) operations: bool,
+pub struct HttpWorkspaceDataAttributes {
+    pub name: String,
+    pub operations: bool,
 }
 
 #[derive(Deserialize)]
-pub(crate) struct HttpWorkspaceCurrentStateVersion {
-    pub(crate) data: HttpWorkspaceCurrentStateVersionData,
+pub struct HttpWorkspaceCurrentStateVersion {
+    pub data: HttpWorkspaceCurrentStateVersionData,
 }
 
 #[derive(Deserialize)]
-pub(crate) struct HttpWorkspaceCurrentStateVersionData {
-    pub(crate) relationships: HttpWorkspaceCurrentStateVersionRelationships,
+pub struct HttpWorkspaceCurrentStateVersionData {
+    pub relationships: HttpWorkspaceCurrentStateVersionRelationships,
 }
 
 #[derive(Deserialize)]
-pub(crate) struct HttpWorkspaceCurrentStateVersionRelationships {
-    pub(crate) outputs: HttpWorkspaceCurrentStateVersionOutputs,
+pub struct HttpWorkspaceCurrentStateVersionRelationships {
+    pub outputs: HttpWorkspaceCurrentStateVersionOutputs,
 }
 
 #[derive(Deserialize)]
-pub(crate) struct HttpWorkspaceCurrentStateVersionOutputs {
-    pub(crate) data: Vec<HttpWorkspaceCurrentStateVersionOutput>,
+pub struct HttpWorkspaceCurrentStateVersionOutputs {
+    pub data: Vec<HttpWorkspaceCurrentStateVersionOutput>,
 }
 
 #[derive(Deserialize)]
-pub(crate) struct HttpWorkspaceCurrentStateVersionOutput {
-    pub(crate) id: String,
+pub struct HttpWorkspaceCurrentStateVersionOutput {
+    pub id: String,
 }
 
 #[derive(Deserialize)]
-pub(crate) struct HttpWorkspaceState {
-    pub(crate) data: HttpWorkspaceStateData,
+pub struct HttpWorkspaceState {
+    pub data: HttpWorkspaceStateData,
 }
 
 #[derive(Deserialize)]
-pub(crate) struct HttpWorkspaceStateData {
-    pub(crate) attributes: HttpWorkspaceStateAttributes,
+pub struct HttpWorkspaceStateData {
+    pub attributes: HttpWorkspaceStateAttributes,
 }
 
 #[derive(Deserialize)]
-pub(crate) struct HttpWorkspaceStateAttributes {
-    pub(crate) value: HttpWorkspaceStateValue,
+pub struct HttpWorkspaceStateAttributes {
+    pub value: HttpWorkspaceStateValue,
 }
 
 #[derive(Deserialize)]
-pub(crate) struct HttpWorkspaceStateValue {
-    pub(crate) asgs: Option<HashMap<String, HttpWorkspaceStateAsg>>,
-    pub(crate) instances: HashMap<String, HttpWorkspaceStateInstance>,
+pub struct HttpWorkspaceStateValue {
+    pub asgs: Option<HashMap<String, HttpWorkspaceStateAsg>>,
+    pub instances: HashMap<String, HttpWorkspaceStateInstance>,
     #[serde(rename = "s3-cache")]
-    pub(crate) s3_cache: String,
+    pub s3_cache: String,
 }
 
 #[derive(Deserialize)]
-pub(crate) struct HttpWorkspaceStateAsg {
-    pub(crate) arn: String,
-    pub(crate) region: String,
+pub struct HttpWorkspaceStateAsg {
+    pub arn: String,
+    pub region: String,
     #[serde(rename = "flake-attr")]
-    pub(crate) flake_attr: String,
-    pub(crate) uid: String,
+    pub flake_attr: String,
+    pub uid: String,
 
 }
 
 #[derive(Deserialize)]
-pub(crate) struct HttpWorkspaceStateInstance {
+pub struct HttpWorkspaceStateInstance {
     #[serde(rename = "flake-attr")]
-    pub(crate) flake_attr: String,
+    pub flake_attr: String,
     #[serde(rename = "instance-type")]
-    pub(crate) instance_type: String,
-    pub(crate) name: String,
+    pub instance_type: String,
+    pub name: String,
     #[serde(rename = "private-ip")]
-    pub(crate) private_ip: String,
+    pub private_ip: String,
     #[serde(rename = "public-ip")]
-    pub(crate) public_ip: String,
-    pub(crate) uid: String,
+    pub public_ip: String,
+    pub uid: String,
 }
 
 impl RestPath<&str> for HttpWorkspaces {

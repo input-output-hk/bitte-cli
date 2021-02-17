@@ -23,30 +23,30 @@ use self::{
     types::{HttpWorkspace, HttpWorkspaceState, HttpWorkspaceStateValue, TerraformCredentialFile},
 };
 
-pub(crate) async fn cli_certs(sub: &ArgMatches) {
+pub async fn cli_certs(sub: &ArgMatches) {
     certs::cli_certs(sub).await
 }
 
-pub(crate) async fn cli_provision(sub: &ArgMatches) {
+pub async fn cli_provision(sub: &ArgMatches) {
     provision::cli_provision(sub).await
 }
 
-pub(crate) async fn cli_ssh(sub: &ArgMatches) {
+pub async fn cli_ssh(sub: &ArgMatches) {
     ssh::cli_ssh(sub).await
 }
 
-pub(crate) async fn cli_rebuild(sub: &ArgMatches) {
+pub async fn cli_rebuild(sub: &ArgMatches) {
     rebuild::cli_rebuild(sub).await
 }
 
-pub(crate) async fn cli_info(_sub: &ArgMatches) {
+pub async fn cli_info(_sub: &ArgMatches) {
     let info = fetch_current_state_version("clients")
         .or_else(|_| fetch_current_state_version("core"))
         .expect("Coudln't fetch clients or core workspaces");
     cli_info_print(info).await;
 }
 
-pub(crate) async fn cli_tf(sub: &ArgMatches) {
+pub async fn cli_tf(sub: &ArgMatches) {
     let workspace: String = sub.value_of_t_or_exit("workspace");
 
     match sub.subcommand() {
