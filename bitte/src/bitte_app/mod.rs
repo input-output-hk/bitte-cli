@@ -17,11 +17,9 @@ use std::{fmt, path::Path, process::Stdio};
 use std::{io::BufReader, time::Duration};
 use tokio::{net::TcpStream, time::timeout};
 
-use self::{
-    info::{asg_info, cli_info_print, instance_info},
-    terraform::current_state_version,
-    types::{HttpWorkspace, HttpWorkspaceState, HttpWorkspaceStateValue, TerraformCredentialFile},
-};
+use info::{asg_info, cli_info_print, instance_info};
+use terraform::current_state_version;
+use types::{HttpWorkspace, HttpWorkspaceState, HttpWorkspaceStateValue, TerraformCredentialFile};
 
 pub async fn cli_certs(sub: &ArgMatches) {
     certs::cli_certs(sub).await

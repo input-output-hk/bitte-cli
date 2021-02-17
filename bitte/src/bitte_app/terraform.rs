@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    fs::{self},
+    fs,
     process::Command,
 };
 
