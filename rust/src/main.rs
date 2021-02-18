@@ -26,7 +26,7 @@ async fn main() {
         (about: "Run terraform")
         (@arg workspace: +takes_value +required "name of the terraform workspace")
         (@subcommand plan => (about: "terraform plan")
-          (@arg destroy: "create a destruction plan"))
+          (@arg destroy: --destroy -d "create a destruction plan"))
         (@subcommand apply => (about: "terraform apply"))
         (@subcommand workspaces => (about: "terraform workspaces list"))
        )

@@ -30,7 +30,7 @@ use super::{
 /// bitte::terraform_tf_plan(workspace, arg_matches);
 /// ```
 pub async fn cli_tf_plan(workspace: String, sub: &ArgMatches) {
-    let destroy: bool = sub.value_of_t("destroy").unwrap_or(false);
+    let destroy: bool = sub.is_present("destroy");
     let plan_file = format!("{}.plan", workspace);
 
     info!("Plan file: {:?}", plan_file);
