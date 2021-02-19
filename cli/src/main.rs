@@ -1,7 +1,4 @@
-mod bitte_app;
-
-extern crate pretty_env_logger;
-#[macro_use] extern crate log;
+use bitte_lib::*;
 
 use clap::clap_app;
 
@@ -44,12 +41,12 @@ async fn main() {
     .get_matches();
 
     match matches.subcommand() {
-        Some(("rebuild", sub)) => bitte_app::cli_rebuild(sub).await,
-        Some(("info", sub)) => bitte_app::cli_info(sub).await,
-        Some(("ssh", sub)) => bitte_app::cli_ssh(sub).await,
-        Some(("tf", sub)) => bitte_app::cli_tf(sub).await,
-        Some(("provision", sub)) => bitte_app::cli_provision(sub).await,
-        Some(("certs", sub)) => bitte_app::cli_certs(sub).await,
+        Some(("rebuild", sub)) => cli_rebuild(sub).await,
+        Some(("info", sub)) => cli_info(sub).await,
+        Some(("ssh", sub)) => cli_ssh(sub).await,
+        Some(("tf", sub)) => cli_tf(sub).await,
+        Some(("provision", sub)) => cli_provision(sub).await,
+        Some(("certs", sub)) => cli_certs(sub).await,
         _ => println!("Unknown command"),
     };
 }

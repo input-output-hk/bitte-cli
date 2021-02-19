@@ -1,24 +1,5 @@
 {
   "nodes": {
-    "crystal": {
-      "inputs": {
-        "nixpkgs": "nixpkgs",
-        "utils": "utils"
-      },
-      "locked": {
-        "lastModified": 1613499900,
-        "narHash": "sha256-knnLlzgJFOor7EOk3U7xYQfbmiN5KMlj6TQlBUe4Xys=",
-        "owner": "kreisys",
-        "repo": "crystal",
-        "rev": "d0a30271824f4c782d17eaf76b9da0f50b8be68f",
-        "type": "github"
-      },
-      "original": {
-        "owner": "kreisys",
-        "repo": "crystal",
-        "type": "github"
-      }
-    },
     "devshell": {
       "locked": {
         "lastModified": 1613310953,
@@ -36,20 +17,6 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1608073274,
-        "narHash": "sha256-2g5soirxH22xi/2iIzTOtpdRYXSSI4x+OYsDM9Nc4ms=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "5d5e970ce04933576957dfbf99cb7d4c1802c60d",
-        "type": "github"
-      },
-      "original": {
-        "id": "nixpkgs",
-        "type": "indirect"
-      }
-    },
-    "nixpkgs_2": {
-      "locked": {
         "lastModified": 1613226215,
         "narHash": "sha256-3rA5cGIrBHD6yeKhNhsF7/t461ww25oJY8KyBb0IhjU=",
         "owner": "NixOS",
@@ -66,11 +33,10 @@
     },
     "root": {
       "inputs": {
-        "crystal": "crystal",
         "devshell": "devshell",
-        "nixpkgs": "nixpkgs_2",
+        "nixpkgs": "nixpkgs",
         "rust": "rust",
-        "utils": "utils_2"
+        "utils": "utils"
       }
     },
     "rust": {
@@ -95,21 +61,6 @@
       }
     },
     "utils": {
-      "locked": {
-        "lastModified": 1612931517,
-        "narHash": "sha256-dKdcunfU7RFXD181YEXJJ+7Ibaa7F59X92a9DEbFZqg=",
-        "owner": "kreisys",
-        "repo": "flake-utils",
-        "rev": "a8ea3dd115fdbe4a300df97b82b922fcc34b390f",
-        "type": "github"
-      },
-      "original": {
-        "owner": "kreisys",
-        "repo": "flake-utils",
-        "type": "github"
-      }
-    },
-    "utils_2": {
       "locked": {
         "lastModified": 1613500319,
         "narHash": "sha256-ybAq6pImFCSnwyhhmnnvV567JM4GuhCEG/PHBkSS86U=",

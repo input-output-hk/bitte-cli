@@ -2,7 +2,6 @@
   description = "Bitte fläken Sie sich";
 
   inputs = {
-    crystal.url = "github:kreisys/crystal";
     utils.url = "github:kreisys/flake-utils";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     devshell.url = "github:numtide/devshell";
@@ -11,27 +10,18 @@
     rust.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, devshell, crystal, rust, utils, ... }:
+  outputs = { self, nixpkgs, devshell, rust, utils, ... }:
     utils.lib.simpleFlake {
       inherit nixpkgs;
 
       systems = [ "x86_64-darwin" "x86_64-linux" ];
 
       preOverlays = [
-        crystal
         rust
         devshell
-        (final: prev: {
-          crystal = if final.stdenv.isDarwin then
-            prev.crystal
-          else
-            nixpkgs.legacyPackages.x86_64-linux.crystal;
-        })
       ];
 
       overlay = final: prev: {
-        inherit (final.callPackages ./shards { }) shards;
-
         nixos-rebuild = prev.nixos-rebuild.overrideAttrs (o: {
           src = final.runCommand "nixos-rebuild.sh" { inherit (o) src; } ''
             substitute $src $out \
@@ -39,8 +29,7 @@
           '';
         });
 
-        bitte-kristall = final.callPackage ./package.nix { };
-        bitte-rost = with builtins;
+        bitte = with builtins;
           final.rust-nix.buildPackage {
             # Without this we end up with a drv called `rust-workspace-unknown`
             # which makes `nix run` try to execute a bin with that name.
@@ -49,35 +38,23 @@
             root = self;
             buildInputs = with final; [ pkg-config openssl ];
           };
-        bitte = final.bitte-rost;
       };
 
-      packages = { bitte-kristall, bitte-rost }: {
-        inherit bitte-kristall bitte-rost;
-        defaultPackage = bitte-rost;
+      packages = { bitte }: {
+        defaultPackage = bitte;
       };
 
-      hydraJobs = { bitte-kristall, bitte-rost }@ps: ps;
+      hydraJobs = { bitte }@ps: ps;
 
       devShell = { devshell, pkgs }:
         devshell.mkShell {
-          env = [
-            {
-              name = "RUST_SRC_PATH";
-              value = pkgs.rustPlatform.rustLibSrc.outPath;
-            }
-
-            {
-              name = "RUST_BACKTRACE";
-              value = "1";
-            }
-          ];
+          env = with nixpkgs.lib; mapAttrsToList nameValuePair ({
+            RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc.outPath;
+            RUST_BACKTRACE = "1";
+          });
 
           packages = with pkgs; [
             nixFlakes
-            pkgs.crystal
-            crystal2nix
-            shards
             libssh2
             cfssl
             sops

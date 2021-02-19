@@ -1,1 +1,1 @@
-workspace.members = [ "rust" ]
+workspace.members = [ "cli" ]

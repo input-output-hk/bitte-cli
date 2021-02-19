@@ -1,4 +1,3 @@
-lib/
 result
 /.terraform
 /config.tf.json

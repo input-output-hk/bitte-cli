@@ -4,7 +4,7 @@ use std::{
     process::Command,
 };
 
-use log::{info, trace, warn};
+use log::{debug, info};
 
 use clap::ArgMatches;
 
