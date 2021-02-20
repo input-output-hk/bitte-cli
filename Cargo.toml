@@ -1,1 +1,1 @@
-workspace.members = [ "cli" ]
+workspace.members = [ "cli", "lib" ]

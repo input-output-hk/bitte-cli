@@ -1,23 +1,10 @@
-use std::{env, fs, process::Command};
+use std::{fs, process::Command};
 
-use clap::ArgMatches;
 use serde::Deserialize;
 
 use super::check_cmd;
 
-pub async fn cli_certs(sub: &ArgMatches) {
-    let domain: String = sub.value_of_t_or_exit("domain");
-    env::set_var("VAULT_ADDR", format!("https://vault.{}", domain));
-    env::set_var("VAULT_CACERT", "secrets/ca.pem");
-    env::set_var("VAULT_FORMAT", "json");
-    env::set_var("VAULT_SKIP_VERIFY", "true");
-
-    vault_login();
-    write_issuing_ca(&domain);
-    sign_intermediate();
-}
-
-fn sign_intermediate() {
+pub fn sign_intermediate() {
     let ca_pem_orig = fs::read_to_string("secrets/ca.pem").expect("Couldn't read ca.pem");
     let ca_pem = ca_pem_orig.trim();
     let cert_pem_orig = fs::read_to_string("secrets/cert.pem").expect("Couldn't read cert.pem");
@@ -94,7 +81,7 @@ fn ca_config_file() -> String {
     location.to_string()
 }
 
-fn write_issuing_ca(domain: &String) {
+pub fn write_issuing_ca(domain: &String) {
     let issuing_ca = vault_issuing_ca(&domain);
     let csr_container: CSR = serde_json::from_str(&issuing_ca).expect("Couldn't parse issuing CA");
     fs::write("secrets/issuing-ca.csr", csr_container.data.csr)
@@ -109,7 +96,7 @@ fn vault_issuing_ca(domain: &String) -> String {
     ]))
 }
 
-fn vault_login() {
+pub fn vault_login() {
     check_cmd(Command::new("vault").args(&["login", "-method", "aws", "-no-print"]));
 }
 

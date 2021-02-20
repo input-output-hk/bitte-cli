@@ -1,40 +1,58 @@
 use std::{path::Path, process::Command};
+use tokio::{net::TcpStream, time::timeout};
+use std::time::Duration;
 
-use clap::ArgMatches;
+use super::check_cmd;
 
-use super::{bitte_cluster, find_instance};
+pub fn ssh_keygen(ip: &String) {
+    check_cmd(Command::new("ssh-keygen").arg("-R").arg(ip));
+}
 
-pub async fn cli_ssh(sub: &ArgMatches) {
-    let needle: String = sub.value_of_t_or_exit("host");
-    let mut args = sub.values_of_lossy("args").unwrap_or(vec![]);
+pub fn wait_for_ready(cluster: &String, ip: &String) {
+    let target = format!("root@#{}", ip);
 
-    let ip = find_instance(needle.as_str())
-        .await
-        .map_or_else(|| needle.clone(), |i| i.public_ip.clone());
-    let user_host = format!("root@{}", ip);
-    let mut flags = vec!["-x".to_string(), "-p".into(), "22".into()];
+    let mut ssh_args = vec![
+        "-C", // Requests compression of all data
+        "-o",
+        "NumberOfPasswordPrompts=0",
+        "-o",
+        "ServerAliveInterval=60",
+        "-o",
+        "ControlPersist=600",
+        "-o",
+        "StrictHostKeyChecking=accept-new",
+    ];
 
-    let ssh_key_path = format!("secrets/ssh-{}", bitte_cluster());
+    let ssh_key_path = format!("secrets/ssh-{}", cluster);
     let ssh_key = Path::new(&ssh_key_path);
     if ssh_key.is_file() {
-        flags.push("-i".to_string());
-        flags.push(ssh_key_path.to_string());
+        ssh_args.push("-i");
+        ssh_args.push(ssh_key_path.as_str());
     }
 
-    flags.push(user_host.to_string());
-    flags.append(args.as_mut());
+    ssh_args.push(&target);
+    ssh_args.push("until grep true /etc/ready &>/dev/null; do sleep 1; done");
+    check_cmd(Command::new("ssh").args(ssh_args))
+}
 
-    if args.len() > 0 {
-        flags.append(&mut vec!["-t".to_string()]);
+pub async fn wait_for_ssh(ip: &String) {
+    let addr = format!("{}:22", ip);
+
+    for i in 0..120 {
+        let stream = TcpStream::connect(addr.clone());
+        let t = timeout(Duration::from_millis(10000), stream);
+        match t.await {
+            Ok(o) => match o {
+                Ok(_) => {
+                    return;
+                }
+                Err(ee) => {
+                    if i >= 120 {
+                        println!("error while connecting: {}", ee);
+                    }
+                }
+            },
+            Err(e) => println!("Waiting for {} to respond: {}", addr, e),
+        }
     }
-    let ssh_args = flags.into_iter();
-
-    let mut cmd = Command::new("ssh");
-    let cmd_with_args = cmd.args(ssh_args);
-    println!("cmd: {:?}", cmd_with_args);
-
-    cmd.spawn()
-        .expect("ssh command failed")
-        .wait()
-        .expect("ssh command didn't finish?");
 }

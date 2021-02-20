@@ -1,4 +1,4 @@
-use bitte_lib::*;
+mod cli;
 
 use clap::clap_app;
 
@@ -19,8 +19,9 @@ async fn main() {
         (about: "SSH to instances")
         (@arg host: +takes_value "host")
         (@arg args: +takes_value +multiple "arguments to ssh"))
-      (@subcommand tf =>
+      (@subcommand terraform =>
         (about: "Run terraform")
+        (aliases: &["tf"])
         (@arg workspace: +takes_value +required "name of the terraform workspace")
         (@subcommand plan => (about: "terraform plan")
           (@arg destroy: --destroy -d "create a destruction plan"))
@@ -41,12 +42,12 @@ async fn main() {
     .get_matches();
 
     match matches.subcommand() {
-        Some(("rebuild", sub)) => cli_rebuild(sub).await,
-        Some(("info", sub)) => cli_info(sub).await,
-        Some(("ssh", sub)) => cli_ssh(sub).await,
-        Some(("tf", sub)) => cli_tf(sub).await,
-        Some(("provision", sub)) => cli_provision(sub).await,
-        Some(("certs", sub)) => cli_certs(sub).await,
+        Some(("rebuild", sub)) => cli::rebuild(sub).await,
+        Some(("info", sub)) => cli::info(sub).await,
+        Some(("ssh", sub)) => cli::ssh(sub).await,
+        Some(("terraform", sub)) => cli::terraform(sub).await,
+        Some(("provision", sub)) => cli::provision(sub).await,
+        Some(("certs", sub)) => cli::certs(sub).await,
         _ => println!("Unknown command"),
     };
 }

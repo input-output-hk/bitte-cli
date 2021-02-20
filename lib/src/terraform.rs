@@ -6,8 +6,6 @@ use std::{
 
 use log::{debug, info};
 
-use clap::ArgMatches;
-
 use super::{
     bitte_cluster, terraform_client, terraform_organization,
     types::{
@@ -16,58 +14,7 @@ use super::{
     },
 };
 
-/// Run `terraform plan` in a workspace
-///
-/// # Arguments
-///
-/// * `workspace` - a string that holds the name of a terraform workspace
-/// * `sub` - `&ArgMatches` holding additional cli flags
-///
-/// # Examples
-///
-/// ```
-/// let workspace = "network";
-/// bitte::terraform_tf_plan(workspace, arg_matches);
-/// ```
-pub async fn cli_tf_plan(workspace: String, sub: &ArgMatches) {
-    let destroy: bool = sub.is_present("destroy");
-    let plan_file = format!("{}.plan", workspace);
-
-    info!("Plan file: {:?}", plan_file);
-
-    prepare_terraform(workspace);
-
-    let mut cmd = Command::new("terraform");
-    let mut full = cmd.arg("plan").arg("-out").arg(plan_file);
-    if destroy {
-        full = full.arg("-destroy");
-    }
-
-    info!("run: {:?}", full);
-    full.status()
-        .expect(format!("failed to run: {:?}", full).as_str());
-}
-
-pub async fn cli_tf_apply(workspace: String, _sub: &ArgMatches) {
-    let plan_file = format!("{}.plan", workspace);
-    info!("Plan file: {:?}", plan_file);
-
-    prepare_terraform(workspace);
-
-    let mut cmd = Command::new("terraform");
-    let full = cmd.arg("apply").arg(plan_file);
-
-    debug!("run: {:?}", full);
-    full.status()
-        .expect(format!("failed to run: {:?}", full).as_str());
-}
-
-pub async fn cli_tf_workspaces(_workspace: String, _sub: &ArgMatches) {
-    let list = tf_workspace_list();
-    println!("{:?}", list)
-}
-
-fn tf_workspace_list() -> Result<Vec<HttpWorkspaceData>, Box<dyn Error>> {
+pub fn workspace_list() -> Result<Vec<HttpWorkspaceData>, Box<dyn Error>> {
     let mut client = terraform_client();
     let workspaces: Result<HttpWorkspaces, restson::Error> =
         client.get(terraform_organization().as_str());
@@ -77,16 +24,16 @@ fn tf_workspace_list() -> Result<Vec<HttpWorkspaceData>, Box<dyn Error>> {
     }
 }
 
-fn prepare_terraform(workspace: String) {
+pub fn prepare(workspace: String) {
     info!("prepare terraform");
     // To work on Darwin, we need to pass the current system
 
     generate_terraform_config(&workspace);
 
-    let original = tf_workspace_show();
+    let original = workspace_show();
     info!("original: {}, workspace: {}", original, workspace);
     if original != workspace {
-        let list: Vec<String> = tf_workspace_list()
+        let list: Vec<String> = workspace_list()
             .unwrap_or_else(|_| vec![])
             .iter()
             .map(|w| w.attributes.name.clone())
@@ -94,12 +41,22 @@ fn prepare_terraform(workspace: String) {
         debug!("{:?}", list);
         let workspace_fullname = format!("{}_{}", bitte_cluster(), workspace);
         if !list.contains(&workspace_fullname) {
-            tf_workspace_new(&workspace_fullname)
+            workspace_new(&workspace_fullname)
                 .expect(format!("Failed to create workspace {}", workspace).as_str());
         }
-        tf_workspace_select(workspace);
+        workspace_select(workspace);
     }
-    tf_init()
+    init()
+}
+
+pub fn current_state_version(workspace_id: &str) -> Result<String, Box<dyn Error>> {
+    let mut client = terraform_client();
+    let current_state_version: Result<HttpWorkspaceCurrentStateVersion, restson::Error> =
+        client.get(workspace_id);
+    match current_state_version {
+        Ok(version) => Ok(version.data.relationships.outputs.data[0].id.to_string()),
+        Err(e) => Err(e.into()),
+    }
 }
 
 fn generate_terraform_config(workspace: &String) {
@@ -134,7 +91,7 @@ fn generate_terraform_config(workspace: &String) {
     }
 }
 
-fn tf_workspace_new(workspace: &str) -> Result<(), Box<dyn Error>> {
+fn workspace_new(workspace: &str) -> Result<(), Box<dyn Error>> {
     let mut client = terraform_client();
     let body = HttpPostWorkspaces {
         workspace_type: "workspace".to_string(),
@@ -153,7 +110,7 @@ fn tf_workspace_new(workspace: &str) -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn tf_workspace_show() -> String {
+fn workspace_show() -> String {
     match fs::read(".terraform/environment") {
         Ok(content) => String::from_utf8_lossy(&content).to_string(),
         Err(e) => {
@@ -163,7 +120,7 @@ fn tf_workspace_show() -> String {
     }
 }
 
-fn tf_workspace_select(workspace: String) {
+fn workspace_select(workspace: String) {
     println!("run: terraform workspace select {}", workspace);
     Command::new("terraform")
         .arg("workspace")
@@ -173,7 +130,7 @@ fn tf_workspace_select(workspace: String) {
         .expect("terraform workspace select failed");
 }
 
-fn tf_init() {
+fn init() {
     println!("run: terraform init");
     Command::new("terraform")
         .arg("init")
@@ -181,15 +138,6 @@ fn tf_init() {
         .expect("terraform init failed");
 }
 
-pub fn current_state_version(workspace_id: &str) -> Result<String, Box<dyn Error>> {
-    let mut client = terraform_client();
-    let current_state_version: Result<HttpWorkspaceCurrentStateVersion, restson::Error> =
-        client.get(workspace_id);
-    match current_state_version {
-        Ok(version) => Ok(version.data.relationships.outputs.data[0].id.to_string()),
-        Err(e) => Err(e.into()),
-    }
-}
 
 fn nix_current_system() -> String {
     let result = Command::new("nix")

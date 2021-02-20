@@ -1,18 +1,9 @@
 use std::{env, path::Path, process::Command, time::Duration};
 
-use clap::ArgMatches;
-
 use super::{
-    bitte_cluster, check_cmd, find_instances, handle_command_error, wait_for_ssh, Instance,
+    bitte_cluster, check_cmd, find_instances, handle_command_error, Instance,
+    ssh::wait_for_ssh
 };
-
-pub async fn cli_rebuild(sub: &ArgMatches) {
-    let only: Vec<String> = sub.values_of_t("only").unwrap_or(vec![]);
-    let delay = Duration::from_secs(sub.value_of_t::<u64>("delay").unwrap_or(0));
-
-    set_ssh_opts(true);
-    copy(only.iter().map(|o| o.as_str()).collect(), delay).await;
-}
 
 pub async fn copy(only: Vec<&str>, delay: Duration) {
     let instances = find_instances(only.clone()).await;
@@ -20,7 +11,7 @@ pub async fn copy(only: Vec<&str>, delay: Duration) {
 
     while let Some(instance) = iter.next() {
         println!("rebuild: {}", instance.name);
-        wait_for_ssh(instance.public_ip.clone()).await;
+        wait_for_ssh(&instance.public_ip).await;
         copy_to(instance, 10);
         if iter.peek().is_some() {
             tokio::time::sleep(delay).await;
@@ -42,7 +33,7 @@ fn copy_to(instance: &Instance, _attempts: u64) {
     ))
     .expect("secrets.generateScript failed, you might need to upgrade bitte");
 
-    let target = &format!("{}#{}", flake, instance.flake_attr);
+    let target = format!("{}#{}", flake, instance.flake_attr);
     let cache = format!(
         "{}&secret-key=secrets/nix-secret-key-file",
         instance.s3_cache
@@ -50,9 +41,9 @@ fn copy_to(instance: &Instance, _attempts: u64) {
     let ip = format!("ssh://root@{}", instance.public_ip);
     let rebuild_flake = format!("{}#{}", flake, instance.uid);
 
-    nix_build(target);
-    nix_copy_to_cache(target, cache);
-    nix_copy_to_machine(target, &ip);
+    nix_build(&target);
+    nix_copy_to_cache(&target, &cache);
+    nix_copy_to_machine(&target, &ip);
     nixos_rebuild(&rebuild_flake, &ip)
 }
 
@@ -71,7 +62,7 @@ fn nix_build(target: &String) {
     check_cmd(Command::new("nix").arg("-L").arg("build").arg(target))
 }
 
-pub fn nix_copy_to_cache(target: &String, cache: String) {
+pub fn nix_copy_to_cache(target: &String, cache: &String) {
     check_cmd(
         Command::new("nix")
             .arg("-L")

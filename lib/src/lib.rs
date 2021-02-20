@@ -1,12 +1,11 @@
-mod certs;
-mod info;
-mod provision;
-mod rebuild;
-mod ssh;
-mod terraform;
-mod types;
+pub mod certs;
+pub mod info;
+pub mod provision;
+pub mod rebuild;
+pub mod ssh;
+pub mod terraform;
+pub mod types;
 
-use clap::ArgMatches;
 use execute::Execute;
 use restson::RestClient;
 use shellexpand::tilde;
@@ -14,48 +13,13 @@ use std::fs::File;
 use std::process::Command;
 use std::{env, error::Error};
 use std::{fmt, path::Path, process::Stdio};
-use std::{io::BufReader, time::Duration};
-use tokio::{net::TcpStream, time::timeout};
+use std::io::BufReader;
 
-use info::{asg_info, cli_info_print, instance_info};
+use info::{asg_info, instance_info};
 use terraform::current_state_version;
 use types::{HttpWorkspace, HttpWorkspaceState, HttpWorkspaceStateValue, TerraformCredentialFile};
 
-pub async fn cli_certs(sub: &ArgMatches) {
-    certs::cli_certs(sub).await
-}
-
-pub async fn cli_provision(sub: &ArgMatches) {
-    provision::cli_provision(sub).await
-}
-
-pub async fn cli_ssh(sub: &ArgMatches) {
-    ssh::cli_ssh(sub).await
-}
-
-pub async fn cli_rebuild(sub: &ArgMatches) {
-    rebuild::cli_rebuild(sub).await
-}
-
-pub async fn cli_info(_sub: &ArgMatches) {
-    let info = fetch_current_state_version("clients")
-        .or_else(|_| fetch_current_state_version("core"))
-        .expect("Coudln't fetch clients or core workspaces");
-    cli_info_print(info).await;
-}
-
-pub async fn cli_tf(sub: &ArgMatches) {
-    let workspace: String = sub.value_of_t_or_exit("workspace");
-
-    match sub.subcommand() {
-        Some(("plan", sub_sub)) => terraform::cli_tf_plan(workspace, sub_sub).await,
-        Some(("apply", sub_sub)) => terraform::cli_tf_apply(workspace, sub_sub).await,
-        Some(("workspaces", sub_sub)) => terraform::cli_tf_workspaces(workspace, sub_sub).await,
-        _ => println!("Unknown command"),
-    }
-}
-
-fn bitte_cluster() -> String {
+pub fn bitte_cluster() -> String {
     env::var("BITTE_CLUSTER").expect("BITTE_CLUSTER environment variable must be set")
 }
 
@@ -102,14 +66,14 @@ impl Error for ExeError {
     }
 }
 
-fn fetch_current_state_version(workspace_name_suffix: &str) -> Result<String, Box<dyn Error>> {
+pub fn fetch_current_state_version(workspace_name_suffix: &str) -> Result<String, Box<dyn Error>> {
     let terraform_organization = terraform_organization();
     let workspace_name = format!("{}_{}", bitte_cluster(), workspace_name_suffix);
     let workspace_id = workspace_id(terraform_organization.as_str(), workspace_name.as_str())?;
     current_state_version(&workspace_id)
 }
 
-fn current_state_version_output(state_id: &str) -> Result<HttpWorkspaceStateValue, Box<dyn Error>> {
+pub fn current_state_version_output(state_id: &str) -> Result<HttpWorkspaceStateValue, Box<dyn Error>> {
     let mut client = terraform_client();
     let current_state_version_output: Result<HttpWorkspaceState, restson::Error> =
         client.get(state_id);
@@ -165,28 +129,6 @@ fn terraform_organization() -> String {
         .expect("TERRAFORM_ORGANIZATION environment variable must be set")
 }
 
-async fn wait_for_ssh(ip: String) {
-    let addr = format!("{}:22", ip);
-
-    for i in 0..120 {
-        let stream = TcpStream::connect(addr.clone());
-        let t = timeout(Duration::from_millis(10000), stream);
-        match t.await {
-            Ok(o) => match o {
-                Ok(_) => {
-                    return;
-                }
-                Err(ee) => {
-                    if i >= 120 {
-                        println!("error while connecting: {}", ee);
-                    }
-                }
-            },
-            Err(e) => println!("Waiting for {} to respond: {}", addr, e),
-        }
-    }
-}
-
 fn check_cmd(cmd: &mut Command) {
     println!("run: {:?}", cmd);
     cmd.status()
@@ -194,12 +136,12 @@ fn check_cmd(cmd: &mut Command) {
 }
 
 #[derive(Clone)]
-struct Instance {
-    public_ip: String,
-    name: String,
-    uid: String,
-    flake_attr: String,
-    s3_cache: String,
+pub struct Instance {
+    pub public_ip: String,
+    pub name: String,
+    pub uid: String,
+    pub flake_attr: String,
+    pub s3_cache: String,
 }
 
 impl Instance {
@@ -220,7 +162,7 @@ impl Instance {
     }
 }
 
-async fn find_instance(needle: &str) -> Option<Instance> {
+pub async fn find_instance(needle: &str) -> Option<Instance> {
     match find_instances(vec![needle]).await.first() {
         Some(instance) => Some(instance.clone()),
         None => None,

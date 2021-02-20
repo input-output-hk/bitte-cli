@@ -1,66 +1,6 @@
-use prettytable::{cell, row, Table};
 use rusoto_autoscaling::{AutoScalingGroupNamesType, Autoscaling, AutoscalingClient};
 use rusoto_ec2::{DescribeInstancesRequest, Ec2, Ec2Client};
 use std::str::FromStr;
-
-use super::current_state_version_output;
-
-pub async fn cli_info_print(current_state_version: String) {
-    let output = current_state_version_output(&current_state_version).unwrap();
-
-    let mut instance_table = Table::new();
-    instance_table.add_row(row!["Name", "Type", "FlakeAttr", "Private IP", "Public IP"]);
-
-    for (key, val) in output.instances.iter() {
-        instance_table.add_row(row![
-            key,
-            val.instance_type,
-            val.flake_attr,
-            val.private_ip,
-            val.public_ip,
-        ]);
-    }
-
-    instance_table.printstd();
-
-    if let Some(asgs) = output.asgs {
-        let mut asg_table = Table::new();
-
-        asg_table.add_row(row![
-            "Id",
-            "Type",
-            "AZ",
-            "State",
-            "Status",
-            "Protected",
-            "PrivateIp",
-            "PublicIp"
-        ]);
-
-        for (_key, val) in asgs.iter() {
-            let info = asg_info(val.arn.as_str(), val.region.as_str()).await;
-            for asgi in info {
-                // TODO: rewrite to take all required instance ids as argument to save time
-                let ii = instance_info(asgi.instance_id.as_str(), val.region.as_str()).await;
-                let iii = ii[0].clone();
-
-                asg_table.add_row(row![
-                    asgi.instance_id,
-                    asgi.instance_type.unwrap_or("".to_string()),
-                    asgi.availability_zone,
-                    asgi.lifecycle_state,
-                    asgi.health_status,
-                    asgi.protected_from_scale_in,
-                    iii.public_ip_address.unwrap_or("".to_string()),
-                    iii.private_ip_address.unwrap_or("".to_string()),
-                ]);
-                // asg_table.add_row(row![key, val.instance_type, val.flake_attr, val.count,]);
-            }
-        }
-
-        asg_table.printstd();
-    };
-}
 
 pub async fn asg_info(tf_arn: &str, region_name: &str) -> Vec<rusoto_autoscaling::Instance> {
     let region = rusoto_core::Region::from_str(region_name).expect("Region not found");
