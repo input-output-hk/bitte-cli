@@ -33,7 +33,7 @@
           final.rust-nix.buildPackage {
             # Without this we end up with a drv called `rust-workspace-unknown`
             # which makes `nix run` try to execute a bin with that name.
-            inherit ((fromTOML (readFile ./rust/Cargo.toml)).package)
+            inherit ((fromTOML (readFile ./cli/Cargo.toml)).package)
               name version;
             root = self;
             buildInputs = with final; [ pkg-config openssl ];
