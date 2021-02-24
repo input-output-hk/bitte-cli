@@ -1,6 +1,5 @@
 pub mod certs;
 pub mod info;
-pub mod provision;
 pub mod rebuild;
 pub mod ssh;
 pub mod terraform;
