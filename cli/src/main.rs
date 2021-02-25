@@ -1,9 +1,10 @@
 mod cli;
 
 use clap::clap_app;
+use anyhow::{Result, bail};
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     pretty_env_logger::init();
     let matches = clap_app!(bitte =>
       (version: "0.0.1")
@@ -48,6 +49,7 @@ async fn main() {
         Some(("terraform", sub)) => cli::terraform(sub).await,
         Some(("provision", sub)) => cli::provision(sub).await,
         Some(("certs", sub)) => cli::certs(sub).await,
-        _ => println!("Unknown command"),
-    };
+        _ => bail!("Unknown command"),
+    }?;
+    Ok(())
 }

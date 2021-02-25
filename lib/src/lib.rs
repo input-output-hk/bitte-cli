@@ -6,20 +6,16 @@ pub mod terraform;
 pub mod types;
 
 use execute::Execute;
-use restson::RestClient;
-use shellexpand::tilde;
-use std::fs::File;
 use std::process::Command;
-use std::{env, error::Error};
-use std::{fmt, path::Path, process::Stdio};
-use std::io::BufReader;
+use std::env;
+use std::{fmt, process::Stdio};
+use anyhow::{Result, Context};
 
 use info::{asg_info, instance_info};
-use terraform::current_state_version;
-use types::{HttpWorkspace, HttpWorkspaceState, HttpWorkspaceStateValue, TerraformCredentialFile};
 
-pub fn bitte_cluster() -> String {
-    env::var("BITTE_CLUSTER").expect("BITTE_CLUSTER environment variable must be set")
+pub fn bitte_cluster() -> Result<String> {
+    Ok(env::var("BITTE_CLUSTER")
+    .context("BITTE_CLUSTER environment variable must be set")?)
 }
 
 fn handle_command_error(mut command: std::process::Command) -> Result<String, ExeError> {
@@ -59,73 +55,10 @@ impl fmt::Display for ExeError {
     }
 }
 
-impl Error for ExeError {
+impl std::error::Error for ExeError {
     fn description(&self) -> &str {
         &self.details
     }
-}
-
-pub fn fetch_current_state_version(workspace_name_suffix: &str) -> Result<String, Box<dyn Error>> {
-    let terraform_organization = terraform_organization();
-    let workspace_name = format!("{}_{}", bitte_cluster(), workspace_name_suffix);
-    let workspace_id = workspace_id(terraform_organization.as_str(), workspace_name.as_str())?;
-    current_state_version(&workspace_id)
-}
-
-pub fn current_state_version_output(state_id: &str) -> Result<HttpWorkspaceStateValue, Box<dyn Error>> {
-    let mut client = terraform_client();
-    let current_state_version_output: Result<HttpWorkspaceState, restson::Error> =
-        client.get(state_id);
-    match current_state_version_output {
-        Ok(output) => Ok(output.data.attributes.value),
-        Err(e) => Err(e.into()),
-    }
-}
-
-fn workspace_id(organization: &str, workspace: &str) -> Result<String, Box<dyn Error>> {
-    let mut client = terraform_client();
-    let params = (organization, workspace);
-    let workspace: Result<HttpWorkspace, restson::Error> = client.get(params);
-    match workspace {
-        Ok(workspace) => Ok(workspace.data.id),
-        Err(e) => Err(e.into()),
-    }
-}
-
-fn terraform_client() -> RestClient {
-    let mut client =
-        RestClient::new("https://app.terraform.io").expect("Couldn't create RestClient");
-    let token =
-        terraform_token().expect("Make sure you are logged into terraform: run `terraform login`");
-    client
-        .set_header("Authorization", format!("Bearer {}", token).as_str())
-        .expect("Coudln't set Authorization header");
-    client
-        .set_header("Content-Type", "application/vnd.api+json")
-        .expect("Couldn't set Content-Type header");
-    client
-}
-
-fn terraform_token() -> Result<String, Box<dyn Error>> {
-    let creds = parse_terraform_credentials();
-    let c = &creds.credentials["app.terraform.io"];
-    let token = &c.token;
-    Ok(token.to_string())
-}
-
-fn parse_terraform_credentials() -> TerraformCredentialFile {
-    let exp = &tilde("~/.terraform.d/credentials.tfrc.json").to_string();
-    let path = Path::new(exp);
-    let file = File::open(path).expect(format!("Couldn't read {}", exp).as_str());
-    let reader = BufReader::new(file);
-    let creds: TerraformCredentialFile =
-        serde_json::from_reader(reader).expect(format!("Couldn't parse {}", exp).as_str());
-    creds
-}
-
-fn terraform_organization() -> String {
-    env::var("TERRAFORM_ORGANIZATION")
-        .expect("TERRAFORM_ORGANIZATION environment variable must be set")
 }
 
 fn check_cmd(cmd: &mut Command) {
@@ -169,11 +102,11 @@ pub async fn find_instance(needle: &str) -> Option<Instance> {
 }
 
 async fn find_instances(patterns: Vec<&str>) -> Vec<Instance> {
-    let current_state_version = fetch_current_state_version("clients")
-        .or_else(|_| fetch_current_state_version("core"))
+    let current_state_version = terraform::fetch_current_state_version("clients")
+        .or_else(|_| terraform::fetch_current_state_version("core"))
         .expect("Coudln't fetch clients or core workspaces");
 
-    let output = current_state_version_output(&current_state_version)
+    let output = terraform::current_state_version_output(&current_state_version)
         .expect("Problem loading state version from terraform");
 
     let mut results = Vec::new();

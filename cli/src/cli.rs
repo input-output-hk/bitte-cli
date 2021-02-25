@@ -1,11 +1,12 @@
 use bitte_lib::*;
+use anyhow::{Context, Result, anyhow};
 use std::{time::Duration, env, path::Path, process::Command};
 use clap::ArgMatches;
 use prettytable::{Table, row, cell};
 use log::*;
 
-pub(crate) async fn certs(sub: &ArgMatches) {
-    let domain: String = sub.value_of_t_or_exit("domain");
+pub(crate) async fn certs(sub: &ArgMatches) -> Result<()> {
+    let domain = sub.value_of_t_or_exit("domain");
     env::set_var("VAULT_ADDR", format!("https://vault.{}", domain));
     env::set_var("VAULT_CACERT", "secrets/ca.pem");
     env::set_var("VAULT_FORMAT", "json");
@@ -14,9 +15,10 @@ pub(crate) async fn certs(sub: &ArgMatches) {
     certs::vault_login();
     certs::write_issuing_ca(&domain);
     certs::sign_intermediate();
+    Ok(())
 }
 
-pub(crate) async fn provision(sub: &ArgMatches) {
+pub(crate) async fn provision(sub: &ArgMatches) -> Result<()> {
     // Why can the compiler infer these...
     let ip = sub.value_of_t_or_exit("ip");
     let cluster = sub.value_of_t_or_exit("cluster");
@@ -25,7 +27,7 @@ pub(crate) async fn provision(sub: &ArgMatches) {
     let attr: String =  sub.value_of_t_or_exit("attr");
     let cache: String = sub.value_of_t_or_exit("cache");
 
-    rebuild::set_ssh_opts(false);
+    rebuild::set_ssh_opts(false)?;
     ssh::wait_for_ssh(&ip).await;
     ssh::wait_for_ready(&cluster, &ip);
     ssh::ssh_keygen(&ip);
@@ -39,9 +41,10 @@ pub(crate) async fn provision(sub: &ArgMatches) {
     rebuild::nix_copy_to_cache(&toplevel, &cache);
     rebuild::nix_copy_to_machine(&toplevel, &ip);
     rebuild::nixos_rebuild(&flake, &ip);
+    Ok(())
 }
 
-pub(crate) async fn ssh(sub: &ArgMatches) {
+pub(crate) async fn ssh(sub: &ArgMatches) -> Result<()> {
     let needle: String = sub.value_of_t_or_exit("host");
     let mut args = sub.values_of_lossy("args").unwrap_or(vec![]);
 
@@ -51,7 +54,7 @@ pub(crate) async fn ssh(sub: &ArgMatches) {
     let user_host = format!("root@{}", ip);
     let mut flags = vec!["-x".to_string(), "-p".into(), "22".into()];
 
-    let ssh_key_path = format!("secrets/ssh-{}", bitte_cluster());
+    let ssh_key_path = format!("secrets/ssh-{}", bitte_cluster()?);
     let ssh_key = Path::new(&ssh_key_path);
     if ssh_key.is_file() {
         flags.push("-i".to_string());
@@ -71,34 +74,38 @@ pub(crate) async fn ssh(sub: &ArgMatches) {
     println!("cmd: {:?}", cmd_with_args);
 
     cmd.spawn()
-        .expect("ssh command failed")
+        .context("ssh command failed")?
         .wait()
-        .expect("ssh command didn't finish?");
+        .context("ssh command didn't finish?")?;
+    Ok(())
+        
 }
 
-pub(crate) async fn rebuild(sub: &ArgMatches) {
+pub(crate) async fn rebuild(sub: &ArgMatches) -> Result<()> {
     let only: Vec<String> = sub.values_of_t("only").unwrap_or(vec![]);
     let delay = Duration::from_secs(sub.value_of_t::<u64>("delay").unwrap_or(0));
 
-    rebuild::set_ssh_opts(true);
+    rebuild::set_ssh_opts(true)?;
     rebuild::copy(only.iter().map(|o| o.as_str()).collect(), delay).await;
+    Ok(())
 }
 
-pub(crate) async fn info(_sub: &ArgMatches) {
-    let info = fetch_current_state_version("clients")
-        .or_else(|_| fetch_current_state_version("core"))
-        .expect("Coudln't fetch clients or core workspaces");
-    info_print(info).await;
+pub(crate) async fn info(_sub: &ArgMatches) -> Result<()> {
+    let info = terraform::fetch_current_state_version("clients")
+        .or_else(|_| terraform::fetch_current_state_version("core")
+                        .context("Coudln't fetch clients or core workspaces"))?;
+    info_print(info).await?;
+    Ok(())
 }
 
-pub(crate) async fn terraform(sub: &ArgMatches) {
+pub(crate) async fn terraform(sub: &ArgMatches) -> Result<()> {
     let workspace: String = sub.value_of_t_or_exit("workspace");
 
     match sub.subcommand() {
         Some(("plan", sub_sub)) => terraform_plan(workspace, sub_sub).await,
         Some(("apply", sub_sub)) => terraform_apply(workspace, sub_sub).await,
         Some(("workspaces", sub_sub)) => terraform_workspaces(workspace, sub_sub).await,
-        _ => println!("Unknown command"),
+        _ => Err(anyhow!("Unknown command")),
     }
 }
 
@@ -114,46 +121,53 @@ pub(crate) async fn terraform(sub: &ArgMatches) {
 /// ```
 /// terraform_plan("network", arg_matches);
 /// ```
-pub async fn terraform_plan(workspace: String, sub: &ArgMatches) {
+pub async fn terraform_plan(workspace: String, sub: &ArgMatches) -> Result<()> {
     let destroy: bool = sub.is_present("destroy");
     let plan_file = format!("{}.plan", workspace);
 
     info!("Plan file: {:?}", plan_file);
 
-    terraform::prepare(workspace);
+    terraform::prepare(workspace)?;
 
     let mut cmd = Command::new("terraform");
-    let mut full = cmd.arg("plan").arg("-out").arg(plan_file);
+    let mut full = cmd
+        .arg("plan")
+        .arg("-out")
+        .arg(plan_file);
     if destroy {
         full = full.arg("-destroy");
     }
 
     info!("run: {:?}", full);
     full.status()
-        .expect(format!("failed to run: {:?}", full).as_str());
+        .with_context(|| format!("failed to run: {:?}", full))?;
+    Ok(())
 }
 
-pub async fn terraform_apply(workspace: String, _sub: &ArgMatches) {
+pub async fn terraform_apply(workspace: String, _sub: &ArgMatches) -> Result<()> {
     let plan_file = format!("{}.plan", workspace);
     info!("Plan file: {:?}", plan_file);
 
-    terraform::prepare(workspace);
+    terraform::prepare(workspace)?;
 
     let mut cmd = Command::new("terraform");
     let full = cmd.arg("apply").arg(plan_file);
 
     debug!("run: {:?}", full);
     full.status()
-        .expect(format!("failed to run: {:?}", full).as_str());
+        .with_context(|| format!("failed to run: {:?}", full))?;
+    Ok(())
 }
 
-pub async fn terraform_workspaces(_workspace: String, _sub: &ArgMatches) {
+pub async fn terraform_workspaces(_workspace: String, _sub: &ArgMatches) -> Result<()> {
     let list = terraform::workspace_list();
-    println!("{:?}", list)
+    println!("{:?}", list);
+    Ok(())
 }
 
-async fn info_print(current_state_version: String) {
-    let output = current_state_version_output(&current_state_version).unwrap();
+async fn info_print(current_state_version: String) -> Result<()> {
+    let output = terraform::current_state_version_output(&current_state_version)
+    .with_context(|| format!("Could not retrieve context for {:?}", current_state_version))?;
 
     let mut instance_table = Table::new();
     instance_table.add_row(row!["Name", "Type", "FlakeAttr", "Private IP", "Public IP"]);
@@ -207,4 +221,5 @@ async fn info_print(current_state_version: String) {
 
         asg_table.printstd();
     };
+    Ok(())
 }

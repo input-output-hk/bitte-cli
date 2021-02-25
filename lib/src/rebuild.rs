@@ -1,4 +1,6 @@
 use std::{env, path::Path, process::Command, time::Duration};
+use log::info;
+use anyhow::Result;
 
 use super::{
     bitte_cluster, check_cmd, find_instances, handle_command_error, Instance,
@@ -10,7 +12,7 @@ pub async fn copy(only: Vec<&str>, delay: Duration) {
     let mut iter = instances.iter().peekable();
 
     while let Some(instance) = iter.next() {
-        println!("rebuild: {}", instance.name);
+        info!("rebuild: {}", instance.name);
         wait_for_ssh(&instance.public_ip).await;
         copy_to(instance, 10);
         if iter.peek().is_some() {
@@ -85,9 +87,9 @@ pub fn nix_copy_to_machine(target: &String, ssh: &String) {
     );
 }
 
-pub fn set_ssh_opts(key_checking: bool) {
+pub fn set_ssh_opts(key_checking: bool) -> Result<()> {
     if env::var("NIX_SSHOPTS").is_ok() {
-        return;
+        return Ok(());
     }
 
     let check = if key_checking { "accept-new" } else { "none" };
@@ -105,7 +107,7 @@ pub fn set_ssh_opts(key_checking: bool) {
         &check_flag,
     ];
 
-    let ssh_key_path = format!("secrets/ssh-{}", bitte_cluster());
+    let ssh_key_path = format!("secrets/ssh-{}", bitte_cluster()?);
     let ssh_key = Path::new(&ssh_key_path);
     if ssh_key.is_file() {
         args.push("-i");
@@ -113,4 +115,5 @@ pub fn set_ssh_opts(key_checking: bool) {
     }
 
     env::set_var("NIX_SSHOPTS", args.join(" "));
+    Ok(())
 }
