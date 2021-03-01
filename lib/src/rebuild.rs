@@ -1,27 +1,28 @@
-use std::{env, path::Path, process::Command, time::Duration};
+use anyhow::{Result, Context};
 use log::info;
-use anyhow::Result;
+use std::{env, path::Path, process::Command, time::Duration};
 
 use super::{
-    bitte_cluster, check_cmd, find_instances, handle_command_error, Instance,
-    ssh::wait_for_ssh
+    bitte_cluster, check_cmd, find_instances, handle_command_error, ssh::wait_for_ssh, Instance,
 };
 
-pub async fn copy(only: Vec<&str>, delay: Duration) {
+pub async fn copy(only: Vec<&str>, delay: Duration) -> Result<()> {
     let instances = find_instances(only.clone()).await;
     let mut iter = instances.iter().peekable();
 
     while let Some(instance) = iter.next() {
         info!("rebuild: {}", instance.name);
         wait_for_ssh(&instance.public_ip).await;
-        copy_to(instance, 10);
+        copy_to(instance, 10)?;
         if iter.peek().is_some() {
             tokio::time::sleep(delay).await;
         }
     }
+
+    Ok(())
 }
 
-fn copy_to(instance: &Instance, _attempts: u64) {
+fn copy_to(instance: &Instance, _attempts: u64) -> Result<()> {
     env::set_var("IP", instance.public_ip.clone());
     let flake = ".";
 
@@ -33,23 +34,23 @@ fn copy_to(instance: &Instance, _attempts: u64) {
             flake, instance.uid
         )
     ))
-    .expect("secrets.generateScript failed, you might need to upgrade bitte");
+    .context("secrets.generateScript failed, you might need to upgrade bitte")?;
 
     let target = format!("{}#{}", flake, instance.flake_attr);
     let cache = format!(
         "{}&secret-key=secrets/nix-secret-key-file",
         instance.s3_cache
     );
-    let ip = format!("ssh://root@{}", instance.public_ip);
-    let rebuild_flake = format!("{}#{}", flake, instance.uid);
+    let ip: String = format!("ssh://root@{}", instance.public_ip);
+    let rebuild_flake: String = format!("{}#{}", flake, instance.uid);
 
-    nix_build(&target);
-    nix_copy_to_cache(&target, &cache);
-    nix_copy_to_machine(&target, &ip);
+    nix_build(&target)?;
+    nix_copy_to_cache(&target, &cache)?;
+    nix_copy_to_machine(&target, &ip)?;
     nixos_rebuild(&rebuild_flake, &ip)
 }
 
-pub fn nixos_rebuild(target: &String, ip: &String) {
+pub fn nixos_rebuild(target: &str, ip: &str) -> Result<()> {
     check_cmd(
         Command::new("nixos-rebuild")
             .arg("switch")
@@ -57,14 +58,16 @@ pub fn nixos_rebuild(target: &String, ip: &String) {
             .arg(ip)
             .arg("--flake")
             .arg(target),
-    );
+    )?;
+    Ok(())
 }
 
-fn nix_build(target: &String) {
-    check_cmd(Command::new("nix").arg("-L").arg("build").arg(target))
+fn nix_build(target: &str) -> Result<()> {
+    check_cmd(Command::new("nix").arg("-L").arg("build").arg(target))?;
+    Ok(())
 }
 
-pub fn nix_copy_to_cache(target: &String, cache: &String) {
+pub fn nix_copy_to_cache(target: &str, cache: &str) -> Result<()> {
     check_cmd(
         Command::new("nix")
             .arg("-L")
@@ -72,10 +75,11 @@ pub fn nix_copy_to_cache(target: &String, cache: &String) {
             .arg("--to")
             .arg(cache)
             .arg(target),
-    );
+    )?;
+    Ok(())
 }
 
-pub fn nix_copy_to_machine(target: &String, ssh: &String) {
+pub fn nix_copy_to_machine(target: &str, ssh: &str) -> Result<()> {
     check_cmd(
         Command::new("nix")
             .arg("-L")
@@ -84,7 +88,8 @@ pub fn nix_copy_to_machine(target: &String, ssh: &String) {
             .arg("--to")
             .arg(ssh)
             .arg(target),
-    );
+    )?;
+    Ok(())
 }
 
 pub fn set_ssh_opts(key_checking: bool) -> Result<()> {

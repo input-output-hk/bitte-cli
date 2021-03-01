@@ -1,10 +1,11 @@
 use std::{fs, process::Command};
+use anyhow::Result;
 
 use serde::Deserialize;
 
 use super::check_cmd;
 
-pub fn sign_intermediate() {
+pub fn sign_intermediate() -> Result<()> {
     let ca_pem_orig = fs::read_to_string("secrets/ca.pem").expect("Couldn't read ca.pem");
     let ca_pem = ca_pem_orig.trim();
     let cert_pem_orig = fs::read_to_string("secrets/cert.pem").expect("Couldn't read cert.pem");
@@ -40,7 +41,7 @@ pub fn sign_intermediate() {
         "write",
         "pki/intermediate/set-signed",
         "certificate=@secrets/issuing_full.pem",
-    ]));
+    ]))?;
 
     let full = vec![cert_pem, issuing_pem, ca_pem].join("\n");
     fs::write("secrets/full.pem", &full).expect("Couldn't write full.pem");
@@ -53,7 +54,8 @@ pub fn sign_intermediate() {
                 serde_json::to_string(&full).expect("Couldn't generate JSON for full.pem")
             ))
             .arg("encrypted/cert.json"),
-    )
+    )?;
+    Ok(())
 }
 
 fn ca_config_file() -> String {
@@ -81,14 +83,14 @@ fn ca_config_file() -> String {
     location.to_string()
 }
 
-pub fn write_issuing_ca(domain: &String) {
+pub fn write_issuing_ca(domain: &str) {
     let issuing_ca = vault_issuing_ca(&domain);
-    let csr_container: CSR = serde_json::from_str(&issuing_ca).expect("Couldn't parse issuing CA");
+    let csr_container: Csr = serde_json::from_str(&issuing_ca).expect("Couldn't parse issuing CA");
     fs::write("secrets/issuing-ca.csr", csr_container.data.csr)
         .expect("Couldn't write issuing-ca.csr");
 }
 
-fn vault_issuing_ca(domain: &String) -> String {
+fn vault_issuing_ca(domain: &str) -> String {
     cmd_output(Command::new("vault").args(&[
         "write",
         "pki/intermediate/generate/internal",
@@ -96,8 +98,10 @@ fn vault_issuing_ca(domain: &String) -> String {
     ]))
 }
 
-pub fn vault_login() {
-    check_cmd(Command::new("vault").args(&["login", "-method", "aws", "-no-print"]));
+pub fn vault_login() -> Result<()> {
+    check_cmd(Command::new("vault")
+    .args(&["login", "-method", "aws", "-no-print"]))?;
+    Ok(())
 }
 
 fn cmd_output(cmd: &mut Command) -> String {
@@ -108,12 +112,12 @@ fn cmd_output(cmd: &mut Command) -> String {
 }
 
 #[derive(Deserialize)]
-struct CSR {
-    data: CSRValue,
+struct Csr {
+    data: CsrValue,
 }
 
 #[derive(Deserialize)]
-struct CSRValue {
+struct CsrValue {
     csr: String,
 }
 

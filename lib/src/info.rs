@@ -13,7 +13,7 @@ pub async fn asg_info(tf_arn: &str, region_name: &str) -> Vec<rusoto_autoscaling
     let iter = response.auto_scaling_groups.into_iter();
     let matching = iter.filter(|asg| Some(tf_arn.to_string()) == asg.auto_scaling_group_arn);
     matching
-        .flat_map(|asg| asg.instances.unwrap_or_else(|| vec![]))
+        .flat_map(|asg| asg.instances.unwrap_or_default())
         .collect()
 }
 
@@ -37,7 +37,7 @@ pub async fn instance_info(instance_id: &str, region_name: &str) -> Vec<rusoto_e
     iter.flat_map(|reservations| {
         reservations
             .into_iter()
-            .flat_map(|reservation| reservation.instances.unwrap_or_else(|| vec![]))
+            .flat_map(|reservation| reservation.instances.unwrap_or_default())
     })
     .collect()
 }

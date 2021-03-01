@@ -1,14 +1,16 @@
+use anyhow::Result;
 use std::{path::Path, process::Command};
 use tokio::{net::TcpStream, time::timeout};
 use std::time::Duration;
 
 use super::check_cmd;
 
-pub fn ssh_keygen(ip: &String) {
-    check_cmd(Command::new("ssh-keygen").arg("-R").arg(ip));
+pub fn ssh_keygen(ip: &str) -> Result<()> {
+    check_cmd(Command::new("ssh-keygen").arg("-R").arg(ip))?;
+    Ok(())
 }
 
-pub fn wait_for_ready(cluster: &String, ip: &String) {
+pub fn wait_for_ready(cluster: &str, ip: &str) -> Result<()> {
     let target = format!("root@#{}", ip);
 
     let mut ssh_args = vec![
@@ -32,10 +34,11 @@ pub fn wait_for_ready(cluster: &String, ip: &String) {
 
     ssh_args.push(&target);
     ssh_args.push("until grep true /etc/ready &>/dev/null; do sleep 1; done");
-    check_cmd(Command::new("ssh").args(ssh_args))
+    check_cmd(Command::new("ssh").args(ssh_args))?;
+    Ok(())
 }
 
-pub async fn wait_for_ssh(ip: &String) {
+pub async fn wait_for_ssh(ip: &str) {
     let addr = format!("{}:22", ip);
 
     for i in 0..120 {

@@ -6,31 +6,29 @@ use prettytable::{Table, row, cell};
 use log::*;
 
 pub(crate) async fn certs(sub: &ArgMatches) -> Result<()> {
-    let domain = sub.value_of_t_or_exit("domain");
+    let domain: String = sub.value_of_t_or_exit("domain");
     env::set_var("VAULT_ADDR", format!("https://vault.{}", domain));
     env::set_var("VAULT_CACERT", "secrets/ca.pem");
     env::set_var("VAULT_FORMAT", "json");
     env::set_var("VAULT_SKIP_VERIFY", "true");
 
-    certs::vault_login();
+    certs::vault_login()?;
     certs::write_issuing_ca(&domain);
-    certs::sign_intermediate();
+    certs::sign_intermediate()?;
     Ok(())
 }
 
 pub(crate) async fn provision(sub: &ArgMatches) -> Result<()> {
-    // Why can the compiler infer these...
-    let ip = sub.value_of_t_or_exit("ip");
-    let cluster = sub.value_of_t_or_exit("cluster");
-    // ...but not these?
+    let ip: String = sub.value_of_t("ip")?;
+    let cluster: String = sub.value_of_t("cluster")?;
     let flake: String = sub.value_of_t_or_exit("flake");
     let attr: String =  sub.value_of_t_or_exit("attr");
     let cache: String = sub.value_of_t_or_exit("cache");
 
     rebuild::set_ssh_opts(false)?;
     ssh::wait_for_ssh(&ip).await;
-    ssh::wait_for_ready(&cluster, &ip);
-    ssh::ssh_keygen(&ip);
+    ssh::wait_for_ready(&cluster, &ip)?;
+    ssh::ssh_keygen(&ip)?;
 
     let toplevel = format!(
         "{}#nixosConfigurations.{}.config.system.build.toplevel",
@@ -38,19 +36,19 @@ pub(crate) async fn provision(sub: &ArgMatches) -> Result<()> {
     );
     let cache = format!("{}&secret-key=secrets/nix-secret-key-file", &cache);
     let flake = format!("{}#{}", &flake, &attr);
-    rebuild::nix_copy_to_cache(&toplevel, &cache);
-    rebuild::nix_copy_to_machine(&toplevel, &ip);
-    rebuild::nixos_rebuild(&flake, &ip);
+    rebuild::nix_copy_to_cache(&toplevel, &cache)?;
+    rebuild::nix_copy_to_machine(&toplevel, &ip)?;
+    rebuild::nixos_rebuild(&flake, &ip)?;
     Ok(())
 }
 
 pub(crate) async fn ssh(sub: &ArgMatches) -> Result<()> {
-    let needle: String = sub.value_of_t_or_exit("host");
-    let mut args = sub.values_of_lossy("args").unwrap_or(vec![]);
+    let needle: String = sub.value_of_t("host")?;
+    let mut args = sub.values_of_lossy("args").unwrap_or_default();
 
     let ip = find_instance(needle.as_str())
         .await
-        .map_or_else(|| needle.clone(), |i| i.public_ip.clone());
+        .map_or_else(|| needle.clone(), |i| i.public_ip);
     let user_host = format!("root@{}", ip);
     let mut flags = vec!["-x".to_string(), "-p".into(), "22".into()];
 
@@ -61,10 +59,10 @@ pub(crate) async fn ssh(sub: &ArgMatches) -> Result<()> {
         flags.push(ssh_key_path.to_string());
     }
 
-    flags.push(user_host.to_string());
+    flags.push(user_host);
     flags.append(args.as_mut());
 
-    if args.len() > 0 {
+    if !args.is_empty() {
         flags.append(&mut vec!["-t".to_string()]);
     }
     let ssh_args = flags.into_iter();
@@ -82,11 +80,11 @@ pub(crate) async fn ssh(sub: &ArgMatches) -> Result<()> {
 }
 
 pub(crate) async fn rebuild(sub: &ArgMatches) -> Result<()> {
-    let only: Vec<String> = sub.values_of_t("only").unwrap_or(vec![]);
+    let only: Vec<String> = sub.values_of_t("only").unwrap_or_default();
     let delay = Duration::from_secs(sub.value_of_t::<u64>("delay").unwrap_or(0));
 
     rebuild::set_ssh_opts(true)?;
-    rebuild::copy(only.iter().map(|o| o.as_str()).collect(), delay).await;
+    rebuild::copy(only.iter().map(|o| o.as_str()).collect(), delay).await?;
     Ok(())
 }
 
@@ -207,13 +205,13 @@ async fn info_print(current_state_version: String) -> Result<()> {
 
                 asg_table.add_row(row![
                     asgi.instance_id,
-                    asgi.instance_type.unwrap_or("".to_string()),
+                    asgi.instance_type.unwrap_or_default(),
                     asgi.availability_zone,
                     asgi.lifecycle_state,
                     asgi.health_status,
                     asgi.protected_from_scale_in,
-                    iii.public_ip_address.unwrap_or("".to_string()),
-                    iii.private_ip_address.unwrap_or("".to_string()),
+                    iii.public_ip_address.unwrap_or_default(),
+                    iii.private_ip_address.unwrap_or_default(),
                 ]);
                 // asg_table.add_row(row![key, val.instance_type, val.flake_attr, val.count,]);
             }

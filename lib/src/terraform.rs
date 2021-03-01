@@ -64,7 +64,7 @@ pub fn current_state_version(workspace_id: &str) -> Result<String> {
     }
 }
 
-fn generate_terraform_config(workspace: &String) -> Result<()> {
+fn generate_terraform_config(workspace: &str) -> Result<()> {
     let cluster = bitte_cluster()?;
     Command::new("nix")
         .arg("-L")
@@ -192,22 +192,24 @@ fn terraform_client() -> Result<RestClient> {
 
 fn terraform_token() -> Result<String> {
     let creds = parse_terraform_credentials();
-    let c = &creds.credentials["app.terraform.io"];
+    let c = &creds?.credentials["app.terraform.io"];
     let token = &c.token;
     Ok(token.to_string())
 }
 
-fn parse_terraform_credentials() -> TerraformCredentialFile {
+fn parse_terraform_credentials() -> Result<TerraformCredentialFile> {
     let exp = &tilde("~/.terraform.d/credentials.tfrc.json").to_string();
     let path = Path::new(exp);
-    let file = File::open(path).expect(format!("Couldn't read {}", exp).as_str());
+    let file = File::open(path).context(format!("Couldn't read {}", exp))?;
     let reader = BufReader::new(file);
     let creds: TerraformCredentialFile =
-        serde_json::from_reader(reader).expect(format!("Couldn't parse {}", exp).as_str());
-    creds
+        serde_json::from_reader(reader)
+        .context(format!("Couldn't parse {}", exp))?;
+    Ok(creds)
 }
 
 fn terraform_organization() -> Result<String> {
-    Ok(env::var("TERRAFORM_ORGANIZATION")
-        .context("TERRAFORM_ORGANIZATION environment variable must be set")?)
+    let org = env::var("TERRAFORM_ORGANIZATION")
+        .context("TERRAFORM_ORGANIZATION environment variable must be set")?;
+    Ok(org)
 }

@@ -4,18 +4,21 @@ pub mod rebuild;
 pub mod ssh;
 pub mod terraform;
 pub mod types;
+pub mod macros;
 
+use anyhow::{Context, Result};
 use execute::Execute;
-use std::process::Command;
 use std::env;
+use std::process::Command;
 use std::{fmt, process::Stdio};
-use anyhow::{Result, Context};
 
 use info::{asg_info, instance_info};
 
 pub fn bitte_cluster() -> Result<String> {
-    Ok(env::var("BITTE_CLUSTER")
-    .context("BITTE_CLUSTER environment variable must be set")?)
+    let cluster = 
+    env::var("BITTE_CLUSTER")
+    .context("BITTE_CLUSTER environment variable must be set")?;
+    Ok(cluster)
 }
 
 fn handle_command_error(mut command: std::process::Command) -> Result<String, ExeError> {
@@ -61,10 +64,12 @@ impl std::error::Error for ExeError {
     }
 }
 
-fn check_cmd(cmd: &mut Command) {
+fn check_cmd(cmd: &mut Command) -> Result<()> {
     println!("run: {:?}", cmd);
     cmd.status()
-        .expect(format!("failed to run: {:?}", cmd).as_str());
+        .context(format!("failed to run: {:?}", cmd))?;
+
+    Ok(())
 }
 
 #[derive(Clone)]
@@ -112,14 +117,16 @@ async fn find_instances(patterns: Vec<&str>) -> Vec<Instance> {
     let mut results = Vec::new();
 
     for instance in output.instances.values().into_iter() {
-        if patterns.iter().any(|pattern| {
+        let matched = patterns.iter().any(|pattern| {
             [
                 instance.private_ip.as_str(),
                 instance.public_ip.as_str(),
                 instance.name.as_str(),
             ]
             .contains(pattern)
-        }) {
+        });
+
+        if matched {
             results.push(Instance::new(
                 instance.public_ip.to_string(),
                 instance.name.to_string(),
@@ -137,7 +144,7 @@ async fn find_instances(patterns: Vec<&str>) -> Vec<Instance> {
                 let instance_infos =
                     instance_info(asg_info.instance_id.as_str(), asg.region.as_str()).await;
                 for instance_info in instance_infos {
-                    if patterns.iter().any(|pattern| {
+                    let matched = patterns.iter().any(|pattern| {
                         [
                             instance_info.instance_id.as_ref(),
                             instance_info.public_dns_name.as_ref(),
@@ -149,7 +156,8 @@ async fn find_instances(patterns: Vec<&str>) -> Vec<Instance> {
                         .map(|x| x.map_or_else(|| "", |y| y.as_str()))
                         .collect::<String>()
                         .contains(pattern)
-                    }) {
+                    });
+                    if matched {
                         if let Some(ip) = instance_info.public_ip_address {
                             results.push(Instance::new(
                                 ip,
