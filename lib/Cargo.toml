@@ -21,7 +21,7 @@ log = "0.4.14"
 pretty_env_logger = "0.4.0"
 anyhow = "1.0.38"
 base64 = "0.13.0"
-flate2 = { version = "1.0.17", features = ["zlib-ng-compat"], default-features = false }
+flate2 = { version = "1.0.17", features = ["zlib"], default-features = false }
 
 [dependencies.clap]
 version = "3.0.0-beta.2"

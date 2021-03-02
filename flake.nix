@@ -37,7 +37,7 @@
             inherit ((fromTOML (readFile ./cli/Cargo.toml)).package)
               name version;
             root = self;
-            buildInputs = with final; [ pkg-config openssl ];
+            buildInputs = with final; [ pkg-config openssl zlib ];
           };
 
         # allow installing unfree
@@ -59,7 +59,6 @@
             sops
             openssl
             zlib
-            cmake
             pkg-config
             rust-analyzer
             (rust-nightly.latest.withComponents [
