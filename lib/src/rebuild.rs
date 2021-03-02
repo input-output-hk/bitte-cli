@@ -13,7 +13,7 @@ pub async fn copy(only: Vec<&str>, delay: Duration, copy: bool) -> Result<()> {
     while let Some(instance) = iter.next() {
         info!("rebuild: {}", instance.name);
         wait_for_ssh(&instance.public_ip).await;
-        copy_to(instance, 10, copy);
+        copy_to(instance, 10, copy)?;
         if iter.peek().is_some() {
             tokio::time::sleep(delay).await;
         }

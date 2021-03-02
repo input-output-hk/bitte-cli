@@ -64,7 +64,7 @@ pub fn current_state_version(workspace_id: &str) -> Result<String> {
     }
 }
 
-pub fn generate_terraform_config(workspace: &String) -> Result<()> {
+pub fn generate_terraform_config(workspace: &str) -> Result<()> {
     let cluster = bitte_cluster()?;
     Command::new("nix")
         .arg("-L")
