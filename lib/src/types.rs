@@ -3,124 +3,9 @@ use std::collections::HashMap;
 use restson::RestPath;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Debug)]
-pub struct TerraformCredentialFile {
-    pub credentials: HashMap<String, TerraformCredential>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct TerraformCredential {
-    pub token: String,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct HttpWorkspaces {
-    pub data: Vec<HttpWorkspaceData>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct HttpWorkspace {
-    pub data: HttpWorkspaceData,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct HttpPostWorkspaces {
-    pub data: HttpPostWorkspaceData,
-    #[serde(rename = "type")]
-    pub workspace_type: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct HttpPostWorkspaceData {
-    pub attributes: HttpWorkspaceDataAttributes,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct HttpWorkspaceData {
-    pub id: String,
-    pub attributes: HttpWorkspaceDataAttributes,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct HttpWorkspaceDataAttributes {
-    pub name: String,
-    pub operations: bool,
-}
-
-#[derive(Deserialize)]
-pub struct HttpWorkspaceCurrentStateVersion {
-    pub data: HttpWorkspaceCurrentStateVersionData,
-}
-
-#[derive(Deserialize)]
-pub struct HttpWorkspaceCurrentStateVersionData {
-    pub relationships: HttpWorkspaceCurrentStateVersionRelationships,
-}
-
-#[derive(Deserialize)]
-pub struct HttpWorkspaceCurrentStateVersionRelationships {
-    pub outputs: HttpWorkspaceCurrentStateVersionOutputs,
-}
-
-#[derive(Deserialize)]
-pub struct HttpWorkspaceCurrentStateVersionOutputs {
-    pub data: Vec<HttpWorkspaceCurrentStateVersionOutput>,
-}
-
-#[derive(Deserialize)]
-pub struct HttpWorkspaceCurrentStateVersionOutput {
-    pub id: String,
-}
-
-#[derive(Deserialize)]
-pub struct HttpWorkspaceState {
-    pub data: HttpWorkspaceStateData,
-}
-
-#[derive(Deserialize)]
-pub struct HttpWorkspaceStateData {
-    pub attributes: HttpWorkspaceStateAttributes,
-}
-
-#[derive(Deserialize)]
-pub struct HttpWorkspaceStateAttributes {
-    pub value: HttpWorkspaceStateValue,
-}
-
-#[derive(Deserialize)]
-pub struct HttpWorkspaceStateValue {
-    pub asgs: Option<HashMap<String, HttpWorkspaceStateAsg>>,
-    pub instances: HashMap<String, HttpWorkspaceStateInstance>,
-    #[serde(rename = "s3-cache")]
-    pub s3_cache: String,
-}
-
-#[derive(Deserialize)]
-pub struct HttpWorkspaceStateAsg {
-    pub arn: String,
-    pub region: String,
-    #[serde(rename = "flake-attr")]
-    pub flake_attr: String,
-    pub uid: String,
-}
-
-#[derive(Deserialize)]
-pub struct HttpWorkspaceStateInstance {
-    #[serde(rename = "flake-attr")]
-    pub flake_attr: String,
-    #[serde(rename = "instance-type")]
-    pub instance_type: String,
-    pub name: String,
-    #[serde(rename = "private-ip")]
-    pub private_ip: String,
-    #[serde(rename = "public-ip")]
-    pub public_ip: String,
-    pub uid: String,
-}
-
 #[derive(Deserialize)]
 pub struct RawVaultState {
-   pub data: RawVaultStateData,
+    pub data: RawVaultStateData,
 }
 
 #[derive(Deserialize)]
@@ -133,37 +18,6 @@ pub struct RawVaultStateDataData {
     pub value: String,
 }
 
-impl RestPath<&str> for HttpWorkspaces {
-    fn get_path(org: &str) -> Result<String, restson::Error> {
-        Ok(format!("/api/v2/organizations/{}/workspaces", org))
-    }
-}
-
-impl RestPath<&str> for HttpPostWorkspaces {
-    fn get_path(org: &str) -> Result<String, restson::Error> {
-        Ok(format!("/api/v2/organizations/{}/workspaces", org))
-    }
-}
-
-impl RestPath<(&str, &str)> for HttpWorkspace {
-    fn get_path(params: (&str, &str)) -> Result<String, restson::Error> {
-        let (org, name) = params;
-        Ok(format!("/api/v2/organizations/{}/workspaces/{}", org, name))
-    }
-}
-
-impl RestPath<&str> for HttpWorkspaceCurrentStateVersion {
-    fn get_path(id: &str) -> Result<String, restson::Error> {
-        Ok(format!("/api/v2/workspaces/{}/current-state-version", id))
-    }
-}
-
-impl RestPath<&str> for HttpWorkspaceState {
-    fn get_path(id: &str) -> Result<String, restson::Error> {
-        Ok(format!("/api/v2/state-version-outputs/{}", id))
-    }
-}
-
 impl RestPath<(&str, &str)> for RawVaultState {
     fn get_path(params: (&str, &str)) -> Result<String, restson::Error> {
         let (cluster, workspace) = params;
@@ -171,7 +25,45 @@ impl RestPath<(&str, &str)> for RawVaultState {
     }
 }
 
-// TODO: this will replace HttpWorkspaceState when we migrated all state
+impl RestPath<()> for HttpPutToken {
+    fn get_path(_: ()) -> Result<String, restson::Error> {
+        Ok("/v1/auth/github-employees/login".to_string())
+    }
+}
+
+#[derive(Serialize)]
+pub struct HttpPutToken {
+    pub token: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct VaultLogin {
+    pub request_id: String,
+    pub lease_id: String,
+    pub renewable: bool,
+    pub lease_duration: i64,
+    pub auth: Auth,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Auth {
+    pub client_token: String,
+    pub accessor: String,
+    pub policies: Vec<String>,
+    pub token_policies: Vec<String>,
+    pub metadata: Metadata,
+    pub lease_duration: i64,
+    pub renewable: bool,
+    pub entity_id: String,
+    pub token_type: String,
+    pub orphan: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Metadata {
+    pub org: String,
+    pub username: String,
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct TerraformState {
@@ -192,9 +84,9 @@ pub struct TerraformStateCluster {
     pub value: TerraformStateValue,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TerraformStateValue {
-    pub asgs: HashMap<String, TerraformStateAsg>,
+    pub asgs: HashMap<String, TerraformStateASG>,
     pub flake: String,
     pub instances: HashMap<String, TerraformStateInstance>,
     pub kms: String,
@@ -208,8 +100,8 @@ pub struct TerraformStateValue {
     pub s3_cache: String,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct TerraformStateAsg {
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TerraformStateASG {
     pub arn: String,
     pub count: i64,
     #[serde(rename = "flake-attr")]
@@ -220,7 +112,7 @@ pub struct TerraformStateAsg {
     pub uid: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TerraformStateInstance {
     #[serde(rename = "flake-attr")]
     pub flake_attr: String,
@@ -235,13 +127,13 @@ pub struct TerraformStateInstance {
     pub uid: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TerraformStateRoles {
     pub client: TerraformStateClient,
     pub core: TerraformStateClient,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TerraformStateClient {
     pub arn: String,
 }

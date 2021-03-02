@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use bitte_lib::*;
+use bitte_lib::{bitte_cluster, certs, find_instance, info, rebuild, ssh, terraform, types::TerraformStateValue};
 use clap::ArgMatches;
 use log::*;
 use prettytable::{cell, row, Table};
@@ -89,9 +89,8 @@ pub(crate) async fn rebuild(sub: &ArgMatches) -> Result<()> {
 }
 
 pub(crate) async fn info(_sub: &ArgMatches) -> Result<()> {
-    let info = terraform::fetch_current_state_version("clients").or_else(|_| {
-        terraform::fetch_current_state_version("core")
-            .context("Coudln't fetch clients or core workspaces")
+    let info = terraform::output("clients").or_else(|_| {
+        terraform::output("core").context("Coudln't fetch clients or core workspaces")
     })?;
     info_print(info).await?;
     Ok(())
@@ -103,7 +102,6 @@ pub(crate) async fn terraform(sub: &ArgMatches) -> Result<()> {
     match sub.subcommand() {
         Some(("plan", sub_sub)) => terraform_plan(workspace, sub_sub).await,
         Some(("apply", sub_sub)) => terraform_apply(workspace, sub_sub).await,
-        Some(("workspaces", sub_sub)) => terraform_workspaces(workspace, sub_sub).await,
         Some(("init", sub_sub)) => terraform_init(workspace, sub_sub).await,
         Some(("output", sub_sub)) => terraform_output(workspace, sub_sub).await,
         _ => Err(anyhow!("Unknown command")),
@@ -145,15 +143,15 @@ pub async fn terraform_plan(workspace: String, sub: &ArgMatches) -> Result<()> {
 pub async fn terraform_init(workspace: String, sub: &ArgMatches) -> Result<()> {
     let upgrade: bool = sub.is_present("upgrade");
     terraform::generate_terraform_config(&workspace)?;
-    terraform::init(upgrade);
+    terraform::init(upgrade)?;
     Ok(())
 }
 
 pub async fn terraform_output(workspace: String, _sub: &ArgMatches) -> Result<()> {
-    terraform::output(workspace)?;
+    let output = terraform::output(workspace.as_str())?;
+    println!("{:?}", output);
     Ok(())
 }
-
 
 pub async fn terraform_apply(workspace: String, _sub: &ArgMatches) -> Result<()> {
     let plan_file = format!("{}.plan", workspace);
@@ -170,16 +168,7 @@ pub async fn terraform_apply(workspace: String, _sub: &ArgMatches) -> Result<()>
     Ok(())
 }
 
-pub async fn terraform_workspaces(_workspace: String, _sub: &ArgMatches) -> Result<()> {
-    let list = terraform::workspace_list();
-    println!("{:?}", list);
-    Ok(())
-}
-
-async fn info_print(current_state_version: String) -> Result<()> {
-    let output = terraform::current_state_version_output(&current_state_version)
-        .with_context(|| format!("Could not retrieve context for {:?}", current_state_version))?;
-
+async fn info_print(output: TerraformStateValue) -> Result<()> {
     let mut instance_table = Table::new();
     instance_table.add_row(row!["Name", "Type", "FlakeAttr", "Private IP", "Public IP"]);
 
@@ -195,42 +184,40 @@ async fn info_print(current_state_version: String) -> Result<()> {
 
     instance_table.printstd();
 
-    if let Some(asgs) = output.asgs {
-        let mut asg_table = Table::new();
+    let mut asg_table = Table::new();
 
-        asg_table.add_row(row![
-            "Id",
-            "Type",
-            "AZ",
-            "State",
-            "Status",
-            "Protected",
-            "PrivateIp",
-            "PublicIp"
-        ]);
+    asg_table.add_row(row![
+        "Id",
+        "Type",
+        "AZ",
+        "State",
+        "Status",
+        "Protected",
+        "PrivateIp",
+        "PublicIp"
+    ]);
 
-        for (_key, val) in asgs.iter() {
-            let info = info::asg_info(val.arn.as_str(), val.region.as_str()).await;
-            for asgi in info {
-                // TODO: rewrite to take all required instance ids as argument to save time
-                let ii = info::instance_info(asgi.instance_id.as_str(), val.region.as_str()).await;
-                let iii = ii[0].clone();
+    for (_key, val) in output.asgs.iter() {
+        let info = info::asg_info(val.arn.as_str(), val.region.as_str()).await;
+        for asgi in info {
+            // TODO: rewrite to take all required instance ids as argument to save time
+            let ii = info::instance_info(asgi.instance_id.as_str(), val.region.as_str()).await;
+            let iii = ii[0].clone();
 
-                asg_table.add_row(row![
-                    asgi.instance_id,
-                    asgi.instance_type.unwrap_or_default(),
-                    asgi.availability_zone,
-                    asgi.lifecycle_state,
-                    asgi.health_status,
-                    asgi.protected_from_scale_in,
-                    iii.public_ip_address.unwrap_or_default(),
-                    iii.private_ip_address.unwrap_or_default(),
-                ]);
-                // asg_table.add_row(row![key, val.instance_type, val.flake_attr, val.count,]);
-            }
+            asg_table.add_row(row![
+                asgi.instance_id,
+                asgi.instance_type.unwrap_or_default(),
+                asgi.availability_zone,
+                asgi.lifecycle_state,
+                asgi.health_status,
+                asgi.protected_from_scale_in,
+                iii.public_ip_address.unwrap_or_default(),
+                iii.private_ip_address.unwrap_or_default(),
+            ]);
+            // asg_table.add_row(row![key, val.instance_type, val.flake_attr, val.count,]);
         }
+    }
 
-        asg_table.printstd();
-    };
+    asg_table.printstd();
     Ok(())
 }

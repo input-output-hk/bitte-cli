@@ -1,10 +1,10 @@
 pub mod certs;
 pub mod info;
+pub mod nomad;
 pub mod rebuild;
 pub mod ssh;
 pub mod terraform;
 pub mod types;
-pub mod nomad;
 
 use anyhow::{Context, Result};
 use execute::Execute;
@@ -15,9 +15,8 @@ use std::{fmt, process::Stdio};
 use info::{asg_info, instance_info};
 
 pub fn bitte_cluster() -> Result<String> {
-    let cluster = 
-    env::var("BITTE_CLUSTER")
-    .context("BITTE_CLUSTER environment variable must be set")?;
+    let cluster =
+        env::var("BITTE_CLUSTER").context("BITTE_CLUSTER environment variable must be set")?;
     Ok(cluster)
 }
 
@@ -66,8 +65,7 @@ impl std::error::Error for ExeError {
 
 fn check_cmd(cmd: &mut Command) -> Result<()> {
     println!("run: {:?}", cmd);
-    cmd.status()
-        .context(format!("failed to run: {:?}", cmd))?;
+    cmd.status().context(format!("failed to run: {:?}", cmd))?;
 
     Ok(())
 }
@@ -107,12 +105,9 @@ pub async fn find_instance(needle: &str) -> Option<Instance> {
 }
 
 async fn find_instances(patterns: Vec<&str>) -> Vec<Instance> {
-    let current_state_version = terraform::fetch_current_state_version("clients")
-        .or_else(|_| terraform::fetch_current_state_version("core"))
+    let output = terraform::output("clients")
+        .or_else(|_| terraform::output("core"))
         .expect("Coudln't fetch clients or core workspaces");
-
-    let output = terraform::current_state_version_output(&current_state_version)
-        .expect("Problem loading state version from terraform");
 
     let mut results = Vec::new();
 
@@ -137,38 +132,36 @@ async fn find_instances(patterns: Vec<&str>) -> Vec<Instance> {
         }
     }
 
-    if let Some(asgs) = output.asgs {
-        for (_, asg) in asgs {
-            let asg_infos = asg_info(asg.arn.as_str(), asg.region.as_str()).await;
-            for asg_info in asg_infos {
-                let instance_infos =
-                    instance_info(asg_info.instance_id.as_str(), asg.region.as_str()).await;
-                for instance_info in instance_infos {
-                    let matched = patterns.iter().any(|pattern| {
-                        [
-                            instance_info.instance_id.as_ref(),
-                            instance_info.public_dns_name.as_ref(),
-                            instance_info.public_ip_address.as_ref(),
-                            instance_info.private_dns_name.as_ref(),
-                            instance_info.private_ip_address.as_ref(),
-                        ]
-                        .iter()
-                        .map(|x| x.map_or_else(|| "", |y| y.as_str()))
-                        .collect::<String>()
-                        .contains(pattern)
-                    });
-                    if matched {
-                        if let Some(ip) = instance_info.public_ip_address {
-                            results.push(Instance::new(
-                                ip,
-                                instance_info
-                                    .instance_id
-                                    .map_or_else(|| "".to_string(), |x| x),
-                                asg.uid.clone(),
-                                asg.flake_attr.clone(),
-                                output.s3_cache.clone(),
-                            ))
-                        }
+    for (_, asg) in output.asgs {
+        let asg_infos = asg_info(asg.arn.as_str(), asg.region.as_str()).await;
+        for asg_info in asg_infos {
+            let instance_infos =
+                instance_info(asg_info.instance_id.as_str(), asg.region.as_str()).await;
+            for instance_info in instance_infos {
+                let matched = patterns.iter().any(|pattern| {
+                    [
+                        instance_info.instance_id.as_ref(),
+                        instance_info.public_dns_name.as_ref(),
+                        instance_info.public_ip_address.as_ref(),
+                        instance_info.private_dns_name.as_ref(),
+                        instance_info.private_ip_address.as_ref(),
+                    ]
+                    .iter()
+                    .map(|x| x.map_or_else(|| "", |y| y.as_str()))
+                    .collect::<String>()
+                    .contains(pattern)
+                });
+                if matched {
+                    if let Some(ip) = instance_info.public_ip_address {
+                        results.push(Instance::new(
+                            ip,
+                            instance_info
+                                .instance_id
+                                .map_or_else(|| "".to_string(), |x| x),
+                            asg.uid.clone(),
+                            asg.flake_attr.clone(),
+                            output.s3_cache.clone(),
+                        ))
                     }
                 }
             }

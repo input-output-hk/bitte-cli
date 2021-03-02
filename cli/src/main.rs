@@ -30,9 +30,7 @@ async fn main() -> Result<()> {
         (@subcommand apply => (about: "terraform apply"))
         (@subcommand init => (about: "terraform init")
           (@arg upgrade: --upgrade -u "upgrade provider versions"))
-        (@subcommand output => (about: "terraform output"))
-        (@subcommand workspaces => (about: "terraform workspaces list"))
-       )
+        (@subcommand output => (about: "terraform output")))
       (@subcommand provision =>
         (about: "Initial provisioning from Terraform (do not run yourself)")
         (@arg ip: +takes_value +required "ip of the node")
