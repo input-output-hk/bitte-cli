@@ -8,19 +8,15 @@
     devshell.inputs.nixpkgs.follows = "nixpkgs";
     rust.url = "github:input-output-hk/rust.nix/work";
     rust.inputs.nixpkgs.follows = "nixpkgs";
-    fenix = {
-      url = "github:nix-community/fenix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs = { self, nixpkgs, devshell, rust, utils, fenix, ... }:
+  outputs = { self, nixpkgs, devshell, rust, utils, ... }:
     utils.lib.simpleFlake {
       inherit nixpkgs;
 
       systems = [ "x86_64-darwin" "x86_64-linux" ];
 
-      preOverlays = [ rust devshell fenix.overlay ];
+      preOverlays = [ rust devshell ];
 
       overlay = final: prev: {
         nixos-rebuild = prev.nixos-rebuild.overrideAttrs (o: {
@@ -39,9 +35,6 @@
             root = self;
             buildInputs = with final; [ pkg-config openssl zlib ];
           };
-
-        # allow installing unfree
-        vscode = prev.vscode.overrideAttrs (old: { meta.license.free = true; });
       };
 
       packages = { bitte, vscode-extensions }: { defaultPackage = bitte; };
@@ -61,14 +54,10 @@
             zlib
             pkg-config
             rust-analyzer
-            (rust-nightly.latest.withComponents [
-              "cargo"
-              "clippy-preview"
-              "rust-src"
-              "rust-std"
-              "rustc"
-              "rustfmt-preview"
-            ])
+            cargo
+            clippy
+            rustc
+            rustfmt
           ];
         };
     };
