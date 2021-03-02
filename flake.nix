@@ -8,18 +8,19 @@
     devshell.inputs.nixpkgs.follows = "nixpkgs";
     rust.url = "github:input-output-hk/rust.nix/work";
     rust.inputs.nixpkgs.follows = "nixpkgs";
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, devshell, rust, utils, ... }:
+  outputs = { self, nixpkgs, devshell, rust, utils, fenix, ... }:
     utils.lib.simpleFlake {
       inherit nixpkgs;
 
       systems = [ "x86_64-darwin" "x86_64-linux" ];
 
-      preOverlays = [
-        rust
-        devshell
-      ];
+      preOverlays = [ rust devshell fenix.overlay ];
 
       overlay = final: prev: {
         nixos-rebuild = prev.nixos-rebuild.overrideAttrs (o: {
@@ -38,36 +39,37 @@
             root = self;
             buildInputs = with final; [ pkg-config openssl ];
           };
+
+        # allow installing unfree
+        vscode = prev.vscode.overrideAttrs (old: { meta.license.free = true; });
       };
 
-      packages = { bitte }: {
-        defaultPackage = bitte;
-      };
+      packages = { bitte, vscode-extensions }: { defaultPackage = bitte; };
 
       hydraJobs = { bitte }@ps: ps;
 
-      devShell = { devshell, pkgs }:
-        devshell.mkShell {
-          env = with nixpkgs.lib; mapAttrsToList nameValuePair ({
-            RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc.outPath;
-            RUST_BACKTRACE = "1";
-          });
+      devShell = { mkShell, pkgs }:
+        mkShell {
+          RUST_BACKTRACE = "1";
+          RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
 
-          packages = with pkgs; [
-            nixFlakes
+          buildInputs = with pkgs; [
             libssh2
             cfssl
             sops
             openssl
+            zlib
+            cmake
             pkg-config
-
-            # Rust
-            rustc
-            cargo
-            (rustracer.overrideAttrs (_: { checkPhase = null; }))
             rust-analyzer
-            rustfmt
-            clippy
+            (rust-nightly.latest.withComponents [
+              "cargo"
+              "clippy-preview"
+              "rust-src"
+              "rust-std"
+              "rustc"
+              "rustfmt-preview"
+            ])
           ];
         };
     };

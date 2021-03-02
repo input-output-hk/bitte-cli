@@ -1,4 +1,4 @@
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use log::info;
 use std::{env, path::Path, process::Command, time::Duration};
 
@@ -6,14 +6,14 @@ use super::{
     bitte_cluster, check_cmd, find_instances, handle_command_error, ssh::wait_for_ssh, Instance,
 };
 
-pub async fn copy(only: Vec<&str>, delay: Duration) -> Result<()> {
+pub async fn copy(only: Vec<&str>, delay: Duration, copy: bool) -> Result<()> {
     let instances = find_instances(only.clone()).await;
     let mut iter = instances.iter().peekable();
 
     while let Some(instance) = iter.next() {
         info!("rebuild: {}", instance.name);
         wait_for_ssh(&instance.public_ip).await;
-        copy_to(instance, 10)?;
+        copy_to(instance, 10, copy);
         if iter.peek().is_some() {
             tokio::time::sleep(delay).await;
         }
@@ -22,7 +22,7 @@ pub async fn copy(only: Vec<&str>, delay: Duration) -> Result<()> {
     Ok(())
 }
 
-fn copy_to(instance: &Instance, _attempts: u64) -> Result<()> {
+fn copy_to(instance: &Instance, _attempts: u64, copy: bool) -> Result<()> {
     env::set_var("IP", instance.public_ip.clone());
     let flake = ".";
 
@@ -45,7 +45,9 @@ fn copy_to(instance: &Instance, _attempts: u64) -> Result<()> {
     let rebuild_flake: String = format!("{}#{}", flake, instance.uid);
 
     nix_build(&target)?;
-    nix_copy_to_cache(&target, &cache)?;
+    if copy {
+        nix_copy_to_cache(&target, &cache)?;
+    }
     nix_copy_to_machine(&target, &ip)?;
     nixos_rebuild(&rebuild_flake, &ip)
 }

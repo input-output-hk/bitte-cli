@@ -4,7 +4,7 @@ pub mod rebuild;
 pub mod ssh;
 pub mod terraform;
 pub mod types;
-pub mod macros;
+pub mod nomad;
 
 use anyhow::{Context, Result};
 use execute::Execute;

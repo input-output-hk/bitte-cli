@@ -1,10 +1,10 @@
-use std::{fs, process::Command};
-use std::fs::File;
-use std::path::Path;
 use std::env;
+use std::fs::File;
 use std::io::BufReader;
+use std::path::Path;
+use std::{fs, process::Command};
 
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use log::{debug, info};
 use restson::RestClient;
 use shellexpand::tilde;
@@ -12,9 +12,9 @@ use shellexpand::tilde;
 use super::{
     bitte_cluster,
     types::{
-        HttpPostWorkspaceData, HttpPostWorkspaces, HttpWorkspaceCurrentStateVersion,
+        HttpPostWorkspaceData, HttpPostWorkspaces, HttpWorkspace, HttpWorkspaceCurrentStateVersion,
         HttpWorkspaceData, HttpWorkspaceDataAttributes, HttpWorkspaceState,
-        HttpWorkspaceStateValue, HttpWorkspaces, HttpWorkspace, TerraformCredentialFile
+        HttpWorkspaceStateValue, HttpWorkspaces, RawVaultState, TerraformCredentialFile,
     },
 };
 
@@ -50,7 +50,7 @@ pub fn prepare(workspace: String) -> Result<()> {
         }
         workspace_select(workspace);
     }
-    init();
+    init(false);
     Ok(())
 }
 
@@ -64,7 +64,7 @@ pub fn current_state_version(workspace_id: &str) -> Result<String> {
     }
 }
 
-fn generate_terraform_config(workspace: &str) -> Result<()> {
+pub fn generate_terraform_config(workspace: &String) -> Result<()> {
     let cluster = bitte_cluster()?;
     Command::new("nix")
         .arg("-L")
@@ -76,16 +76,14 @@ fn generate_terraform_config(workspace: &str) -> Result<()> {
             workspace
         ))
         .status()
-        .or_else(|_|
-             Command::new("nix")
+        .or_else(|_| {
+            Command::new("nix")
                 .arg("-L")
                 .arg("run")
-                .arg(format!(
-                    ".#clusters.{}.tf.{}.config",
-                    cluster,
-                    workspace))
-                .status())?;
-        Ok(())
+                .arg(format!(".#clusters.{}.tf.{}.config", cluster, workspace))
+                .status()
+        })?;
+    Ok(())
 }
 
 fn workspace_new(workspace: &str) -> Result<()> {
@@ -123,12 +121,19 @@ fn workspace_select(workspace: String) {
         .expect("terraform workspace select failed");
 }
 
-fn init() {
+pub fn init(upgrade: bool) {
     println!("run: terraform init");
-    Command::new("terraform")
-        .arg("init")
-        .status()
-        .expect("terraform init failed");
+    if upgrade {
+        Command::new("terraform")
+            .args(&["init", "-upgrade"])
+            .status()
+            .expect("terraform init -upgrade failed")
+    } else {
+        Command::new("terraform")
+            .args(&["init"])
+            .status()
+            .expect("terraform init failed")
+    };
 }
 
 fn nix_current_system() -> String {
@@ -177,8 +182,7 @@ fn workspace_id(organization: &str, workspace: &str) -> Result<String> {
 
 fn terraform_client() -> Result<RestClient> {
     let mut client =
-        RestClient::new("https://app.terraform.io")
-        .context("Couldn't create RestClient")?;
+        RestClient::new("https://app.terraform.io").context("Couldn't create RestClient")?;
     let token = terraform_token()
         .context("Make sure you are logged into terraform: run `terraform login`")?;
     client
@@ -212,4 +216,47 @@ fn terraform_organization() -> Result<String> {
     let org = env::var("TERRAFORM_ORGANIZATION")
         .context("TERRAFORM_ORGANIZATION environment variable must be set")?;
     Ok(org)
+}
+
+fn vault_token() -> Result<String> {
+    println!("run: vault print token");
+    let output = Command::new("vault")
+        .args(vec!["print", "token"])
+        .output()?;
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+fn terraform_vault_client() -> Result<RestClient> {
+    let mut client = RestClient::new("https://vault.infra.aws.iohkdev.io")
+        .context("Couldn't create RestClient")?;
+    let token = vault_token().context("Make sure you are logged into vault: run `vault login`")?;
+    client
+        .set_header("X-Vault-Token", &token)
+        .context("Couldn't set X-Vault-Token header")?;
+    client
+        .set_header("X-Vault-Request", "true")
+        .context("Couldn't set X-Vault-Request header")?;
+    Ok(client)
+}
+
+fn terraform_vault_state(workspace: String) -> Result<String> {
+    let mut client = terraform_vault_client()?;
+    let result: Result<RawVaultState, restson::Error> =
+        client.get((terraform_organization()?.as_str(), workspace.as_str()));
+    match result {
+        Ok(value) => Ok(value.data.data.value),
+        Err(e) => Err(e.into()),
+    }
+}
+
+use std::io::Read;
+pub fn output(workspace: String) -> Result<()> {
+    let state = terraform_vault_state(workspace)?;
+    let decoded = base64::decode(state)?;
+    let mut decoder = flate2::read::ZlibDecoder::new(decoded.as_slice());
+    let mut buf = "".to_string();
+    decoder.read_to_string(&mut buf)?;
+    let state : crate::types::TerraformState = serde_json::from_str(&buf)?;
+    println!("{}", state.outputs.cluster.value.flake);
+    Ok(())
 }

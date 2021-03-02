@@ -13,7 +13,8 @@ async fn main() -> Result<()> {
       (@subcommand rebuild =>
         (about: "nixos-rebuild")
         (@arg only: --only +takes_value +multiple "pattern of hosts to deploy")
-        (@arg delay: --delay +takes_value "seconds to delay between rebuilds"))
+        (@arg delay: --delay +takes_value "seconds to delay between rebuilds")
+        (@arg copy: --copy "copy to the S3 cache first"))
       (@subcommand info =>
         (about: "Show information about instances and auto-scaling groups"))
       (@subcommand ssh =>
@@ -27,6 +28,9 @@ async fn main() -> Result<()> {
         (@subcommand plan => (about: "terraform plan")
           (@arg destroy: --destroy -d "create a destruction plan"))
         (@subcommand apply => (about: "terraform apply"))
+        (@subcommand init => (about: "terraform init")
+          (@arg upgrade: --upgrade -u "upgrade provider versions"))
+        (@subcommand output => (about: "terraform output"))
         (@subcommand workspaces => (about: "terraform workspaces list"))
        )
       (@subcommand provision =>

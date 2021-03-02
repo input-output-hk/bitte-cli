@@ -1,9 +1,9 @@
+use anyhow::{anyhow, Context, Result};
 use bitte_lib::*;
-use anyhow::{Context, Result, anyhow};
-use std::{time::Duration, env, path::Path, process::Command};
 use clap::ArgMatches;
-use prettytable::{Table, row, cell};
 use log::*;
+use prettytable::{cell, row, Table};
+use std::{env, path::Path, process::Command, time::Duration};
 
 pub(crate) async fn certs(sub: &ArgMatches) -> Result<()> {
     let domain: String = sub.value_of_t_or_exit("domain");
@@ -22,7 +22,7 @@ pub(crate) async fn provision(sub: &ArgMatches) -> Result<()> {
     let ip: String = sub.value_of_t("ip")?;
     let cluster: String = sub.value_of_t("cluster")?;
     let flake: String = sub.value_of_t_or_exit("flake");
-    let attr: String =  sub.value_of_t_or_exit("attr");
+    let attr: String = sub.value_of_t_or_exit("attr");
     let cache: String = sub.value_of_t_or_exit("cache");
 
     rebuild::set_ssh_opts(false)?;
@@ -76,22 +76,23 @@ pub(crate) async fn ssh(sub: &ArgMatches) -> Result<()> {
         .wait()
         .context("ssh command didn't finish?")?;
     Ok(())
-        
 }
 
 pub(crate) async fn rebuild(sub: &ArgMatches) -> Result<()> {
     let only: Vec<String> = sub.values_of_t("only").unwrap_or_default();
     let delay = Duration::from_secs(sub.value_of_t::<u64>("delay").unwrap_or(0));
+    let copy: bool = sub.value_of_t("copy").unwrap_or(false);
 
     rebuild::set_ssh_opts(true)?;
-    rebuild::copy(only.iter().map(|o| o.as_str()).collect(), delay).await?;
+    rebuild::copy(only.iter().map(|o| o.as_str()).collect(), delay, copy).await?;
     Ok(())
 }
 
 pub(crate) async fn info(_sub: &ArgMatches) -> Result<()> {
-    let info = terraform::fetch_current_state_version("clients")
-        .or_else(|_| terraform::fetch_current_state_version("core")
-                        .context("Coudln't fetch clients or core workspaces"))?;
+    let info = terraform::fetch_current_state_version("clients").or_else(|_| {
+        terraform::fetch_current_state_version("core")
+            .context("Coudln't fetch clients or core workspaces")
+    })?;
     info_print(info).await?;
     Ok(())
 }
@@ -103,6 +104,8 @@ pub(crate) async fn terraform(sub: &ArgMatches) -> Result<()> {
         Some(("plan", sub_sub)) => terraform_plan(workspace, sub_sub).await,
         Some(("apply", sub_sub)) => terraform_apply(workspace, sub_sub).await,
         Some(("workspaces", sub_sub)) => terraform_workspaces(workspace, sub_sub).await,
+        Some(("init", sub_sub)) => terraform_init(workspace, sub_sub).await,
+        Some(("output", sub_sub)) => terraform_output(workspace, sub_sub).await,
         _ => Err(anyhow!("Unknown command")),
     }
 }
@@ -128,10 +131,7 @@ pub async fn terraform_plan(workspace: String, sub: &ArgMatches) -> Result<()> {
     terraform::prepare(workspace)?;
 
     let mut cmd = Command::new("terraform");
-    let mut full = cmd
-        .arg("plan")
-        .arg("-out")
-        .arg(plan_file);
+    let mut full = cmd.arg("plan").arg("-out").arg(plan_file);
     if destroy {
         full = full.arg("-destroy");
     }
@@ -141,6 +141,19 @@ pub async fn terraform_plan(workspace: String, sub: &ArgMatches) -> Result<()> {
         .with_context(|| format!("failed to run: {:?}", full))?;
     Ok(())
 }
+
+pub async fn terraform_init(workspace: String, sub: &ArgMatches) -> Result<()> {
+    let upgrade: bool = sub.is_present("upgrade");
+    terraform::generate_terraform_config(&workspace)?;
+    terraform::init(upgrade);
+    Ok(())
+}
+
+pub async fn terraform_output(workspace: String, _sub: &ArgMatches) -> Result<()> {
+    terraform::output(workspace)?;
+    Ok(())
+}
+
 
 pub async fn terraform_apply(workspace: String, _sub: &ArgMatches) -> Result<()> {
     let plan_file = format!("{}.plan", workspace);
@@ -165,7 +178,7 @@ pub async fn terraform_workspaces(_workspace: String, _sub: &ArgMatches) -> Resu
 
 async fn info_print(current_state_version: String) -> Result<()> {
     let output = terraform::current_state_version_output(&current_state_version)
-    .with_context(|| format!("Could not retrieve context for {:?}", current_state_version))?;
+        .with_context(|| format!("Could not retrieve context for {:?}", current_state_version))?;
 
     let mut instance_table = Table::new();
     instance_table.add_row(row!["Name", "Type", "FlakeAttr", "Private IP", "Public IP"]);
