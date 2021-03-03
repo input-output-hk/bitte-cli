@@ -110,8 +110,11 @@ pub fn output(workspace: &str) -> Result<TerraformStateValue> {
     let decoded = base64::decode(state).context("failed to decode state")?;
     let mut decoder = flate2::read::ZlibDecoder::new(decoded.as_slice());
     let mut buf = "".to_string();
-    decoder.read_to_string(&mut buf).context("failed to inflate state")?;
-    let state: crate::types::TerraformState = serde_json::from_str(&buf).context("failed to decode state JSON")?;
+    decoder
+        .read_to_string(&mut buf)
+        .context("failed to inflate state")?;
+    let state: crate::types::TerraformState =
+        serde_json::from_str(&buf).context("failed to decode state JSON")?;
     Ok(state.outputs.cluster.value)
 }
 
@@ -149,10 +152,13 @@ fn vault_token() -> Result<String> {
 }
 
 pub fn set_http_auth() -> Result<()> {
-    info!("set TF_HTTP_* variables");
-    let vault_token = vault_token()?;
-    env::set_var("TF_HTTP_USERNAME", "TOKEN");
-    env::set_var("TF_HTTP_PASSWORD", vault_token);
+    if env::var("TF_HTTP_PASSWORD").is_ok() {
+        info!("reusing existing TF_HTTP_* variables");
+    } else {
+        info!("set TF_HTTP_* variables");
+        env::set_var("TF_HTTP_USERNAME", "TOKEN");
+        env::set_var("TF_HTTP_PASSWORD", vault_token()?);
+    }
 
     Ok(())
 }
