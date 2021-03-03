@@ -24,7 +24,7 @@ pub fn prepare(workspace: String) -> Result<()> {
     Ok(())
 }
 
-pub fn generate_terraform_config(workspace: &String) -> Result<()> {
+pub fn generate_terraform_config(workspace: &str) -> Result<()> {
     let cluster = bitte_cluster()?;
 
     // To work on Darwin, we need to pass the current system

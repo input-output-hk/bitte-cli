@@ -86,7 +86,7 @@ pub struct TerraformStateCluster {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TerraformStateValue {
-    pub asgs: HashMap<String, TerraformStateASG>,
+    pub asgs: HashMap<String, TerraformStateAsg>,
     pub flake: String,
     pub instances: HashMap<String, TerraformStateInstance>,
     pub kms: String,
@@ -101,7 +101,7 @@ pub struct TerraformStateValue {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct TerraformStateASG {
+pub struct TerraformStateAsg {
     pub arn: String,
     pub count: i64,
     #[serde(rename = "flake-attr")]
