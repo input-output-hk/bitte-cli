@@ -35,7 +35,7 @@
           };
       };
 
-      packages = { bitte, nixos-rebuild }: { defaultPackage = bitte; inherit nixos-rebuild; };
+      packages = { bitte, nixos-rebuild }: { defaultPackage = bitte; inherit bitte nixos-rebuild; };
 
       hydraJobs = { bitte, nixos-rebuild }@ps: ps;
 
