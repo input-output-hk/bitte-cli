@@ -98,6 +98,7 @@ impl Instance {
 }
 
 pub async fn find_instance(needle: &str) -> Option<Instance> {
+    terraform::set_http_auth().expect("Couldn't authenticate with infra Vault");
     match find_instances(vec![needle]).await.first() {
         Some(instance) => Some(instance.clone()),
         None => None,

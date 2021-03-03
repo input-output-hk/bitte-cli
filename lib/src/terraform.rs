@@ -81,12 +81,6 @@ fn nix_current_system() -> String {
     }
 }
 
-fn terraform_organization() -> Result<String> {
-    let org = env::var("TERRAFORM_ORGANIZATION")
-        .context("TERRAFORM_ORGANIZATION environment variable must be set")?;
-    Ok(org)
-}
-
 fn terraform_vault_client() -> Result<RestClient> {
     let mut client = RestClient::new("https://vault.infra.aws.iohkdev.io")
         .context("Couldn't create RestClient")?;
@@ -103,7 +97,7 @@ fn terraform_vault_client() -> Result<RestClient> {
 fn terraform_vault_state(workspace: &str) -> Result<String> {
     let mut client = terraform_vault_client()?;
     let result: Result<RawVaultState, restson::Error> =
-        client.get((terraform_organization()?.as_str(), workspace));
+        client.get((bitte_cluster()?.as_str(), workspace));
     match result {
         Ok(value) => Ok(value.data.data.value),
         Err(e) => Err(e.into()),
@@ -112,12 +106,12 @@ fn terraform_vault_state(workspace: &str) -> Result<String> {
 
 pub fn output(workspace: &str) -> Result<TerraformStateValue> {
     set_http_auth()?;
-    let state = terraform_vault_state(workspace)?;
-    let decoded = base64::decode(state)?;
+    let state = terraform_vault_state(workspace).context("failed to fetch state from vault")?;
+    let decoded = base64::decode(state).context("failed to decode state")?;
     let mut decoder = flate2::read::ZlibDecoder::new(decoded.as_slice());
     let mut buf = "".to_string();
-    decoder.read_to_string(&mut buf)?;
-    let state: crate::types::TerraformState = serde_json::from_str(&buf)?;
+    decoder.read_to_string(&mut buf).context("failed to inflate state")?;
+    let state: crate::types::TerraformState = serde_json::from_str(&buf).context("failed to decode state JSON")?;
     Ok(state.outputs.cluster.value)
 }
 
