@@ -1,9 +1,10 @@
 use super::handle_command_error;
 use anyhow::{Context, Result};
+use execute::command_args;
 
 // TODO: check that we have developer or admin policies
-pub fn nomad_token() -> Result<String, anyhow::Error> {
-    match handle_command_error(execute::command_args!("nomad", "acl", "token", "self")) {
+pub fn nomad_token() -> Result<String> {
+    match handle_command_error(command_args!("nomad", "acl", "token", "self")) {
         Ok(output) => {
             for line in output.lines() {
                 let parts: Vec<&str> = line.splitn(2, '=').collect();
@@ -19,8 +20,8 @@ pub fn nomad_token() -> Result<String, anyhow::Error> {
     }
 }
 
-fn issue_nomad_token() -> Result<String, anyhow::Error> {
-    handle_command_error(execute::command_args!(
+fn issue_nomad_token() -> Result<String> {
+    handle_command_error(command_args!(
         "vault",
         "read",
         "-field",
