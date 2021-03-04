@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use bitte_lib::nomad::nomad_token;
 use clap::ArgMatches;
 use std::{env, process::Command};
+use log::*;
 
 pub(crate) async fn run(sub: &ArgMatches) -> Result<()> {
     let namespace: String = sub.value_of_t_or_exit("namespace");
@@ -14,12 +15,12 @@ pub(crate) async fn plan(sub: &ArgMatches) -> Result<()> {
     let job: String = sub.value_of_t_or_exit("job");
     let vault_token: String = vault_print_token().or_else(vault_login)?;
 
-    println!("job: {}, vault_token: {}", job, vault_token);
+    debug!("job: {}, vault_token: {}", job, vault_token);
 
     env::set_var("NOMAD_NAMESPACE", &namespace);
 
     let token = nomad_token()?;
-    println!("nomad token: {}", token);
+    debug!("nomad token: {}", token);
 
     Ok(())
 }
