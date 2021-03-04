@@ -9,8 +9,9 @@ pub fn nomad_token() -> Result<String> {
             for line in output.lines() {
                 let parts: Vec<&str> = line.splitn(2, '=').collect();
                 let key = parts[0].trim();
-                let value = parts[1].trim();
+
                 if key == "Secret ID" {
+                    let value = parts[1].trim();
                     return Ok(value.to_string());
                 }
             }
