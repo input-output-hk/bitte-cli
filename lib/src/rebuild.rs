@@ -7,13 +7,16 @@ use super::{
 };
 
 pub async fn copy(only: Vec<&str>, delay: Duration, copy: bool) -> Result<()> {
-    let instances = find_instances(only.clone()).await;
-    let mut iter = instances.iter().peekable();
+    info!("only: {:?}", only);
+    let instances = find_instances(only.clone()).await.into_iter();
+    let instance_names: Vec<String> = instances.clone().map(|i| i.name).collect();
+    info!("instances: {:?}", instance_names);
+    let mut iter = instances.peekable();
 
     while let Some(instance) = iter.next() {
         info!("rebuild: {}", instance.name);
         wait_for_ssh(&instance.public_ip).await;
-        copy_to(instance, 10, copy)?;
+        copy_to(&instance, 10, copy)?;
         if iter.peek().is_some() {
             tokio::time::sleep(delay).await;
         }
