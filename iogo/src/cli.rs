@@ -29,6 +29,9 @@ pub(crate) async fn plan(sub: &ArgMatches) -> Result<()> {
     let namespace: String = sub.value_of_t_or_exit("namespace");
     let job: String = sub.value_of_t_or_exit("job");
 
+    sh(execute::command_args!("cue", "vet", "-c", "./..."))
+        .context("failure during: `cue vet -c ./...`")?;
+
     env::set_var("NOMAD_NAMESPACE", &namespace);
 
     let vault_token: String = vault_token()?;
