@@ -25,10 +25,352 @@ impl RestPath<(&str, &str)> for RawVaultState {
     }
 }
 
+impl RestPath<&str> for CueRender {
+    fn get_path(id: &str) -> Result<String, restson::Error> {
+        Ok(format!("/v1/job/{}/plan", id).to_string())
+    }
+}
+
+impl RestPath<()> for CueRender {
+    fn get_path(_: ()) -> Result<String, restson::Error> {
+        Ok("/v1/jobs".to_string())
+    }
+}
+
+impl RestPath<&str> for NomadEvaluation {
+    fn get_path(eval_id: &str) -> Result<String, restson::Error> {
+        Ok(format!("/v1/evaluation/{}", eval_id).to_string())
+    }
+}
+
+impl RestPath<&str> for NomadDeployment {
+    fn get_path(deployment_id: &str) -> Result<String, restson::Error> {
+        Ok(format!("/v1/deployment/{}", deployment_id).to_string())
+    }
+}
+
 impl RestPath<()> for HttpPutToken {
     fn get_path(_: ()) -> Result<String, restson::Error> {
         Ok("/v1/auth/github-employees/login".to_string())
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NomadDeployment {
+    #[serde(rename = "CreateIndex")]
+    pub create_index: i64,
+    #[serde(rename = "ID")]
+    pub id: String,
+    #[serde(rename = "IsMultiregion")]
+    pub is_multiregion: bool,
+    #[serde(rename = "JobCreateIndex")]
+    pub job_create_index: i64,
+    #[serde(rename = "JobID")]
+    pub job_id: String,
+    #[serde(rename = "JobModifyIndex")]
+    pub job_modify_index: i64,
+    #[serde(rename = "JobSpecModifyIndex")]
+    pub job_spec_modify_index: i64,
+    #[serde(rename = "JobVersion")]
+    pub job_version: i64,
+    #[serde(rename = "ModifyIndex")]
+    pub modify_index: i64,
+    #[serde(rename = "Namespace")]
+    pub namespace: String,
+    #[serde(rename = "Status")]
+    pub status: NomadDeploymentStatus,
+    #[serde(rename = "StatusDescription")]
+    pub status_description: String,
+    #[serde(rename = "TaskGroups")]
+    pub task_groups: HashMap<String, NomadDeploymentTaskGroup>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NomadDeploymentTaskGroup {
+    #[serde(rename = "AutoPromote")]
+    pub auto_promote: bool,
+    #[serde(rename = "AutoRevert")]
+    pub auto_revert: bool,
+    #[serde(rename = "DesiredCanaries")]
+    pub desired_canaries: i64,
+    #[serde(rename = "DesiredTotal")]
+    pub desired_total: i64,
+    #[serde(rename = "HealthyAllocs")]
+    pub healthy_allocs: i64,
+    #[serde(rename = "PlacedAllocs")]
+    pub placed_allocs: i64,
+    #[serde(rename = "PlacedCanaries")]
+    pub placed_canaries: Option<Vec<String>>,
+    #[serde(rename = "ProgressDeadline")]
+    pub progress_deadline: i64,
+    #[serde(rename = "Promoted")]
+    pub promoted: bool,
+    #[serde(rename = "RequireProgressBy")]
+    pub require_progress_by: String,
+    #[serde(rename = "UnhealthyAllocs")]
+    pub unhealthy_allocs: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum NomadDeploymentStatus {
+    #[serde(rename = "running")]
+    Running,
+    #[serde(rename = "complete")]
+    Complete,
+    #[serde(rename = "failed")]
+    Failed,
+    #[serde(rename = "successful")]
+    Successful,
+}
+
+
+#[derive(Debug, Deserialize)]
+pub struct NomadEvaluation {
+    #[serde(rename = "CreateIndex")]
+    pub create_index: i64,
+    #[serde(rename = "CreateTime")]
+    pub create_time: Option<f64>,
+    #[serde(rename = "DeploymentID")]
+    pub deployment_id: Option<String>,
+    #[serde(rename = "ID")]
+    pub id: String,
+    #[serde(rename = "JobID")]
+    pub job_id: String,
+    #[serde(rename = "JobModifyIndex")]
+    pub job_modify_index: i64,
+    #[serde(rename = "ModifyIndex")]
+    pub modify_index: i64,
+    #[serde(rename = "ModifyTime")]
+    pub modify_time: Option<f64>,
+    #[serde(rename = "Namespace")]
+    pub namespace: Option<String>,
+    #[serde(rename = "Priority")]
+    pub priority: i64,
+    #[serde(rename = "QueuedAllocations")]
+    pub queued_allocations: Option<HashMap<String, i64>>,
+    #[serde(rename = "SnapshotIndex")]
+    pub snapshot_index: Option<i64>,
+    #[serde(rename = "Status")]
+    pub status: String,
+    #[serde(rename = "TriggeredBy")]
+    pub triggered_by: String,
+    #[serde(rename = "Type")]
+    pub nomad_evaluation_type: String,
+    #[serde(rename = "NodeID")]
+    pub node_id: Option<String>,
+    #[serde(rename = "NodeModifyIndex")]
+    pub node_modify_index: Option<i64>,
+    #[serde(rename = "StatusDescription")]
+    pub status_description: Option<String>,
+    #[serde(rename = "Wait")]
+    pub wait: Option<i64>,
+    #[serde(rename = "NextEval")]
+    pub next_eval: Option<String>,
+    #[serde(rename = "PreviousEval")]
+    pub previous_eval: Option<String>,
+    #[serde(rename = "BlockedEval")]
+    pub blocked_eval: Option<String>,
+    #[serde(rename = "FailedTGAllocs")]
+    pub failed_tg_allocs: Option<serde_json::Value>,
+    #[serde(rename = "ClassEligibility")]
+    pub class_eligibility: Option<serde_json::Value>,
+    #[serde(rename = "EscapedComputedClass")]
+    pub escaped_computed_class: Option<bool>,
+    #[serde(rename = "AnnotatePlan")]
+    pub annotate_plan: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NomadJobRun {
+    #[serde(rename = "EvalCreateIndex")]
+    pub eval_create_index: i64,
+    #[serde(rename = "EvalID")]
+    pub eval_id: String,
+    #[serde(rename = "Index")]
+    pub index: i64,
+    #[serde(rename = "JobModifyIndex")]
+    pub job_modify_index: i64,
+    #[serde(rename = "KnownLeader")]
+    pub known_leader: bool,
+    #[serde(rename = "LastContact")]
+    pub last_contact: i64,
+    #[serde(rename = "Warnings")]
+    pub warnings: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NomadJobPlan {
+    #[serde(rename = "Annotations")]
+    pub annotations: NomadJobPlanAnnotations,
+    #[serde(rename = "CreatedEvals")]
+    pub created_evals: Option<serde_json::Value>,
+    #[serde(rename = "Diff")]
+    pub diff: NomadJobPlanDiff,
+    #[serde(rename = "FailedTGAllocs")]
+    pub failed_tg_allocs: Option<serde_json::Value>,
+    #[serde(rename = "Index")]
+    pub index: i64,
+    #[serde(rename = "JobModifyIndex")]
+    pub job_modify_index: i64,
+    #[serde(rename = "NextPeriodicLaunch")]
+    pub next_periodic_launch: Option<serde_json::Value>,
+    #[serde(rename = "Warnings")]
+    pub warnings: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NomadJobPlanAnnotations {
+    #[serde(rename = "DesiredTGUpdates")]
+    pub desired_tg_updates: HashMap<String, NomadJobPlanDesiredTgUpdate>,
+    #[serde(rename = "PreemptedAllocs")]
+    pub preempted_allocs: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NomadJobPlanDesiredTgUpdate {
+    #[serde(rename = "Canary")]
+    pub canary: i64,
+    #[serde(rename = "DestructiveUpdate")]
+    pub destructive_update: i64,
+    #[serde(rename = "Ignore")]
+    pub ignore: i64,
+    #[serde(rename = "InPlaceUpdate")]
+    pub in_place_update: i64,
+    #[serde(rename = "Migrate")]
+    pub migrate: i64,
+    #[serde(rename = "Place")]
+    pub place: i64,
+    #[serde(rename = "Preemptions")]
+    pub preemptions: i64,
+    #[serde(rename = "Stop")]
+    pub stop: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NomadJobPlanDiff {
+    #[serde(rename = "Fields")]
+    pub fields: Option<Vec<NomadJobPlanField>>,
+    #[serde(rename = "ID")]
+    pub id: String,
+    #[serde(rename = "Objects")]
+    pub objects: Option<Vec<NomadJobPlanObject>>,
+    #[serde(rename = "TaskGroups")]
+    pub task_groups: Vec<NomadJobPlanTaskGroup>,
+    #[serde(rename = "Type")]
+    pub diff_type: NomadJobPlanType,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NomadJobPlanField {
+    #[serde(rename = "Annotations")]
+    pub annotations: Option<Vec<String>>,
+    #[serde(rename = "Name")]
+    pub name: String,
+    #[serde(rename = "New")]
+    pub new: String,
+    #[serde(rename = "Old")]
+    pub old: String,
+    #[serde(rename = "Type")]
+    pub field_type: NomadJobPlanType,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NomadJobPlanTaskGroup {
+    #[serde(rename = "Fields")]
+    pub fields: Option<Vec<NomadJobPlanField>>,
+    #[serde(rename = "Name")]
+    pub name: String,
+    #[serde(rename = "Objects")]
+    pub objects: Option<Vec<NomadJobPlanObject>>,
+    #[serde(rename = "Tasks")]
+    pub tasks: Option<Vec<NomadJobPlanObject>>,
+    #[serde(rename = "Type")]
+    pub task_group_type: NomadJobPlanType,
+    #[serde(rename = "Updates")]
+    pub updates: NomadJobPlanUpdates,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NomadJobPlanObject {
+    #[serde(rename = "Fields")]
+    pub fields: Option<Vec<NomadJobPlanField>>,
+    #[serde(rename = "Name")]
+    pub name: String,
+    #[serde(rename = "Objects")]
+    pub objects: Option<Vec<NomadJobPlanObject>>,
+    #[serde(rename = "Type")]
+    pub object_type: NomadJobPlanType,
+    #[serde(rename = "Annotations")]
+    pub annotations: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NomadJobPlanUpdates {
+    pub create: Option<i64>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum NomadJobPlanType {
+    Added,
+    Deleted,
+    Edited,
+    None,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CueRender {
+    #[serde(rename = "Job")]
+    pub job: Job,
+    #[serde(rename = "Diff")]
+    pub diff: Option<bool>,
+    #[serde(rename = "EnforceIndex")]
+    pub enforce_index: Option<bool>,
+    #[serde(rename = "JobModifyIndex")]
+    pub job_modify_index: Option<i64>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Job {
+    #[serde(rename = "Namespace")]
+    pub namespace: String,
+    #[serde(rename = "ID")]
+    pub id: String,
+    #[serde(rename = "Name")]
+    pub name: String,
+    #[serde(rename = "Type")]
+    pub job_type: String,
+    #[serde(rename = "Priority")]
+    pub priority: i64,
+    #[serde(rename = "Datacenters")]
+    pub datacenters: Vec<String>,
+    #[serde(rename = "TaskGroups")]
+    pub task_groups: Vec<Option<serde_json::Value>>,
+    #[serde(rename = "Constraints")]
+    pub constraints: Vec<Option<serde_json::Value>>,
+    #[serde(rename = "ConsulToken")]
+    pub consul_token: Option<String>,
+    #[serde(rename = "VaultToken")]
+    pub vault_token: Option<serde_json::Value>,
+    #[serde(rename = "Vault")]
+    pub vault: Option<serde_json::Value>,
+    #[serde(rename = "Update")]
+    pub update: Option<serde_json::Value>,
+}
+
+#[derive(Deserialize)]
+pub struct ConsulAclTokenRead {
+    #[serde(rename = "SecretID")]
+    pub secret_id: String,
+}
+
+#[derive(Deserialize)]
+pub struct VaultTokenLookup {
+    pub data: VaultTokenLookupData,
+}
+
+#[derive(Deserialize)]
+pub struct VaultTokenLookupData {
+    pub id: String,
 }
 
 #[derive(Serialize)]
