@@ -1,4 +1,5 @@
 pub mod certs;
+pub mod consul;
 pub mod info;
 pub mod nomad;
 pub mod rebuild;
@@ -39,16 +40,21 @@ pub fn bitte_cluster() -> Result<String> {
     Ok(cluster)
 }
 
-fn handle_command_error(mut command: std::process::Command) -> Result<String, ExeError> {
+fn handle_command_error_common(
+    mut command: std::process::Command,
+    pipe_stdout: bool,
+) -> Result<String, ExeError> {
     println!("run: {:?}", command);
-    // command.stdout(Stdio::piped());
+    if pipe_stdout {
+        command.stdout(Stdio::piped());
+    }
     command.stderr(Stdio::piped());
 
     match command.execute_output() {
         Ok(output) => match output.status.code() {
             Some(exit_code) => {
                 if exit_code == 0 {
-                    Ok("Ok".to_string())
+                    Ok(String::from_utf8_lossy(output.stdout.as_slice()).to_string())
                 } else {
                     Err(ExeError {
                         details: String::from_utf8_lossy(&output.stderr).to_string(),
@@ -65,9 +71,17 @@ fn handle_command_error(mut command: std::process::Command) -> Result<String, Ex
     }
 }
 
+fn handle_command_error(command: std::process::Command) -> Result<String, ExeError> {
+    handle_command_error_common(command, false)
+}
+
+pub fn sh(command: std::process::Command) -> Result<String, ExeError> {
+    handle_command_error_common(command, true)
+}
+
 #[derive(Debug)]
-struct ExeError {
-    details: String,
+pub struct ExeError {
+    pub details: String,
 }
 
 impl fmt::Display for ExeError {
@@ -132,14 +146,15 @@ async fn find_instances(patterns: Vec<&str>) -> Vec<Instance> {
     let mut results = Vec::new();
 
     for instance in output.instances.values().into_iter() {
-        let matched = patterns.iter().any(|pattern| {
-            [
-                instance.private_ip.as_str(),
-                instance.public_ip.as_str(),
-                instance.name.as_str(),
-            ]
-            .contains(pattern)
-        });
+        let matched = patterns.is_empty()
+            || patterns.iter().any(|pattern| {
+                [
+                    instance.private_ip.as_str(),
+                    instance.public_ip.as_str(),
+                    instance.name.as_str(),
+                ]
+                .contains(pattern)
+            });
 
         if matched {
             results.push(Instance::new(
@@ -158,19 +173,20 @@ async fn find_instances(patterns: Vec<&str>) -> Vec<Instance> {
             let instance_infos =
                 instance_info(asg_info.instance_id.as_str(), asg.region.as_str()).await;
             for instance_info in instance_infos {
-                let matched = patterns.iter().any(|pattern| {
-                    [
-                        instance_info.instance_id.as_ref(),
-                        instance_info.public_dns_name.as_ref(),
-                        instance_info.public_ip_address.as_ref(),
-                        instance_info.private_dns_name.as_ref(),
-                        instance_info.private_ip_address.as_ref(),
-                    ]
-                    .iter()
-                    .map(|x| x.map_or_else(|| "", |y| y.as_str()))
-                    .collect::<String>()
-                    .contains(pattern)
-                });
+                let matched = patterns.is_empty()
+                    || patterns.iter().any(|pattern| {
+                        [
+                            instance_info.instance_id.as_ref(),
+                            instance_info.public_dns_name.as_ref(),
+                            instance_info.public_ip_address.as_ref(),
+                            instance_info.private_dns_name.as_ref(),
+                            instance_info.private_ip_address.as_ref(),
+                        ]
+                        .iter()
+                        .map(|x| x.map_or_else(|| "", |y| y.as_str()))
+                        .collect::<String>()
+                        .contains(pattern)
+                    });
                 if matched {
                     if let Some(ip) = instance_info.public_ip_address {
                         results.push(Instance::new(
