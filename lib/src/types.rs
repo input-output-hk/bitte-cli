@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use colored::*;
 use restson::RestPath;
 use serde::{Deserialize, Serialize};
 
@@ -55,7 +56,7 @@ impl RestPath<()> for HttpPutToken {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NomadDeployment {
     #[serde(rename = "CreateIndex")]
     pub create_index: i64,
@@ -85,7 +86,63 @@ pub struct NomadDeployment {
     pub task_groups: HashMap<String, NomadDeploymentTaskGroup>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+impl NomadDeployment {
+    pub fn display(self: &NomadDeployment) {
+        for (name, group) in &self.task_groups {
+            println!(
+                "
+{}
+auto promote: {}, auto revert: {}, promoted: {}
+desired total: {}
+canaries desired/placed: {}/{:?}
+allocs placed/healthy/unhealthy {}/{}/{}
+progress deadline: {}
+require progress by: {}",
+                name,
+                group.auto_promote,
+                group.auto_revert,
+                group.promoted,
+                group.desired_total,
+                group.desired_canaries,
+                group.placed_canaries,
+                group.healthy_allocs,
+                group.placed_allocs,
+                group.unhealthy_allocs,
+                group.progress_deadline,
+                group.require_progress_by,
+            );
+        }
+
+        match self.status {
+            NomadDeploymentStatus::Running => {
+                println!("{}", self.status_description.yellow());
+            }
+            NomadDeploymentStatus::Complete => {
+                println!("{}", self.status_description.green());
+                return;
+            }
+            NomadDeploymentStatus::Successful => {
+                println!("{}", self.status_description.green());
+                return;
+            }
+            NomadDeploymentStatus::Failed => {
+                println!("{}", self.status_description.red());
+                return;
+            }
+        }
+    }
+
+    pub fn is_done(self: &NomadDeployment) -> bool {
+        match self.status {
+            NomadDeploymentStatus::Running => false,
+            NomadDeploymentStatus::Complete => true,
+            NomadDeploymentStatus::Successful => true,
+            NomadDeploymentStatus::Failed => true,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NomadDeploymentTaskGroup {
     #[serde(rename = "AutoPromote")]
     pub auto_promote: bool,
@@ -111,7 +168,7 @@ pub struct NomadDeploymentTaskGroup {
     pub unhealthy_allocs: i64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum NomadDeploymentStatus {
     #[serde(rename = "running")]
     Running,
@@ -122,7 +179,6 @@ pub enum NomadDeploymentStatus {
     #[serde(rename = "successful")]
     Successful,
 }
-
 
 #[derive(Debug, Deserialize)]
 pub struct NomadEvaluation {
