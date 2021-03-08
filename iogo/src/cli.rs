@@ -7,16 +7,17 @@ use std::{
 use anyhow::{Context, Result};
 use bitte_lib::{
     consul::consul_token,
-    nomad::nomad_token,
+    nomad::{nomad_token, NomadEvent},
     sh,
     types::{
-        CueRender, NomadDeployment, NomadDeploymentStatus, NomadEvaluation, NomadJobPlan,
-        NomadJobPlanDiff, NomadJobPlanField, NomadJobPlanObject, NomadJobPlanType, NomadJobRun,
-        VaultTokenLookup,
+        CueRender, NomadDeployment, NomadEvaluation, NomadJobPlan, NomadJobPlanDiff,
+        NomadJobPlanField, NomadJobPlanObject, NomadJobPlanType, NomadJobRun, VaultTokenLookup,
     },
 };
 use clap::ArgMatches;
 use colored::*;
+use hyper::{body::HttpBody, Client};
+use hyper_tls::HttpsConnector;
 use restson::RestClient;
 
 pub(crate) async fn run(sub: &ArgMatches) -> Result<()> {
@@ -24,6 +25,89 @@ pub(crate) async fn run(sub: &ArgMatches) -> Result<()> {
     env::set_var("NOMAD_NAMESPACE", &namespace);
     Ok(())
 }
+
+
+pub async fn events(_sub: &ArgMatches) -> Result<()> {
+    let nomad_addr = env::var("NOMAD_ADDR")?;
+    let url: hyper::Uri = format!(
+        "{}/v1/event/stream?topic=Evaluation&topic=Job&topic=Deployment&topic=Allocation&namespace=*",
+        nomad_addr
+    )
+    .parse()?;
+    println!("GET {}", url);
+
+    let https = HttpsConnector::new();
+    let client = Client::builder().build::<_, hyper::Body>(https);
+    let request = hyper::Request::builder()
+        .method("GET")
+        .header("X-Nomad-Token", nomad_token()?)
+        .uri(url)
+        .body(hyper::Body::empty())?;
+
+    let mut response = client.request(request).await.unwrap();
+
+    let mut buf = Vec::<u8>::new();
+
+    while let Some(chunk) = response.body_mut().data().await {
+        for byte in chunk? {
+            if byte == 10 {
+                let c = String::from_utf8_lossy(buf.as_slice()).to_string();
+                let stream =
+                    serde_json::Deserializer::from_str(&c.as_str()).into_iter::<NomadEvent>();
+
+                for json in stream {
+                    match json {
+                        Ok(value) => {
+                            println!("{}", value)
+                        }
+                        Err(err) => {
+                            println!("error: {:?}", err)
+                        }
+                    }
+                }
+                buf.truncate(0);
+            } else {
+                buf.push(byte);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/*
+mostly used for debugging:
+
+pub(crate) async fn events(_sub: &ArgMatches) -> Result<()> {
+    let file = std::fs::read("events_sorted.json")?;
+    let mut buf = Vec::<u8>::new();
+    let mut line = 0;
+    for byte in file.iter() {
+        if *byte == 10 {
+            line = line + 1;
+            println!("{}", line);
+            let c = String::from_utf8_lossy(buf.as_slice()).to_string();
+            let stream = serde_json::Deserializer::from_str(&c.as_str()).into_iter::<NomadEvent>();
+
+            for json in stream {
+                match json {
+                    Ok(value) => {
+                        println!("{}", value)
+                    }
+                    Err(err) => {
+                        println!("error: {:?}", err)
+                    }
+                }
+            }
+            buf.truncate(0);
+        } else {
+            buf.push(*byte);
+        }
+    }
+
+    Ok(())
+}
+*/
 
 pub(crate) async fn plan(sub: &ArgMatches) -> Result<()> {
     let namespace: String = sub.value_of_t_or_exit("namespace");
@@ -80,28 +164,26 @@ pub(crate) async fn plan(sub: &ArgMatches) -> Result<()> {
 
         match (evaluation.status.as_str(), &evaluation.deployment_id) {
             ("pending", _) => std::thread::sleep(std::time::Duration::from_secs(1)),
-            ("complete", Some(deployment_id)) => loop {
-                let deployment: NomadDeployment = client.get(deployment_id.as_str())?;
+            ("complete", Some(deployment_id)) => {
+                let mut deployment: NomadDeployment = client.get(deployment_id.as_str())?;
+                deployment.display();
 
-                match deployment.status {
-                    NomadDeploymentStatus::Running => {
-                        println!("{}", deployment.status_description.yellow());
-                        std::thread::sleep(std::time::Duration::from_secs(1))
+                loop {
+                    let new_deployment = client.get(deployment_id.as_str())?;
+                    if deployment == new_deployment {
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        continue;
+                    } else {
+                        deployment = new_deployment;
                     }
-                    NomadDeploymentStatus::Complete => {
-                        println!("{} {:?}", "Deployment complete!".green(), deployment);
+
+                    deployment.display();
+
+                    if deployment.is_done() {
                         return Ok(());
-                    }
-                    NomadDeploymentStatus::Successful => {
-                        println!("{} {:?}", "Deployment successful!".green(), deployment);
-                        return Ok(());
-                    }
-                    NomadDeploymentStatus::Failed => {
-                        println!("{} {:?}", "Deployment failed!".red(), deployment);
-                        std::thread::sleep(std::time::Duration::from_secs(10))
                     }
                 }
-            },
+            }
             (_, _) => {
                 println!("evaluation: {:?}", evaluation);
                 exit(1)

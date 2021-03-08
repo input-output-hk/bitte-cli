@@ -1,55 +1,20 @@
-use super::sh;
-use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-
-// TODO: check that we have developer or admin policies
-/*
-Example output from `nomad acl token self`:
-
-Accessor ID  = 77777777-8888-9999-aaaa-bbbbbbbbbbbb
-Secret ID    = 88888888-9999-aaaa-bbbb-cccccccccccc
-Name         = vault-admin-aws-max.mustermann-0000000000000000000
-Type         = client
-Global       = false
-Policies     = [admin]
-Create Time  = 2021-02-24 15:25:25.0645971 +0000 UTC
-Create Index = 2492001
-Modify Index = 2492001
-*/
-
-pub fn nomad_token() -> Result<String, anyhow::Error> {
-    match sh(execute::command_args!("nomad", "acl", "token", "self")) {
-        Ok(output) => {
-            for line in output.lines() {
-                let parts: Vec<&str> = line.splitn(2, '=').collect();
-                let key = parts[0].trim();
-
-                if key == "Secret ID" {
-                    let value = parts[1].trim();
-                    return Ok(value.to_string());
-                }
-            }
-            issue_nomad_token()
-        }
-        Err(_err) => issue_nomad_token(),
-    }
-}
-
-fn issue_nomad_token() -> Result<String, anyhow::Error> {
-    sh(execute::command_args!(
-        "vault",
-        "read",
-        "-field",
-        "secret_id",
-        "nomad/creds/developer"
-    ))
-    .context("unable to fetch Nomad token from Vault")
-}
+use std::{
+    collections::HashMap,
+    env,
+    io::Write,
+    process::{exit, Command, ExitStatus},
+};
 
 impl std::fmt::Display for Topic {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        formatter.write_fmt(format_args!("{:?}", self))
+        match self {
+            Topic::Allocation => formatter.write_str("Allocation"),
+            Topic::Deployment => formatter.write_str("Deployment"),
+            Topic::Evaluation => formatter.write_str("Evaluation"),
+            Topic::Job => formatter.write_str("Job"),
+        }?;
+        Ok(())
     }
 }
 
@@ -60,28 +25,8 @@ impl std::fmt::Display for NomadEvent {
                 formatter.write_fmt(format_args!("Topic: {}\n", event.topic))?;
                 formatter.write_fmt(format_args!("  Namespace: {}\n", event.namespace))?;
                 formatter.write_fmt(format_args!("  Key: {}\n", event.key))?;
-                formatter.write_fmt(format_args!("  Type: {:?}\n", event.event_type))?;
-                formatter.write_fmt(format_args!("  Payload: {}\n", event.payload))?;
             }
         }
-        Ok(())
-    }
-}
-
-impl std::fmt::Display for Payload {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        if let Some(allocation) = &self.allocation {
-            formatter.write_fmt(format_args!("\n    JobID: {}\n", allocation.job_id))?;
-        };
-        if let Some(evaluation) = &self.evaluation {
-            formatter.write_fmt(format_args!("\n    JobID: {}\n", evaluation.job_id))?;
-        };
-        if let Some(job) = &self.job {
-            formatter.write_fmt(format_args!("\n    Name: {}\n", job.name))?;
-        };
-        if let Some(deployment) = &self.deployment {
-            formatter.write_fmt(format_args!("\n    JobID: {}\n", deployment.job_id))?;
-        };
         Ok(())
     }
 }
@@ -91,15 +36,15 @@ pub struct NomadEvent {
     #[serde(rename = "Index")]
     pub index: Option<i64>,
     #[serde(rename = "Events")]
-    pub events: Option<Vec<EventsSortedEvent>>,
+    pub events: Option<Vec<NomadEventEvent>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct EventsSortedEvent {
+pub struct NomadEventEvent {
     #[serde(rename = "Topic")]
     pub topic: Topic,
     #[serde(rename = "Type")]
-    pub event_type: NomadEventType,
+    pub event_type: String,
     #[serde(rename = "Key")]
     pub key: String,
     #[serde(rename = "Namespace")]
@@ -149,7 +94,7 @@ pub struct Allocation {
     #[serde(rename = "SharedResources")]
     pub shared_resources: Resources,
     #[serde(rename = "TaskResources")]
-    pub task_resources: TaskResources,
+    pub task_resources: HashMap<String, Task>,
     #[serde(rename = "AllocatedResources")]
     pub allocated_resources: AllocatedResources,
     #[serde(rename = "Metrics")]
@@ -161,11 +106,11 @@ pub struct Allocation {
     #[serde(rename = "DesiredTransition")]
     pub desired_transition: DesiredTransition,
     #[serde(rename = "ClientStatus")]
-    pub client_status: Status,
+    pub client_status: String,
     #[serde(rename = "ClientDescription")]
-    pub client_description: ClientDescription,
+    pub client_description: String,
     #[serde(rename = "TaskStates")]
-    pub task_states: Option<HashMap<String, TaskState>>,
+    pub task_states: Option<Task>,
     #[serde(rename = "AllocStates")]
     pub alloc_states: Option<serde_json::Value>,
     #[serde(rename = "PreviousAllocation")]
@@ -177,7 +122,7 @@ pub struct Allocation {
     #[serde(rename = "DeploymentStatus")]
     pub deployment_status: Option<DeploymentStatus>,
     #[serde(rename = "RescheduleTracker")]
-    pub reschedule_tracker: Option<RescheduleTracker>,
+    pub reschedule_tracker: Option<serde_json::Value>,
     #[serde(rename = "NetworkStatus")]
     pub network_status: Option<NetworkStatus>,
     #[serde(rename = "FollowupEvalID")]
@@ -193,35 +138,17 @@ pub struct Allocation {
     #[serde(rename = "AllocModifyIndex")]
     pub alloc_modify_index: i64,
     #[serde(rename = "CreateTime")]
-    pub create_time: i64,
+    pub create_time: f64,
     #[serde(rename = "ModifyTime")]
-    pub modify_time: i64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TaskState {
-    #[serde(rename = "State")]
-    pub state: String,
-    #[serde(rename = "Failed")]
-    pub failed: bool,
-    #[serde(rename = "Restarts")]
-    pub restarts: i64,
-    #[serde(rename = "LastRestart")]
-    pub last_restart: String,
-    #[serde(rename = "StartedAt")]
-    pub started_at: String,
-    #[serde(rename = "FinishedAt")]
-    pub finished_at: String,
-    #[serde(rename = "Events")]
-    pub events: Vec<Event>,
+    pub modify_time: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AllocatedResources {
     #[serde(rename = "Tasks")]
-    pub tasks: TaskResources,
+    pub tasks: HashMap<String, Task>,
     #[serde(rename = "TaskLifecycles")]
-    pub task_lifecycles: TaskResources,
+    pub task_lifecycles: HashMap<String, Option<Task>>,
     #[serde(rename = "Shared")]
     pub shared: Shared,
 }
@@ -233,7 +160,7 @@ pub struct Shared {
     #[serde(rename = "DiskMB")]
     pub disk_mb: i64,
     #[serde(rename = "Ports")]
-    pub ports: Option<Vec<Port>>,
+    pub ports: Vec<Port>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -271,11 +198,43 @@ pub struct Port {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct Task {
+    #[serde(rename = "Memory")]
+    pub memory: Option<Memory>,
+    #[serde(rename = "Networks")]
+    pub networks: Option<serde_json::Value>,
+    #[serde(rename = "Devices")]
+    pub devices: Option<serde_json::Value>,
+    #[serde(alias = "Cpu", alias = "CPU")]
+    pub cpu: Option<i64>,
+    #[serde(rename = "MemoryMB")]
+    pub memory_mb: Option<i64>,
+    #[serde(rename = "DiskMB")]
+    pub disk_mb: Option<i64>,
+    #[serde(rename = "IOPS")]
+    pub iops: Option<i64>,
+    #[serde(rename = "State")]
+    pub state: Option<Stat>,
+    #[serde(rename = "Failed")]
+    pub failed: Option<bool>,
+    #[serde(rename = "Restarts")]
+    pub restarts: Option<i64>,
+    #[serde(rename = "LastRestart")]
+    pub last_restart: Option<String>,
+    #[serde(rename = "StartedAt")]
+    pub started_at: Option<String>,
+    #[serde(rename = "FinishedAt")]
+    pub finished_at: Option<String>,
+    #[serde(rename = "Events")]
+    pub events: Option<Vec<Event>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Event {
     #[serde(rename = "Type")]
-    pub event_type: EventType,
+    pub event_type: String,
     #[serde(rename = "Time")]
-    pub time: i64,
+    pub time: f64,
     #[serde(rename = "Message")]
     pub message: String,
     #[serde(rename = "DisplayMessage")]
@@ -335,18 +294,43 @@ pub struct Memory {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct Promtail {
+    #[serde(rename = "Cpu")]
+    pub promtail_cpu: Option<Cpu>,
+    #[serde(rename = "Memory")]
+    pub memory: Option<Memory>,
+    #[serde(rename = "Networks")]
+    pub networks: Option<serde_json::Value>,
+    #[serde(rename = "Devices")]
+    pub devices: Option<serde_json::Value>,
+    #[serde(rename = "CPU")]
+    pub cpu: Option<i64>,
+    #[serde(rename = "MemoryMB")]
+    pub memory_mb: Option<i64>,
+    #[serde(rename = "DiskMB")]
+    pub disk_mb: Option<i64>,
+    #[serde(rename = "IOPS")]
+    pub iops: Option<i64>,
+    #[serde(rename = "State")]
+    pub state: Option<Stat>,
+    #[serde(rename = "Failed")]
+    pub failed: Option<bool>,
+    #[serde(rename = "Restarts")]
+    pub restarts: Option<i64>,
+    #[serde(rename = "LastRestart")]
+    pub last_restart: Option<String>,
+    #[serde(rename = "StartedAt")]
+    pub started_at: Option<String>,
+    #[serde(rename = "FinishedAt")]
+    pub finished_at: Option<String>,
+    #[serde(rename = "Events")]
+    pub events: Option<Vec<Event>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Details {
-    pub exit_code: Option<String>,
-    pub exit_message: Option<String>,
-    pub failed_sibling: Option<String>,
-    pub fails_task: Option<String>,
-    pub image: Option<String>,
     pub kill_timeout: Option<String>,
     pub message: Option<String>,
-    pub oom_killed: Option<String>,
-    pub restart_reason: Option<String>,
-    pub signal: Option<String>,
-    pub start_delay: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -366,7 +350,7 @@ pub struct DesiredTransition {
     #[serde(rename = "Migrate")]
     pub migrate: Option<serde_json::Value>,
     #[serde(rename = "Reschedule")]
-    pub reschedule: Option<bool>,
+    pub reschedule: Option<serde_json::Value>,
     #[serde(rename = "ForceReschedule")]
     pub force_reschedule: Option<serde_json::Value>,
 }
@@ -430,7 +414,7 @@ pub struct Scores {
     #[serde(rename = "job-anti-affinity")]
     pub job_anti_affinity: f64,
     #[serde(rename = "node-affinity")]
-    pub node_affinity: i64,
+    pub node_affinity: f64,
     #[serde(rename = "node-reschedule-penalty")]
     pub node_reschedule_penalty: i64,
 }
@@ -442,40 +426,12 @@ pub struct NetworkStatus {
     #[serde(rename = "Address")]
     pub address: String,
     #[serde(rename = "DNS")]
-    pub dns: Option<Dns>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Dns {
-    #[serde(rename = "Servers")]
-    pub servers: Vec<Option<serde_json::Value>>,
-    #[serde(rename = "Searches")]
-    pub searches: Vec<Option<serde_json::Value>>,
-    #[serde(rename = "Options")]
-    pub options: Vec<Option<serde_json::Value>>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RescheduleTracker {
-    #[serde(rename = "Events")]
-    pub events: Vec<RescheduleTrackerEvent>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RescheduleTrackerEvent {
-    #[serde(rename = "RescheduleTime")]
-    pub reschedule_time: i64,
-    #[serde(rename = "PrevAllocID")]
-    pub prev_alloc_id: String,
-    #[serde(rename = "PrevNodeID")]
-    pub prev_node_id: String,
-    #[serde(rename = "Delay")]
-    pub delay: i64,
+    pub dns: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Resources {
-    #[serde(alias = "CPU", alias = "Cpu")]
+    #[serde(rename = "CPU")]
     pub cpu: i64,
     #[serde(rename = "MemoryMB")]
     pub memory_mb: i64,
@@ -487,40 +443,6 @@ pub struct Resources {
     pub networks: Option<Vec<Network>>,
     #[serde(rename = "Devices")]
     pub devices: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TaskResources {
-    #[serde(rename = "Cpu")]
-    pub explorer_cpu: Option<Cpu>,
-    #[serde(rename = "Memory")]
-    pub memory: Option<Memory>,
-    #[serde(rename = "Networks")]
-    pub networks: Option<serde_json::Value>,
-    #[serde(rename = "Devices")]
-    pub devices: Option<serde_json::Value>,
-    #[serde(rename = "CPU")]
-    pub cpu: Option<i64>,
-    #[serde(rename = "MemoryMB")]
-    pub memory_mb: Option<i64>,
-    #[serde(rename = "DiskMB")]
-    pub disk_mb: Option<i64>,
-    #[serde(rename = "IOPS")]
-    pub iops: Option<i64>,
-    #[serde(rename = "State")]
-    pub state: Option<Stat>,
-    #[serde(rename = "Failed")]
-    pub failed: Option<bool>,
-    #[serde(rename = "Restarts")]
-    pub restarts: Option<i64>,
-    #[serde(rename = "LastRestart")]
-    pub last_restart: Option<String>,
-    #[serde(rename = "StartedAt")]
-    pub started_at: Option<String>,
-    #[serde(rename = "FinishedAt")]
-    pub finished_at: Option<String>,
-    #[serde(rename = "Events")]
-    pub events: Option<Vec<Event>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -544,9 +466,9 @@ pub struct Deployment {
     #[serde(rename = "TaskGroups")]
     pub task_groups: TaskGroups,
     #[serde(rename = "Status")]
-    pub status: DeploymentStatusEnum,
+    pub status: Stat,
     #[serde(rename = "StatusDescription")]
-    pub status_description: DeploymentStatusDescription,
+    pub status_description: String,
     #[serde(rename = "CreateIndex")]
     pub create_index: i64,
     #[serde(rename = "ModifyIndex")]
@@ -555,12 +477,11 @@ pub struct Deployment {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TaskGroups {
-    pub mantis: Option<MantisClass>,
-    pub explorer: Option<MantisClass>,
+    pub mantis: TaskGroupsMantis,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct MantisClass {
+pub struct TaskGroupsMantis {
     #[serde(rename = "AutoRevert")]
     pub auto_revert: bool,
     #[serde(rename = "AutoPromote")]
@@ -594,9 +515,9 @@ pub struct Evaluation {
     #[serde(rename = "Priority")]
     pub priority: i64,
     #[serde(rename = "Type")]
-    pub evaluation_type: EvaluationType,
+    pub evaluation_type: String,
     #[serde(rename = "TriggeredBy")]
-    pub triggered_by: TriggeredBy,
+    pub triggered_by: String,
     #[serde(rename = "JobID")]
     pub job_id: String,
     #[serde(rename = "JobModifyIndex")]
@@ -608,9 +529,9 @@ pub struct Evaluation {
     #[serde(rename = "DeploymentID")]
     pub deployment_id: String,
     #[serde(rename = "Status")]
-    pub status: Status,
+    pub status: String,
     #[serde(rename = "StatusDescription")]
-    pub status_description: EvaluationStatusDescription,
+    pub status_description: String,
     #[serde(rename = "Wait")]
     pub wait: i64,
     #[serde(rename = "WaitUntil")]
@@ -632,7 +553,7 @@ pub struct Evaluation {
     #[serde(rename = "AnnotatePlan")]
     pub annotate_plan: bool,
     #[serde(rename = "QueuedAllocations")]
-    pub queued_allocations: Option<QueuedAllocations>,
+    pub queued_allocations: Option<HashMap<String, i64>>,
     #[serde(rename = "LeaderACL")]
     pub leader_acl: String,
     #[serde(rename = "SnapshotIndex")]
@@ -642,15 +563,9 @@ pub struct Evaluation {
     #[serde(rename = "ModifyIndex")]
     pub modify_index: i64,
     #[serde(rename = "CreateTime")]
-    pub create_time: i64,
+    pub create_time: f64,
     #[serde(rename = "ModifyTime")]
-    pub modify_time: i64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct QueuedAllocations {
-    pub mantis: Option<i64>,
-    pub explorer: Option<i64>,
+    pub modify_time: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -668,7 +583,7 @@ pub struct Job {
     #[serde(rename = "Name")]
     pub name: String,
     #[serde(rename = "Type")]
-    pub job_type: EvaluationType,
+    pub job_type: String,
     #[serde(rename = "Priority")]
     pub priority: i64,
     #[serde(rename = "AllAtOnce")]
@@ -676,7 +591,7 @@ pub struct Job {
     #[serde(rename = "Datacenters")]
     pub datacenters: Vec<String>,
     #[serde(rename = "Constraints")]
-    pub constraints: Option<Vec<Option<serde_json::Value>>>,
+    pub constraints: Vec<Option<serde_json::Value>>,
     #[serde(rename = "Affinities")]
     pub affinities: Option<serde_json::Value>,
     #[serde(rename = "Spreads")]
@@ -696,7 +611,7 @@ pub struct Job {
     #[serde(rename = "Payload")]
     pub payload: Option<serde_json::Value>,
     #[serde(rename = "Meta")]
-    pub meta: Option<HashMap<String, String>>,
+    pub meta: Option<serde_json::Value>,
     #[serde(rename = "ConsulToken")]
     pub consul_token: String,
     #[serde(rename = "VaultToken")]
@@ -714,7 +629,7 @@ pub struct Job {
     #[serde(rename = "Version")]
     pub version: i64,
     #[serde(rename = "SubmitTime")]
-    pub submit_time: i64,
+    pub submit_time: f64,
     #[serde(rename = "CreateIndex")]
     pub create_index: i64,
     #[serde(rename = "ModifyIndex")]
@@ -744,11 +659,11 @@ pub struct TaskGroup {
     #[serde(rename = "EphemeralDisk")]
     pub ephemeral_disk: EphemeralDisk,
     #[serde(rename = "Meta")]
-    pub meta: Option<HashMap<String, String>>,
+    pub meta: Option<serde_json::Value>,
     #[serde(rename = "ReschedulePolicy")]
     pub reschedule_policy: ReschedulePolicy,
     #[serde(rename = "Affinities")]
-    pub affinities: Option<Vec<Option<serde_json::Value>>>,
+    pub affinities: Vec<Option<serde_json::Value>>,
     #[serde(rename = "Spreads")]
     pub spreads: Option<serde_json::Value>,
     #[serde(rename = "Networks")]
@@ -788,7 +703,7 @@ pub struct Migrate {
     #[serde(rename = "MaxParallel")]
     pub max_parallel: i64,
     #[serde(rename = "HealthCheck")]
-    pub health_check: HealthCheck,
+    pub health_check: String,
     #[serde(rename = "MinHealthyTime")]
     pub min_healthy_time: i64,
     #[serde(rename = "HealthyDeadline")]
@@ -804,7 +719,7 @@ pub struct ReschedulePolicy {
     #[serde(rename = "Delay")]
     pub delay: i64,
     #[serde(rename = "DelayFunction")]
-    pub delay_function: DelayFunction,
+    pub delay_function: String,
     #[serde(rename = "MaxDelay")]
     pub max_delay: i64,
     #[serde(rename = "Unlimited")]
@@ -820,7 +735,7 @@ pub struct RestartPolicy {
     #[serde(rename = "Delay")]
     pub delay: i64,
     #[serde(rename = "Mode")]
-    pub mode: RestartPolicyMode,
+    pub mode: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -832,21 +747,21 @@ pub struct Service {
     #[serde(rename = "PortLabel")]
     pub port_label: String,
     #[serde(rename = "AddressMode")]
-    pub address_mode: AddressMode,
+    pub address_mode: String,
     #[serde(rename = "EnableTagOverride")]
     pub enable_tag_override: bool,
     #[serde(rename = "Tags")]
     pub tags: Vec<String>,
     #[serde(rename = "CanaryTags")]
-    pub canary_tags: Option<Vec<String>>,
+    pub canary_tags: Option<serde_json::Value>,
     #[serde(rename = "Checks")]
     pub checks: Option<Vec<Check>>,
     #[serde(rename = "Connect")]
     pub connect: Option<serde_json::Value>,
     #[serde(rename = "Meta")]
-    pub meta: Option<HashMap<String, String>>,
+    pub meta: Option<Meta>,
     #[serde(rename = "CanaryMeta")]
-    pub canary_meta: Option<HashMap<String, String>>,
+    pub canary_meta: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -854,11 +769,11 @@ pub struct Check {
     #[serde(rename = "Name")]
     pub name: String,
     #[serde(rename = "Type")]
-    pub check_type: Type,
+    pub check_type: String,
     #[serde(rename = "Command")]
     pub command: String,
     #[serde(rename = "Args")]
-    pub args: Option<Vec<String>>,
+    pub args: Option<serde_json::Value>,
     #[serde(rename = "Path")]
     pub path: String,
     #[serde(rename = "Protocol")]
@@ -906,11 +821,19 @@ pub struct CheckRestart {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct Meta {
+    #[serde(rename = "Name")]
+    pub name: String,
+    #[serde(rename = "PublicIp")]
+    pub public_ip: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TaskElement {
     #[serde(rename = "Name")]
     pub name: String,
     #[serde(rename = "Driver")]
-    pub driver: Driver,
+    pub driver: String,
     #[serde(rename = "User")]
     pub user: String,
     #[serde(rename = "Config")]
@@ -924,9 +847,9 @@ pub struct TaskElement {
     #[serde(rename = "Templates")]
     pub templates: Vec<Template>,
     #[serde(rename = "Constraints")]
-    pub constraints: Option<Vec<Option<serde_json::Value>>>,
+    pub constraints: Vec<Option<serde_json::Value>>,
     #[serde(rename = "Affinities")]
-    pub affinities: Option<Vec<Option<serde_json::Value>>>,
+    pub affinities: Vec<Option<serde_json::Value>>,
     #[serde(rename = "Resources")]
     pub resources: Resources,
     #[serde(rename = "RestartPolicy")]
@@ -961,9 +884,9 @@ pub struct TaskElement {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
-    pub args: Option<Vec<String>>,
-    pub command: Option<String>,
-    pub flake: Option<String>,
+    pub args: Vec<String>,
+    pub command: String,
+    pub flake: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -983,7 +906,7 @@ pub struct Template {
     #[serde(rename = "EmbeddedTmpl")]
     pub embedded_tmpl: String,
     #[serde(rename = "ChangeMode")]
-    pub change_mode: ChangeMode,
+    pub change_mode: String,
     #[serde(rename = "ChangeSignal")]
     pub change_signal: String,
     #[serde(rename = "Splay")]
@@ -1009,7 +932,7 @@ pub struct Vault {
     #[serde(rename = "Env")]
     pub env: bool,
     #[serde(rename = "ChangeMode")]
-    pub change_mode: ChangeMode,
+    pub change_mode: String,
     #[serde(rename = "ChangeSignal")]
     pub change_signal: String,
 }
@@ -1021,7 +944,7 @@ pub struct Update {
     #[serde(rename = "MaxParallel")]
     pub max_parallel: i64,
     #[serde(rename = "HealthCheck")]
-    pub health_check: HealthCheck,
+    pub health_check: String,
     #[serde(rename = "MinHealthyTime")]
     pub min_healthy_time: i64,
     #[serde(rename = "HealthyDeadline")]
@@ -1037,46 +960,11 @@ pub struct Update {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum NomadEventType {
-    AllocationUpdateDesiredStatus,
-    AllocationUpdated,
-    DeploymentStatusUpdate,
-    EvaluationUpdated,
-    JobRegistered,
-    PlanResult,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub enum Mode {
-    #[serde(rename = "bridge")]
-    Bridge,
     #[serde(rename = "host")]
     Host,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum EventType {
-    #[serde(rename = "Alloc Unhealthy")]
-    AllocUnhealthy,
-    Driver,
-    Killed,
-    Killing,
-    Nix,
-    #[serde(rename = "Nix build failed")]
-    NixBuildFailed,
-    #[serde(rename = "Not Restarting")]
-    NotRestarting,
-    Received,
-    Restarting,
-    #[serde(rename = "Sibling Task Failed")]
-    SiblingTaskFailed,
-    Started,
-    #[serde(rename = "Task hook failed")]
-    TaskHookFailed,
-    #[serde(rename = "Task Setup")]
-    TaskSetup,
-    Template,
-    Terminated,
+    #[serde(rename = "bridge")]
+    Bridge,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -1090,39 +978,13 @@ pub enum Stat {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum ClientDescription {
-    #[serde(rename = "All tasks have completed")]
-    AllTasksHaveCompleted,
-    #[serde(rename = "")]
-    Empty,
-    #[serde(rename = "Failed tasks")]
-    FailedTasks,
-    #[serde(rename = "No tasks have started")]
-    NoTasksHaveStarted,
-    #[serde(rename = "Tasks are running")]
-    TasksAreRunning,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum Status {
-    #[serde(rename = "complete")]
-    Complete,
-    #[serde(rename = "failed")]
-    Failed,
-    #[serde(rename = "pending")]
-    Pending,
-    #[serde(rename = "running")]
-    Running,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub enum DesiredDescription {
-    #[serde(rename = "alloc is being updated due to job update")]
-    AllocIsBeingUpdatedDueToJobUpdate,
     #[serde(rename = "alloc is lost since its node is down")]
     AllocIsLostSinceItsNodeIsDown,
     #[serde(rename = "alloc not needed due to job update")]
     AllocNotNeededDueToJobUpdate,
+    #[serde(rename = "alloc is being updated due to job update")]
+    AllocIsBeingUpdatedDueToJobUpdate,
     #[serde(rename = "alloc was rescheduled because it failed")]
     AllocWasRescheduledBecauseItFailed,
     #[serde(rename = "")]
@@ -1135,106 +997,6 @@ pub enum DesiredStatus {
     Run,
     #[serde(rename = "stop")]
     Stop,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum DeploymentStatusEnum {
-    #[serde(rename = "failed")]
-    Failed,
-    #[serde(rename = "running")]
-    Running,
-    #[serde(rename = "successful")]
-    Successful,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum DeploymentStatusDescription {
-    #[serde(rename = "Deployment completed successfully")]
-    DeploymentCompletedSuccessfully,
-    #[serde(rename = "Deployment is running")]
-    DeploymentIsRunning,
-    #[serde(rename = "Failed due to progress deadline")]
-    FailedDueToProgressDeadline,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum EvaluationType {
-    #[serde(rename = "service")]
-    Service,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum EvaluationStatusDescription {
-    #[serde(rename = "created for delayed rescheduling")]
-    CreatedForDelayedRescheduling,
-    #[serde(rename = "")]
-    Empty,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum TriggeredBy {
-    #[serde(rename = "alloc-failure")]
-    AllocFailure,
-    #[serde(rename = "deployment-watcher")]
-    DeploymentWatcher,
-    #[serde(rename = "job-register")]
-    JobRegister,
-    #[serde(rename = "node-update")]
-    NodeUpdate,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum HealthCheck {
-    #[serde(rename = "checks")]
-    Checks,
-    #[serde(rename = "")]
-    Empty,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum DelayFunction {
-    #[serde(rename = "exponential")]
-    Exponential,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum RestartPolicyMode {
-    #[serde(rename = "fail")]
-    Fail,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum AddressMode {
-    #[serde(rename = "auto")]
-    Auto,
-    #[serde(rename = "host")]
-    Host,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum Type {
-    #[serde(rename = "http")]
-    Http,
-    #[serde(rename = "tcp")]
-    Tcp,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum Driver {
-    #[serde(rename = "exec")]
-    Exec,
-    #[serde(rename = "docker")]
-    Docker,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum ChangeMode {
-    #[serde(rename = "noop")]
-    Noop,
-    #[serde(rename = "signal")]
-    Signal,
-    #[serde(rename = "restart")]
-    Restart,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -10,6 +10,7 @@ async fn main() -> Result<()> {
       (version: "0.0.1")
       (author: "Michael Fellinger <michael.fellinger@iohk.io>")
       (about: "Deploy all the things!")
+      (@subcommand events => (@arg foo: +takes_value "foo"))
       (@subcommand plan =>
         (@arg namespace: +takes_value +required "Name of the namespace")
         (@arg job: +takes_value +required "Name of the job to run"))
@@ -24,6 +25,7 @@ async fn main() -> Result<()> {
     match matches.subcommand() {
         Some(("plan", sub)) => cli::plan(sub).await,
         Some(("run", sub)) => cli::run(sub).await,
+        Some(("events", sub)) => cli::events(sub).await,
         _ => bail!("Unknown command"),
     }?;
     Ok(())
