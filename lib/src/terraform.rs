@@ -57,6 +57,12 @@ pub fn generate_terraform_config(workspace: &str) -> Result<()> {
 pub fn init(upgrade: bool) -> Result<()> {
     set_http_auth()?;
     println!("run: terraform init");
+
+    match std::fs::remove_dir_all(".terraform") {
+        Ok(_) => {}
+        Err(_) => {}
+    }
+
     if upgrade {
         Command::new("terraform")
             .args(&["init", "-upgrade"])
