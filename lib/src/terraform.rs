@@ -1,18 +1,18 @@
-use std::io::Read;
 use std::process::Command;
+use std::{env, path::Path};
 use std::{
-    env,
-    fs::File,
-    io::{BufRead, BufReader},
-    path::Path,
+    fs::{read_to_string, remove_dir_all},
+    io::Read,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
+use flate2::read::ZlibDecoder;
 use log::info;
+use netrc_rs::Netrc;
 use restson::RestClient;
 use shellexpand::tilde;
 
-use crate::types::{HttpPutToken, TerraformStateValue, VaultLogin};
+use crate::types::{HttpPutToken, TerraformState, TerraformStateValue, VaultLogin};
 
 use super::{bitte_cluster, types::RawVaultState};
 
@@ -26,8 +26,10 @@ pub fn prepare(workspace: String) -> Result<()> {
 
 #[test]
 fn test_generate_terraform_config() {
-    assert!(generate_terraform_config("lies")
-        .is_err(), "should have errored out")
+    assert!(
+        generate_terraform_config("lies").is_err(),
+        "should have errored out"
+    )
 }
 
 pub fn generate_terraform_config(workspace: &str) -> Result<()> {
@@ -44,13 +46,14 @@ pub fn generate_terraform_config(workspace: &str) -> Result<()> {
             workspace
         ))
         .status()
-        .or_else(|_|
+        .or_else(|_| {
             Command::new("nix")
                 .arg("-L")
                 .arg("run")
                 .arg(format!(".#clusters.{}.tf.{}.config", cluster, workspace))
                 .status()
-                .or_else(|_| bail!("Couldn't generate terraform config")))?;
+                .or_else(|_| bail!("Couldn't generate terraform config"))
+        })?;
     Ok(())
 }
 
@@ -58,7 +61,7 @@ pub fn init(upgrade: bool) -> Result<()> {
     set_http_auth()?;
     println!("run: terraform init");
 
-    match std::fs::remove_dir_all(".terraform") {
+    match remove_dir_all(".terraform") {
         Ok(_) => {}
         Err(_) => {}
     }
@@ -120,12 +123,12 @@ pub fn output(workspace: &str) -> Result<TerraformStateValue> {
     set_http_auth()?;
     let state = terraform_vault_state(workspace).context("failed to fetch state from vault")?;
     let decoded = base64::decode(state).context("failed to decode state")?;
-    let mut decoder = flate2::read::ZlibDecoder::new(decoded.as_slice());
+    let mut decoder = ZlibDecoder::new(decoded.as_slice());
     let mut buf = "".to_string();
     decoder
         .read_to_string(&mut buf)
         .context("failed to inflate state")?;
-    let state: crate::types::TerraformState =
+    let state: TerraformState =
         serde_json::from_str(&buf).context("failed to decode state JSON")?;
     Ok(state.outputs.cluster.value)
 }
@@ -133,21 +136,17 @@ pub fn output(workspace: &str) -> Result<TerraformStateValue> {
 fn github_token() -> Result<String> {
     let exp = &tilde("~/.netrc").to_string();
     let path = Path::new(exp);
-    let file = File::open(path).context(format!("Couldn't read {}", exp))?;
-    let lines = BufReader::new(file).lines();
-    for line in lines {
-        let netrc = netrc_rs::Netrc::parse(line?, true).expect("invalid line in ~/.netrc");
-        for machine in &netrc.machines {
-            if let Some(name) = &machine.name {
-                if let ("github.com", Some(token)) = (name.as_str(), machine.password.as_ref()) {
-                    return Ok(token.to_string());
-                }
-                if let ("api.github.com", Some(token)) = (name.as_str(), machine.password.as_ref())
-                {
-                    return Ok(token.to_string());
-                }
-            };
-        }
+    let netrc_file = read_to_string(path)?;
+    let netrc = Netrc::parse(netrc_file, true).expect("invalid line in ~/.netrc");
+    for machine in &netrc.machines {
+        if let Some(name) = &machine.name {
+            if let ("github.com", Some(token)) = (name.as_str(), machine.password.as_ref()) {
+                return Ok(token.to_string());
+            }
+            if let ("api.github.com", Some(token)) = (name.as_str(), machine.password.as_ref()) {
+                return Ok(token.to_string());
+            }
+        };
     }
 
     Err(anyhow!(
