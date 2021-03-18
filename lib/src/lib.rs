@@ -14,6 +14,25 @@ use std::{fmt, process::Stdio};
 
 use info::{asg_info, instance_info};
 
+#[cfg(test)]
+mod test_bitte_cluster {
+    use super::*;
+
+    #[test]
+    fn returns_error() {
+        assert!(bitte_cluster().is_err())
+    }
+
+    mod when_env_var_set {
+        use super::*;
+        #[test]
+        fn returns_content_of_environment() {
+            env::set_var("BITTE_CLUSTER", "lies");
+            pretty_assertions::assert_eq!(bitte_cluster().unwrap(), "lies")
+        }
+    }
+}
+
 pub fn bitte_cluster() -> Result<String> {
     let cluster =
         env::var("BITTE_CLUSTER").context("BITTE_CLUSTER environment variable must be set")?;

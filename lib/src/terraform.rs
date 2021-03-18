@@ -7,7 +7,7 @@ use std::{
     path::Path,
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use log::info;
 use restson::RestClient;
 use shellexpand::tilde;
@@ -24,6 +24,12 @@ pub fn prepare(workspace: String) -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn test_generate_terraform_config() {
+    assert!(generate_terraform_config("lies")
+        .is_err(), "should have errored out")
+}
+
 pub fn generate_terraform_config(workspace: &str) -> Result<()> {
     let cluster = bitte_cluster()?;
 
@@ -38,13 +44,13 @@ pub fn generate_terraform_config(workspace: &str) -> Result<()> {
             workspace
         ))
         .status()
-        .or_else(|_| {
+        .or_else(|_|
             Command::new("nix")
                 .arg("-L")
                 .arg("run")
                 .arg(format!(".#clusters.{}.tf.{}.config", cluster, workspace))
                 .status()
-        })?;
+                .or_else(|_| bail!("Couldn't generate terraform config")))?;
     Ok(())
 }
 

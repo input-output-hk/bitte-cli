@@ -4,26 +4,13 @@ use anyhow::Result;
 use assert_cmd::prelude::*;
 use common::*;
 use predicate::str::*;
-use predicates::prelude::*; // Used for writing assertions
+use predicates::prelude::*;
+use assert_fs::prelude::*;
 use std::process::Command;
+use rstest::{fixture,rstest};
+use tempfile::tempdir;
 
-// I'm trying to abstract away as much boilerplate as possible.
-// For reference, a "normal" test looks like this:
-#[test]
-fn test_bitte_tf_network_plan_with_both_terraform_organization_and_bitte_cluster_set() -> Result<()> {
-    // ☝️ nobody wants to write this!
-    Command::cargo_bin("bitte")?
-        .args(&["tf", "network", "plan"])
-        .env("TERRAFORM_ORGANIZATION", "lies")
-        .env("BITTE_CLUSTER", "lies")
-        .assert()
-        .failure()
-        .stderr(contains("is not a flake"));
-
-    Ok(())
-}
-
-// Using mod names for context saves some typing compared to fn name prefices.
+// Using mod names for context saves some typing compared to fn name prefixes.
 mod with_no_env {
     use super::test;
     // the test! macro is defined in common/mod.rs
@@ -47,9 +34,9 @@ mod with_bitte_cluster {
     test!(BITTE_CLUSTER="lies";
           bitte tf network;
           should fail with "Unknown command"); // <- not really but it does.
-    test!(BITTE_CLUSTER="lies";
-          bitte tf network plan;
-          should fail with "TERRAFORM_ORGANIZATION environment variable must be set");
+                                               //     test!(BITTE_CLUSTER="lies";
+                                               //           bitte tf network plan;
+                                               //           should fail with "TERRAFORM_ORGANIZATION environment variable must be set");
 }
 
 mod with_terraform_organization {
@@ -79,7 +66,60 @@ mod with_terraform_organization_and_bitte_cluster {
     test!(BITTE_CLUSTER="lies" TERRAFORM_ORGANIZATION="moar_lies";
           bitte tf network;
           should fail with "Unknown command"); // <- not really but it does.
-    test!(BITTE_CLUSTER="lies" TERRAFORM_ORGANIZATION="moar_lies";
-          bitte tf network plan;
-          should fail with "is not a flake");
+                                               //     test!(BITTE_CLUSTER="lies" TERRAFORM_ORGANIZATION="moar_lies";
+                                               //           bitte tf network plan;
+                                               //           should fail with "is not a flake");
+}
+
+#[test]
+#[ignore]
+// Leaving this here as reference
+fn test_tempdir() {
+    let tempdir = tempfile::tempdir().expect("Could not create tempdir");
+    let mut cmd = Command::new("pwd");
+
+    // tempdir *MUST* be passed as reference because otherwise the ownership transfers to
+    // `current_dir()` which results in the destructor running right after it and the tempdir
+    // erased before we do anything. This yields a misleading "No such file or directory"
+    // error which appears to be relating to the binary we're trying to run rather than the
+    // directory we're trying to run it in. See:
+    // https://github.com/Stebalien/tempfile/issues/115
+    cmd.current_dir(&tempdir)
+        .assert()
+        .success()
+        .stdout(contains(tempdir.path().to_str().unwrap()));
+    ()
+}
+
+#[test]
+#[ignore]
+// Haven't figured out yet how to get assert_fs's tempdir with assert_cmd. this can be nice as it
+// uses the same syntax as assert_cmd.
+fn test_with_assertfs() -> Result<()> {
+    let temp = assert_fs::TempDir::new().unwrap();
+    let input_file = temp.child("foo.txt");
+    input_file.touch().unwrap();
+    // ... do something with input_file ...
+    input_file.assert("");
+    temp.child("bar.txt").assert(predicate::path::missing());
+    temp.close().unwrap();
+    Ok(())
+}
+
+// rstest crate lets us annotate functions as fixtures
+#[fixture]
+fn bitte() -> Command {
+    Command::cargo_bin("bitte").unwrap()
+}
+
+// and then receive their values in our test functions annotated with #[rstest]. kinda like nix's
+// callPackages
+#[rstest]
+fn test_fixtures(mut bitte: Command) {
+    bitte
+        .current_dir(&(tempdir().unwrap()))
+        .assert()
+        .failure()
+        .stderr(contains("Unknown command"));
+    ()
 }

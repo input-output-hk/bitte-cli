@@ -1,12 +1,21 @@
-use std::process::Command;
-use anyhow::{Result, Context};
-use assert_cmd::prelude::*;
+use anyhow::{Context, Result};
 use assert_cmd::assert::Assert;
+use assert_cmd::prelude::*;
 use predicates::str::*;
+use std::process::Command;
 
 #[macro_export]
 // TODO figure out how to extract the common part. macros are hard!
 macro_rules! test {
+    // (ignore $($var:ident=$val:expr)*; $($cmdline:ident)+; should fail with $msg:expr) => {
+    //     paste::paste! {
+    //         #[test]
+    //         #[ignore]
+    //         fn [<test_ $($cmdline)_+>]() -> $crate::Result<()> {
+    //             Ok(())
+    //         }
+    //     }
+    // };
     // test! {
     //     VAR1="this" VAR2="that";
     //     bitte do something;
@@ -57,18 +66,21 @@ pub(crate) fn c(cargo_bin_and_args: &[&str]) -> Result<Command> {
 }
 
 pub(crate) fn cc(cargo_bin: &str, args: &[&str]) -> Result<Command> {
+    // let dir = tempfile::tempdir()?;
+
     let mut cmd = Command::cargo_bin(&cargo_bin)
-    .with_context(|| format!("Cargo couldn't find {}", cargo_bin))?;
+        .with_context(|| format!("Cargo couldn't find {}", cargo_bin))?;
+    // cmd.current_dir(dir.path().to_str().unwrap());
     cmd.args(args);
     Ok(cmd)
 }
 
 #[macro_export]
-macro_rules! c {
-    ($($args:ident)+) => { $crate::c!($(stringify!($args))+) };
-    ($($args:expr),*) => { $crate::c(&[$($args),*])? };
-    ($($args:expr)+) => { $crate::c!($($args),+) };
-}
+macro_rules ! c {
+    ( $ ( $ args: ident) + ) => { $ crate::c ! ( $ (stringify !( $ args)) + ) };
+    ( $ ( $ args: expr),* ) => { $ crate::c( & [ $ ( $args), * ]) ? };
+    ( $ ( $ args: expr) +) => { $ crate::c ! ( $ ( $ args), + ) };
+    }
 
 // For shits and giggles, allow .should() instead of .assert()
 // Future reference more than anything.
@@ -94,8 +106,8 @@ impl AssertExt for Assert {
     }
 
     fn with(self, pattern: &str) -> Assert {
-        // TODO decide stderr/stdout based on whether wer're asserting success or failure...
-        // this isn't currently straight-forward because Assert keeps its `output` memeber private.
+        // TODO decide stderr/stdout based on whether we're asserting success or failure...
+        // this isn't currently straight-forward because Assert keeps its `output` member private.
         self.stderr(contains(pattern))
     }
 }

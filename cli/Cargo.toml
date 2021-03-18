@@ -31,3 +31,7 @@ features = ["suggestions", "color", "wrap_help"]
 assert_cmd = "1.0.3"
 predicates = "1.0.7"
 paste = "1.0.4"
+tempfile = "3.2.0"
+assert_fs = "^1.0"
+pretty_assertions = "^0.7.0"
+rstest = "^0.6"
