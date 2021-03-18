@@ -11,7 +11,7 @@ pub fn ssh_keygen(ip: &str) -> Result<()> {
 }
 
 pub fn wait_for_ready(cluster: &str, ip: &str) -> Result<()> {
-    let target = format!("root@#{}", ip);
+    let target = format!("root@{}", ip);
 
     let mut ssh_args = vec![
         "-C", // Requests compression of all data
