@@ -88,7 +88,7 @@ pub fn nix_copy_to_machine(target: &str, ssh: &str) -> Result<()> {
             .arg("copy")
             .arg("--substitute-on-destination")
             .arg("--to")
-            .arg(format!("ssh://{}", ssh))
+            .arg(format!("ssh://root@{}", ssh))
             .arg(target),
     )?;
     Ok(())
