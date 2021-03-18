@@ -99,7 +99,7 @@ pub fn set_ssh_opts(key_checking: bool) -> Result<()> {
         return Ok(());
     }
 
-    let check = if key_checking { "accept-new" } else { "none" };
+    let check = if key_checking { "accept-new" } else { "no" };
     let check_flag = format!("StrictHostKeyChecking={}", check);
 
     let mut args = vec![
