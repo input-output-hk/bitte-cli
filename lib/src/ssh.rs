@@ -50,7 +50,7 @@ mod tests {
 }
 
 pub async fn wait_for_ssh(ip: &str) -> Result<()> {
-    let res = wait(&ip, 5000, 120).await?;
+    let res = wait(&ip, 10000, 120).await?;
     Ok(res)
 }
 
