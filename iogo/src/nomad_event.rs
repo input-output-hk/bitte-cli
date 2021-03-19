@@ -102,7 +102,7 @@ pub struct Allocation {
     #[serde(rename = "DesiredStatus")]
     pub desired_status: DesiredStatus,
     #[serde(rename = "DesiredDescription")]
-    pub desired_description: DesiredDescription,
+    pub desired_description: String,
     #[serde(rename = "DesiredTransition")]
     pub desired_transition: DesiredTransition,
     #[serde(rename = "ClientStatus")]
@@ -975,20 +975,6 @@ pub enum Stat {
     Pending,
     #[serde(rename = "running")]
     Running,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum DesiredDescription {
-    #[serde(rename = "alloc is lost since its node is down")]
-    AllocIsLostSinceItsNodeIsDown,
-    #[serde(rename = "alloc not needed due to job update")]
-    AllocNotNeededDueToJobUpdate,
-    #[serde(rename = "alloc is being updated due to job update")]
-    AllocIsBeingUpdatedDueToJobUpdate,
-    #[serde(rename = "alloc was rescheduled because it failed")]
-    AllocWasRescheduledBecauseItFailed,
-    #[serde(rename = "")]
-    Empty,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

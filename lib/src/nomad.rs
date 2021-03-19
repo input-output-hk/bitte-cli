@@ -1161,6 +1161,8 @@ pub enum DeploymentStatusDescription {
 pub enum EvaluationType {
     #[serde(rename = "service")]
     Service,
+    #[serde(rename = "batch")]
+    Batch,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
