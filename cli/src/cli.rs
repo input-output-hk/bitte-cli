@@ -26,7 +26,7 @@ pub(crate) async fn provision(sub: &ArgMatches) -> Result<()> {
     let cache: String = sub.value_of_t_or_exit("cache");
 
     rebuild::set_ssh_opts(false)?;
-    ssh::wait_for_ssh(&ip).await;
+    ssh::wait_for_ssh(&ip).await?;
     ssh::wait_for_ready(&cluster, &ip)?;
     ssh::ssh_keygen(&ip)?;
 

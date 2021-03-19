@@ -44,29 +44,29 @@ mod tests {
 
     #[tokio::test]
     async fn test_wait() {
-        let result = wait("169.254.1.2", 1).await;
+        let result = wait("169.254.1.2", 5000, 1).await;
         assert!(result.is_err());
     }
 }
 
 pub async fn wait_for_ssh(ip: &str) -> Result<()> {
-    let res = wait(&ip, 120).await?;
+    let res = wait(&ip, 5000, 120).await?;
     Ok(res)
 }
 
-pub async fn wait(ip: &str, timeout: u8) -> Result<()> {
+pub async fn wait(ip: &str, duration_in_ms: u64, attempts: u8) -> Result<()> {
     let addr = format!("{}:22", ip);
 
-    for i in 0..timeout {
+    for i in 0..attempts {
         let stream = TcpStream::connect(addr.clone());
-        let t = time::timeout(Duration::from_millis(1000), stream);
+        let t = time::timeout(Duration::from_millis(duration_in_ms), stream);
         match t.await {
             Ok(o) => match o {
                 Ok(_) => {
                     return Ok(());
                 }
                 Err(ee) => {
-                    if i >= timeout {
+                    if i >= attempts {
                         println!("error while connecting: {}", ee);
                     }
                 }
