@@ -1,6 +1,6 @@
-use anyhow::Result;
+use anyhow::{Result, bail};
 use std::{path::Path, process::Command};
-use tokio::{net::TcpStream, time::timeout};
+use tokio::{net::TcpStream, time};
 use std::time::Duration;
 
 use super::check_cmd;
@@ -38,19 +38,35 @@ pub fn wait_for_ready(cluster: &str, ip: &str) -> Result<()> {
     Ok(())
 }
 
-pub async fn wait_for_ssh(ip: &str) {
+#[cfg(test)]
+mod tests {
+    use crate::ssh::wait;
+
+    #[tokio::test]
+    async fn test_wait() {
+        let result = wait("169.254.1.2", 1).await;
+        assert!(result.is_err());
+    }
+}
+
+pub async fn wait_for_ssh(ip: &str) -> Result<()> {
+    let res = wait(&ip, 120).await?;
+    Ok(res)
+}
+
+pub async fn wait(ip: &str, timeout: u8) -> Result<()> {
     let addr = format!("{}:22", ip);
 
-    for i in 0..120 {
+    for i in 0..timeout {
         let stream = TcpStream::connect(addr.clone());
-        let t = timeout(Duration::from_millis(10000), stream);
+        let t = time::timeout(Duration::from_millis(1000), stream);
         match t.await {
             Ok(o) => match o {
                 Ok(_) => {
-                    return;
+                    return Ok(());
                 }
                 Err(ee) => {
-                    if i >= 120 {
+                    if i >= timeout {
                         println!("error while connecting: {}", ee);
                     }
                 }
@@ -58,4 +74,5 @@ pub async fn wait_for_ssh(ip: &str) {
             Err(e) => println!("Waiting for {} to respond: {}", addr, e),
         }
     }
+    bail!("Timeout waiting for {}", addr)
 }
