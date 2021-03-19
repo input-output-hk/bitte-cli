@@ -30,7 +30,7 @@ pub(crate) async fn run(sub: &ArgMatches) -> Result<()> {
 pub async fn events(_sub: &ArgMatches) -> Result<()> {
     let nomad_addr = env::var("NOMAD_ADDR")?;
     let url: hyper::Uri = format!(
-        "{}/v1/event/stream?topic=Evaluation&topic=Job&topic=Deployment&topic=Allocation&namespace=*",
+        "{}/v1/event/stream?topic=Evaluation&topic=Job&topic=Deployment&topic=Allocation&namespace=mantis-testnet",
         nomad_addr
     )
     .parse()?;
