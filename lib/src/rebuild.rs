@@ -44,15 +44,14 @@ fn copy_to(instance: &Instance, _attempts: u64, copy: bool) -> Result<()> {
         "{}&secret-key=secrets/nix-secret-key-file",
         instance.s3_cache
     );
-    let ip: String = format!("ssh://root@{}", instance.public_ip);
     let rebuild_flake: String = format!("{}#{}", flake, instance.uid);
 
     nix_build(&target)?;
     if copy {
         nix_copy_to_cache(&target, &cache)?;
     }
-    nix_copy_to_machine(&target, &ip)?;
-    nixos_rebuild(&rebuild_flake, &ip)
+    nix_copy_to_machine(&target, &instance.public_ip)?;
+    nixos_rebuild(&rebuild_flake, &instance.public_ip)
 }
 
 pub fn nixos_rebuild(target: &str, ip: &str) -> Result<()> {
