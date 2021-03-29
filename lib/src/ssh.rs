@@ -1,16 +1,17 @@
-use anyhow::{Result, bail};
 use std::{path::Path, process::Command};
 use tokio::{net::TcpStream, time};
 use std::time::Duration;
 
 use super::check_cmd;
+use super::error::BitteError as Error;
 
-pub fn ssh_keygen(ip: &str) -> Result<()> {
-    check_cmd(Command::new("ssh-keygen").arg("-R").arg(ip))?;
+pub fn ssh_keygen(ip: &str) -> Result<(), Error> {
+    check_cmd(Command::new("ssh-keygen").arg("-R").arg(ip))
+        .map_err(|_| Error::Unknown)?;
     Ok(())
 }
 
-pub fn wait_for_ready(cluster: &str, ip: &str) -> Result<()> {
+pub fn wait_for_ready(cluster: &str, ip: &str) -> Result<(), Error> {
     let target = format!("root@{}", ip);
 
     let mut ssh_args = vec![
@@ -34,45 +35,38 @@ pub fn wait_for_ready(cluster: &str, ip: &str) -> Result<()> {
 
     ssh_args.push(&target);
     ssh_args.push("until grep true /etc/ready &>/dev/null; do sleep 1; done");
-    check_cmd(Command::new("ssh").args(ssh_args))?;
+    check_cmd(Command::new("ssh").args(ssh_args))
+        .map_err(|_| Error::Unknown)?;
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::ssh::wait;
-
-    #[tokio::test]
-    async fn test_wait() {
-        let result = wait("169.254.1.2", 5000, 1).await;
-        assert!(result.is_err());
-    }
-}
-
-pub async fn wait_for_ssh(ip: &str) -> Result<()> {
-    let res = wait(&ip, 10000, 120).await?;
+pub async fn wait_for_ssh(ip: &str) -> Result<(), Error> {
+    let res = wait_for_port(&ip, 22, 10000, 120).await?;
     Ok(res)
 }
 
-pub async fn wait(ip: &str, duration_in_ms: u64, attempts: u8) -> Result<()> {
-    let addr = format!("{}:22", ip);
+pub async fn wait_for_port(ip: &str, port: usize, duration_in_ms: u64, attempts: usize) ->
+                                                                                        Result<(),
+    Error> {
+    let addr = format!("{}:{}", ip, port);
+    let timeout_duration = Duration::from_millis(duration_in_ms);
+    let mut interval = time::interval(timeout_duration);
 
-    for i in 0..attempts {
+    for _i in 0..attempts {
         let stream = TcpStream::connect(addr.clone());
-        let t = time::timeout(Duration::from_millis(duration_in_ms), stream);
-        match t.await {
+        let timeout = time::timeout(timeout_duration, stream);
+        match timeout.await {
             Ok(o) => match o {
                 Ok(_) => {
                     return Ok(());
                 }
                 Err(ee) => {
-                    if i >= attempts {
-                        println!("error while connecting: {}", ee);
-                    }
+                    println!("error while connecting: {}", ee);
+                    interval.tick().await;
                 }
             },
             Err(e) => println!("Waiting for {} to respond: {}", addr, e),
         }
     }
-    bail!("Timeout waiting for {}", addr)
+    Err(Error::ExhaustedAttempts(attempts))
 }
