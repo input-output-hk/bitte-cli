@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use crate::Result;
 use log::info;
 use std::{env, path::Path, process::Command, time::Duration};
 
@@ -36,8 +36,7 @@ fn copy_to(instance: &Instance, _attempts: u64, copy: bool) -> Result<()> {
             "{}#nixosConfigurations.{}.config.secrets.generateScript",
             flake, instance.uid
         )
-    ))
-    .context("secrets.generateScript failed, you might need to upgrade bitte")?;
+    ))?;
 
     let target = format!("{}#{}", flake, instance.flake_attr);
     let cache = format!(

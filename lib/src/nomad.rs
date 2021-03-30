@@ -1,7 +1,7 @@
 use super::sh;
-use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use crate::Result;
 
 // TODO: check that we have developer or admin policies
 /*
@@ -18,7 +18,7 @@ Create Index = 2492001
 Modify Index = 2492001
 */
 
-pub fn nomad_token() -> Result<String, anyhow::Error> {
+pub fn nomad_token() -> Result<String> {
     match sh(execute::command_args!("nomad", "acl", "token", "self")) {
         Ok(output) => {
             for line in output.lines() {
@@ -36,7 +36,7 @@ pub fn nomad_token() -> Result<String, anyhow::Error> {
     }
 }
 
-fn issue_nomad_token() -> Result<String, anyhow::Error> {
+fn issue_nomad_token() -> Result<String> {
     sh(execute::command_args!(
         "vault",
         "read",
@@ -44,17 +44,16 @@ fn issue_nomad_token() -> Result<String, anyhow::Error> {
         "secret_id",
         "nomad/creds/developer"
     ))
-    .context("unable to fetch Nomad token from Vault")
 }
 
 impl std::fmt::Display for Topic {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_fmt(format_args!("{:?}", self))
     }
 }
 
 impl std::fmt::Display for NomadEvent {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(events) = &self.events {
             for event in events {
                 formatter.write_fmt(format_args!("Topic: {}\n", event.topic))?;
@@ -69,7 +68,7 @@ impl std::fmt::Display for NomadEvent {
 }
 
 impl std::fmt::Display for Payload {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(allocation) = &self.allocation {
             formatter.write_fmt(format_args!("\n    JobID: {}\n", allocation.job_id))?;
         };

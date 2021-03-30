@@ -8,11 +8,13 @@ pub mod terraform;
 pub mod types;
 pub mod error;
 
-use anyhow::{Context, Result};
+use error::Error;
+pub(crate) type Result<T> = std::result::Result<T, Error>;
+
 use execute::Execute;
 use std::env;
 use std::process::Command;
-use std::{fmt, process::Stdio};
+use std::process::Stdio;
 
 use info::{asg_info, instance_info};
 
@@ -37,14 +39,14 @@ mod test_bitte_cluster {
 
 pub fn bitte_cluster() -> Result<String> {
     let cluster =
-        env::var("BITTE_CLUSTER").context("BITTE_CLUSTER environment variable must be set")?;
+        env::var("BITTE_CLUSTER")?;
     Ok(cluster)
 }
 
 fn handle_command_error_common(
     mut command: std::process::Command,
     pipe_stdout: bool,
-) -> Result<String, ExeError> {
+) -> Result<String> {
     println!("run: {:?}", command);
     if pipe_stdout {
         command.stdout(Stdio::piped());
@@ -57,49 +59,32 @@ fn handle_command_error_common(
                 if exit_code == 0 {
                     Ok(String::from_utf8_lossy(output.stdout.as_slice()).to_string())
                 } else {
-                    Err(ExeError {
+                    Err(Error::ExeError {
                         details: String::from_utf8_lossy(&output.stderr).to_string(),
                     })
                 }
             }
-            None => Err(ExeError {
+            None => Err(Error::ExeError {
                 details: "interrupted".to_string(),
             }),
         },
-        Err(e) => Err(ExeError {
+        Err(e) => Err(Error::ExeError {
             details: e.to_string(),
         }),
     }
 }
 
-fn handle_command_error(command: std::process::Command) -> Result<String, ExeError> {
+fn handle_command_error(command: std::process::Command) -> Result<String> {
     handle_command_error_common(command, false)
 }
 
-pub fn sh(command: std::process::Command) -> Result<String, ExeError> {
+pub fn sh(command: std::process::Command) -> Result<String> {
     handle_command_error_common(command, true)
-}
-
-#[derive(Debug)]
-pub struct ExeError {
-    pub details: String,
-}
-
-impl fmt::Display for ExeError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.details)
-    }
-}
-
-impl std::error::Error for ExeError {
-    fn description(&self) -> &str {
-        &self.details
-    }
 }
 
 fn check_cmd(cmd: &mut Command) -> Result<()> {
     println!("run: {:?}", cmd);
-    cmd.status().context(format!("failed to run: {:?}", cmd))?;
+    cmd.status()?;
 
     Ok(())
 }

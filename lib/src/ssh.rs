@@ -3,15 +3,15 @@ use tokio::{net::TcpStream, time};
 use std::time::Duration;
 
 use super::check_cmd;
-use super::error::BitteError as Error;
+use crate::{Result, error::Error};
 
-pub fn ssh_keygen(ip: &str) -> Result<(), Error> {
+pub fn ssh_keygen(ip: &str) -> Result<()> {
     check_cmd(Command::new("ssh-keygen").arg("-R").arg(ip))
         .map_err(|_| Error::Unknown)?;
     Ok(())
 }
 
-pub fn wait_for_ready(cluster: &str, ip: &str) -> Result<(), Error> {
+pub fn wait_for_ready(cluster: &str, ip: &str) -> Result<()> {
     let target = format!("root@{}", ip);
 
     let mut ssh_args = vec![
@@ -40,14 +40,13 @@ pub fn wait_for_ready(cluster: &str, ip: &str) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn wait_for_ssh(ip: &str) -> Result<(), Error> {
+pub async fn wait_for_ssh(ip: &str) -> Result<()> {
     let res = wait_for_port(&ip, 22, 10000, 120).await?;
     Ok(res)
 }
 
 pub async fn wait_for_port(ip: &str, port: usize, duration_in_ms: u64, attempts: usize) ->
-                                                                                        Result<(),
-    Error> {
+                                                                                        Result<()> {
     let addr = format!("{}:{}", ip, port);
     let timeout_duration = Duration::from_millis(duration_in_ms);
     let mut interval = time::interval(timeout_duration);

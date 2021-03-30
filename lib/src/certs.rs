@@ -1,7 +1,7 @@
 use std::{fs, process::Command};
-use anyhow::Result;
 
 use serde::Deserialize;
+use crate::Result;
 
 use super::check_cmd;
 

@@ -5,7 +5,7 @@ use std::{
     io::Read,
 };
 
-use anyhow::{anyhow, bail, Context, Result};
+use crate::{Result, error::Error};
 use flate2::read::ZlibDecoder;
 use log::info;
 use netrc_rs::Netrc;
@@ -52,7 +52,7 @@ pub fn generate_terraform_config(workspace: &str) -> Result<()> {
                 .arg("run")
                 .arg(format!(".#clusters.{}.tf.{}.config", cluster, workspace))
                 .status()
-                .or_else(|_| bail!("Couldn't generate terraform config"))
+                .or_else(|_| Err(Error::FailedTerraformConfig))
         })?;
     Ok(())
 }
@@ -97,39 +97,31 @@ fn nix_current_system() -> String {
 }
 
 fn terraform_vault_client() -> Result<RestClient> {
-    let mut client = RestClient::new("https://vault.infra.aws.iohkdev.io")
-        .context("Couldn't create RestClient")?;
-    let token = vault_token().context("Make sure you are logged into vault: run `vault login`")?;
+    let mut client = RestClient::new("https://vault.infra.aws.iohkdev.io")?;
+    let token = vault_token()?;
     client
-        .set_header("X-Vault-Token", &token)
-        .context("Couldn't set X-Vault-Token header")?;
+        .set_header("X-Vault-Token", &token)?;
     client
-        .set_header("X-Vault-Request", "true")
-        .context("Couldn't set X-Vault-Request header")?;
+        .set_header("X-Vault-Request", "true")?;
     Ok(client)
 }
 
 fn terraform_vault_state(workspace: &str) -> Result<String> {
     let mut client = terraform_vault_client()?;
-    let result: Result<RawVaultState, restson::Error> =
-        client.get((bitte_cluster()?.as_str(), workspace));
-    match result {
-        Ok(value) => Ok(value.data.data.value),
-        Err(e) => Err(e.into()),
-    }
+    let value: RawVaultState = client.get((bitte_cluster()?.as_str(), workspace))?;
+    Ok(value.data.data.value)
 }
 
 pub fn output(workspace: &str) -> Result<TerraformStateValue> {
     set_http_auth()?;
-    let state = terraform_vault_state(workspace).context("failed to fetch state from vault")?;
-    let decoded = base64::decode(state).context("failed to decode state")?;
+    let state = terraform_vault_state(workspace)?;
+    let decoded = base64::decode(state)?;
     let mut decoder = ZlibDecoder::new(decoded.as_slice());
     let mut buf = "".to_string();
     decoder
-        .read_to_string(&mut buf)
-        .context("failed to inflate state")?;
+        .read_to_string(&mut buf)?;
     let state: TerraformState =
-        serde_json::from_str(&buf).context("failed to decode state JSON")?;
+        serde_json::from_str(&buf)?;
     Ok(state.outputs.cluster.value)
 }
 
@@ -137,7 +129,7 @@ fn github_token() -> Result<String> {
     let exp = &tilde("~/.netrc").to_string();
     let path = Path::new(exp);
     let netrc_file = read_to_string(path)?;
-    let netrc = Netrc::parse(netrc_file, true).expect("invalid line in ~/.netrc");
+    let netrc = Netrc::parse(netrc_file, true)?;
     for machine in &netrc.machines {
         if let Some(name) = &machine.name {
             if let ("github.com", Some(token)) = (name.as_str(), machine.password.as_ref()) {
@@ -149,9 +141,7 @@ fn github_token() -> Result<String> {
         };
     }
 
-    Err(anyhow!(
-        "No entry for github.com or api.github.com found in ~/.netrc"
-    ))
+    Err(Error::NoGithubToken)
 }
 
 fn vault_token() -> Result<String> {
