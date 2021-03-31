@@ -1,10 +1,10 @@
 use crate::types::ConsulAclTokenRead;
+use crate::Result;
 
 use super::sh;
-use anyhow::{Context, Result};
 
 // TODO: check that we have developer or admin policies
-pub fn consul_token() -> Result<String, anyhow::Error> {
+pub fn consul_token() -> Result<String> {
     match sh(execute::command_args!(
         "consul", "acl", "token", "read", "-self", "-format", "json"
     )) {
@@ -16,7 +16,7 @@ pub fn consul_token() -> Result<String, anyhow::Error> {
     }
 }
 
-fn issue_consul_token() -> Result<String, anyhow::Error> {
+fn issue_consul_token() -> Result<String> {
     sh(execute::command_args!(
         "vault",
         "read",
@@ -24,7 +24,6 @@ fn issue_consul_token() -> Result<String, anyhow::Error> {
         "token",
         "consul/creds/developer"
     ))
-    .context("unable to fetch Consul token from Vault")
 }
 
 /*
