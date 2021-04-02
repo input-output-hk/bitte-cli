@@ -272,7 +272,7 @@ pub struct Port {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Event {
     #[serde(rename = "Type")]
-    pub event_type: EventType,
+    pub event_type: String,
     #[serde(rename = "Time")]
     pub time: i64,
     #[serde(rename = "Message")]
@@ -1051,31 +1051,6 @@ pub enum Mode {
     Bridge,
     #[serde(rename = "host")]
     Host,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum EventType {
-    #[serde(rename = "Alloc Unhealthy")]
-    AllocUnhealthy,
-    Driver,
-    Killed,
-    Killing,
-    Nix,
-    #[serde(rename = "Nix build failed")]
-    NixBuildFailed,
-    #[serde(rename = "Not Restarting")]
-    NotRestarting,
-    Received,
-    Restarting,
-    #[serde(rename = "Sibling Task Failed")]
-    SiblingTaskFailed,
-    Started,
-    #[serde(rename = "Task hook failed")]
-    TaskHookFailed,
-    #[serde(rename = "Task Setup")]
-    TaskSetup,
-    Template,
-    Terminated,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

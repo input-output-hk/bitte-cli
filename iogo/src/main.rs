@@ -27,7 +27,9 @@ fn make_app() -> App<'static> {
       (version: crate_version!())
       (author: crate_authors!())
       (about: "Deploy all the things!")
-      (@subcommand events => (@arg foo: +takes_value "foo"))
+      (@subcommand events =>
+        (@arg namespace: +multiple +takes_value +required "namespace")
+        (@arg topic: --topic +multiple +takes_value "topic"))
       (@subcommand plan =>
         (about: "Plan and execute a Nomad job")
         (@arg namespace: +takes_value +required "Name of the namespace")

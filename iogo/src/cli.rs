@@ -1,9 +1,14 @@
-use std::{collections::HashMap, env, io::Write, process::{exit, Command, ExitStatus}};
+use std::{
+    collections::HashMap,
+    env,
+    io::Write,
+    process::{exit, Command, ExitStatus},
+};
 
 use anyhow::{anyhow, Context, Result};
 use bitte_lib::{
     consul::consul_token,
-    nomad::{nomad_token, NomadEvent},
+    nomad::nomad_token,
     sh,
     types::{
         CueRender, NomadDeployment, NomadEvaluation, NomadJobPlan, NomadJobPlanDiff,
@@ -15,22 +20,35 @@ use colored::*;
 use hyper::{body::HttpBody, Client};
 use hyper_tls::HttpsConnector;
 use restson::RestClient;
+use url::Url;
 
-pub async fn events(_sub: &ArgMatches) -> Result<()> {
+pub async fn events(sub: &ArgMatches) -> Result<()> {
+    let namespace: String = sub.value_of_t_or_exit("namespace");
+    let sub_topics: Result<Vec<String>, clap::Error> = sub.values_of_t("topic");
     let nomad_addr = env::var("NOMAD_ADDR")?;
-    let url: hyper::Uri = format!(
-        "{}/v1/event/stream?topic=Evaluation&topic=Job&topic=Deployment&topic=Allocation&namespace=mantis-testnet",
-        nomad_addr
-    )
-    .parse()?;
-    println!("GET {}", url);
+
+    let topics = if let Ok(t) = sub_topics {
+        t
+    } else {
+        vec!["Job", "Evaluation", "Deployment", "Allocation"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect()
+    };
+
+    let mut url = Url::parse_with_params(nomad_addr.as_str(), &[("namespace", namespace)])?;
+    url.set_path("/v1/event/stream");
+
+    for topic in topics {
+        url.query_pairs_mut().append_pair("topic", topic.as_str());
+    }
 
     let https = HttpsConnector::new();
     let client = Client::builder().build::<_, hyper::Body>(https);
     let request = hyper::Request::builder()
         .method("GET")
         .header("X-Nomad-Token", nomad_token()?)
-        .uri(url)
+        .uri(url.into_string().parse::<hyper::Uri>()?)
         .body(hyper::Body::empty())?;
 
     let mut response = client.request(request).await.unwrap();
@@ -41,8 +59,9 @@ pub async fn events(_sub: &ArgMatches) -> Result<()> {
         for byte in chunk? {
             if byte == 10 {
                 let c = String::from_utf8_lossy(buf.as_slice()).to_string();
-                let stream =
-                    serde_json::Deserializer::from_str(&c.as_str()).into_iter::<NomadEvent>();
+                // let stream = serde_json::Deserializer::from_str(&c.as_str()).into_iter::<NomadEvent>();
+                let stream = serde_json::Deserializer::from_str(&c.as_str())
+                    .into_iter::<serde_json::Value>();
 
                 for json in stream {
                     match json {
@@ -124,12 +143,13 @@ pub(crate) async fn plan(sub: &ArgMatches) -> Result<()> {
 
 #[derive(Debug, serde::Deserialize)]
 struct CueExport {
-    rendered: HashMap<String, HashMap<String, serde_json::Value>>
+    rendered: HashMap<String, HashMap<String, serde_json::Value>>,
 }
 
 async fn plan_jobs(namespace: &String) -> Result<()> {
     let output = sh(execute::command_args!("cue", "export"))?;
-    let export : CueExport = serde_json::from_str(output.as_str()).context("Couldn't parse CUE export")?;
+    let export: CueExport =
+        serde_json::from_str(output.as_str()).context("Couldn't parse CUE export")?;
 
     if let Some(n) = export.rendered.get(namespace) {
         for job in n.keys() {

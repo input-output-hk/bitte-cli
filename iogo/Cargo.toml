@@ -18,6 +18,7 @@ colored = "2"
 hyper = "0.14"
 hyper-tls = "0.5.0"
 clap_generate = "3.0.0-beta.2"
+url = "^2.2"
 
 [dependencies.clap]
 version = "3.0.0-beta.2"

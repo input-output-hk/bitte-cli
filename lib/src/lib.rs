@@ -1,17 +1,18 @@
 pub mod certs;
 pub mod consul;
+pub mod error;
 pub mod info;
 pub mod nomad;
 pub mod rebuild;
 pub mod ssh;
 pub mod terraform;
 pub mod types;
-pub mod error;
 
 use error::Error;
 pub(crate) type Result<T> = std::result::Result<T, Error>;
 
 use execute::Execute;
+use log::debug;
 use std::env;
 use std::process::Command;
 use std::process::Stdio;
@@ -38,8 +39,7 @@ mod test_bitte_cluster {
 }
 
 pub fn bitte_cluster() -> Result<String> {
-    let cluster =
-        env::var("BITTE_CLUSTER")?;
+    let cluster = env::var("BITTE_CLUSTER")?;
     Ok(cluster)
 }
 
@@ -47,7 +47,7 @@ fn handle_command_error_common(
     mut command: std::process::Command,
     pipe_stdout: bool,
 ) -> Result<String> {
-    println!("run: {:?}", command);
+    debug!("run: {:?}", command);
     if pipe_stdout {
         command.stdout(Stdio::piped());
     }
