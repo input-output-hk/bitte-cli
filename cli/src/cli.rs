@@ -90,7 +90,7 @@ pub(crate) async fn rebuild(sub: &ArgMatches) -> Result<()> {
 
 pub(crate) async fn info(_sub: &ArgMatches) -> Result<()> {
     let info = terraform::output("clients").or_else(|_| {
-        terraform::output("core").context("Coudln't fetch clients or core workspaces")
+        terraform::output("core").context("Couldn't fetch clients or core workspaces")
     })?;
     info_print(info).await?;
     Ok(())

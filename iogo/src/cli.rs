@@ -4,7 +4,7 @@ use std::{
     process::{exit, Command, ExitStatus},
 };
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use bitte_lib::{
     consul::consul_token,
     nomad::{nomad_token, NomadEvent},
@@ -25,7 +25,6 @@ pub(crate) async fn run(sub: &ArgMatches) -> Result<()> {
     env::set_var("NOMAD_NAMESPACE", &namespace);
     Ok(())
 }
-
 
 pub async fn events(_sub: &ArgMatches) -> Result<()> {
     let nomad_addr = env::var("NOMAD_ADDR")?;
@@ -142,8 +141,28 @@ pub(crate) async fn plan(sub: &ArgMatches) -> Result<()> {
     render.diff = Some(true);
 
     let mut client = nomad_client(&nomad_token, &vault_token)?;
-    let plan: NomadJobPlan = client.post_capture(render.job.id.as_str(), &render)?;
+    let plan: Result<NomadJobPlan, restson::Error> =
+        client.post_capture(render.job.id.as_str(), &render);
 
+    match plan {
+        Ok(p) => execute_plan(&mut client, &mut render, p),
+        Err(e) => {
+            match e {
+                restson::Error::SerializeParseError(error) => Err(anyhow!(error)),
+                restson::Error::DeserializeParseError(error, string) => {
+                    println!("{}", string);
+                    Err(anyhow!(error))
+                }
+                restson::Error::HyperError(error) => Err(anyhow!(error)),
+                restson::Error::IoError(error) => Err(anyhow!(error)),
+                restson::Error::HttpError(_, error) => Err(anyhow!(error)),
+                other => Err(anyhow!(other)),
+            }
+        }
+    }
+}
+
+fn execute_plan(client: &mut RestClient, render: &mut CueRender, plan: NomadJobPlan) -> Result<()> {
     println!("Running this job will make following changes:");
 
     diff(plan.diff);
@@ -155,7 +174,7 @@ pub(crate) async fn plan(sub: &ArgMatches) -> Result<()> {
     render.diff = None;
     render.enforce_index = Some(true);
     render.job_modify_index = Some(plan.job_modify_index);
-    let run: NomadJobRun = client.post_capture((), &render)?;
+    let run: NomadJobRun = client.post_capture((), render)?;
     println!("The EvalID is: {:?}", run.eval_id);
 
     loop {
