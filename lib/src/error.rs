@@ -20,6 +20,8 @@ pub enum Error {
     DecodeError(#[from] base64::DecodeError),
     #[error("error parsing netrc file")]
     NetrcError(netrc_rs::Error),
+    #[error("couldn't read ~/.netrc")]
+    NetrcMissing,
     #[error("error executing external process")]
     ExeError {
         details: String,

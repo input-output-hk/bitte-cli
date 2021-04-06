@@ -128,7 +128,7 @@ pub fn output(workspace: &str) -> Result<TerraformStateValue> {
 fn github_token() -> Result<String> {
     let exp = &tilde("~/.netrc").to_string();
     let path = Path::new(exp);
-    let netrc_file = read_to_string(path)?;
+    let netrc_file = read_to_string(path).or_else(|_| Err(Error::NetrcMissing) )?;
     let netrc = Netrc::parse(netrc_file, true)?;
     for machine in &netrc.machines {
         if let Some(name) = &machine.name {
