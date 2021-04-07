@@ -22,7 +22,7 @@ pub enum Error {
     NetrcError(netrc_rs::Error),
     #[error("couldn't read ~/.netrc")]
     NetrcMissing,
-    #[error("error executing external process")]
+    #[error("error executing external process: {details}")]
     ExeError {
         details: String,
     },
