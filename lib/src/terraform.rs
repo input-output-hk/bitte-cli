@@ -36,7 +36,7 @@ pub fn generate_terraform_config(workspace: &str) -> Result<()> {
     let cluster = bitte_cluster()?;
 
     // To work on Darwin, we need to pass the current system
-    Command::new("nix")
+    let status = Command::new("nix")
         .arg("-L")
         .arg("run")
         .arg(format!(
@@ -46,15 +46,23 @@ pub fn generate_terraform_config(workspace: &str) -> Result<()> {
             workspace
         ))
         .status()
-        .or_else(|_| {
-            Command::new("nix")
-                .arg("-L")
-                .arg("run")
-                .arg(format!(".#clusters.{}.tf.{}.config", cluster, workspace))
-                .status()
-                .or_else(|_| Err(Error::FailedTerraformConfig))
-        })?;
-    Ok(())
+        .and_then(|status|
+            if !status.success() {
+                Command::new("nix")
+                    .arg("-L")
+                    .arg("run")
+                    .arg(format!(".#clusters.{}.tf.{}.config", cluster, workspace))
+                    .status()
+            } else {
+                Ok(status)
+            }
+        )?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(Error::FailedTerraformConfig)
+    }
 }
 
 pub fn init(upgrade: bool) -> Result<()> {
