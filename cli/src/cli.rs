@@ -154,11 +154,18 @@ pub async fn terraform_plan(workspace: String, sub: &ArgMatches) -> Result<()> {
 /// terraform_passthrough("core", arg_matches);
 /// ```
 pub async fn terraform_passthrough(workspace: String, sub: &ArgMatches) -> Result<()> {
-    let prepare: bool = !sub.is_present("no_prepare");
+    let init: bool = sub.is_present("init");
+    let config: bool = !sub.is_present("no_config");
     let args = sub.values_of_lossy("args").unwrap_or_default();
 
-    if prepare {
-        terraform::prepare(workspace)?;
+    terraform::set_http_auth()?;
+
+    if config {
+        terraform::generate_terraform_config(&workspace)?;
+    }
+
+    if init {
+        terraform::init(false)?;
     }
 
     let mut cmd = Command::new("terraform");
