@@ -31,6 +31,7 @@ async fn main() -> Result<()> {
         (@subcommand passthrough =>
           (about: "delegate to terraform")
           (aliases: &["passthru", "pt"])
+          (@arg no_prepare: --no-prepare -n "skip reinitialization")
           (@arg args: +takes_value +multiple "arguments to terraform"))
         (@subcommand init => (about: "terraform init")
           (@arg upgrade: --upgrade -u "upgrade provider versions"))
