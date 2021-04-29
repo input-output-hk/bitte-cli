@@ -28,6 +28,13 @@ async fn main() -> Result<()> {
         (@subcommand plan => (about: "terraform plan")
           (@arg destroy: --destroy -d "create a destruction plan"))
         (@subcommand apply => (about: "terraform apply"))
+        (@subcommand passthrough =>
+          (about: "delegate to terraform")
+          (aliases: &["passthru", "pt"])
+          (@arg no_config: --no-config -n "skip regenerating the terraform config")
+          (@arg init: --init -i "delete and reinitialize the `.terraform` state dir before \
+          delegating to terraform")
+          (@arg args: +takes_value +multiple "arguments to terraform"))
         (@subcommand init => (about: "terraform init")
           (@arg upgrade: --upgrade -u "upgrade provider versions"))
         (@subcommand output => (about: "terraform output")))

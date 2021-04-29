@@ -103,6 +103,7 @@ pub(crate) async fn terraform(sub: &ArgMatches) -> Result<()> {
         Some(("plan", sub_sub)) => terraform_plan(workspace, sub_sub).await,
         Some(("apply", sub_sub)) => terraform_apply(workspace, sub_sub).await,
         Some(("init", sub_sub)) => terraform_init(workspace, sub_sub).await,
+        Some(("passthrough", sub_sub)) => terraform_passthrough(workspace, sub_sub).await,
         Some(("output", sub_sub)) => terraform_output(workspace, sub_sub).await,
         _ => Err(anyhow!("Unknown command")),
     }
@@ -133,6 +134,42 @@ pub async fn terraform_plan(workspace: String, sub: &ArgMatches) -> Result<()> {
     if destroy {
         full = full.arg("-destroy");
     }
+
+    info!("run: {:?}", full);
+    full.status()
+        .with_context(|| format!("failed to run: {:?}", full))?;
+    Ok(())
+}
+
+/// Run any terraform command in a workspace
+///
+/// # Arguments
+///
+/// * `workspace` - a string that holds the name of a terraform workspace
+/// * `sub` - `&ArgMatches` holding additional cli flags
+///
+/// # Examples
+///
+/// ```
+/// terraform_passthrough("core", arg_matches);
+/// ```
+pub async fn terraform_passthrough(workspace: String, sub: &ArgMatches) -> Result<()> {
+    let init: bool = sub.is_present("init");
+    let config: bool = !sub.is_present("no_config");
+    let args = sub.values_of_lossy("args").unwrap_or_default();
+
+    terraform::set_http_auth()?;
+
+    if config {
+        terraform::generate_terraform_config(&workspace)?;
+    }
+
+    if init {
+        terraform::init(false)?;
+    }
+
+    let mut cmd = Command::new("terraform");
+    let full = cmd.args(args);
 
     info!("run: {:?}", full);
     full.status()
