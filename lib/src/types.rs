@@ -401,8 +401,12 @@ pub struct Job {
     pub datacenters: Vec<String>,
     #[serde(rename = "TaskGroups")]
     pub task_groups: Vec<Option<serde_json::Value>>,
+    #[serde(rename = "Affinities")]
+    pub affinities: Option<Vec<Option<serde_json::Value>>>,
     #[serde(rename = "Constraints")]
-    pub constraints: Vec<Option<serde_json::Value>>,
+    pub constraints: Option<Vec<Option<serde_json::Value>>>,
+    #[serde(rename = "Spreads")]
+    pub spreads: Option<Vec<Option<serde_json::Value>>>,
     #[serde(rename = "ConsulToken")]
     pub consul_token: Option<String>,
     #[serde(rename = "VaultToken")]

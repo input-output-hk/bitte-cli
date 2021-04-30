@@ -590,12 +590,12 @@ pub struct Job {
     pub all_at_once: bool,
     #[serde(rename = "Datacenters")]
     pub datacenters: Vec<String>,
-    #[serde(rename = "Constraints")]
-    pub constraints: Vec<Option<serde_json::Value>>,
     #[serde(rename = "Affinities")]
-    pub affinities: Option<serde_json::Value>,
+    pub affinities: Option<Vec<Option<serde_json::Value>>>,
+    #[serde(rename = "Constraints")]
+    pub constraints: Option<Vec<Option<serde_json::Value>>>,
     #[serde(rename = "Spreads")]
-    pub spreads: Option<serde_json::Value>,
+    pub spreads: Option<Vec<Option<serde_json::Value>>>,
     #[serde(rename = "TaskGroups")]
     pub task_groups: Vec<TaskGroup>,
     #[serde(rename = "Update")]
@@ -663,9 +663,11 @@ pub struct TaskGroup {
     #[serde(rename = "ReschedulePolicy")]
     pub reschedule_policy: ReschedulePolicy,
     #[serde(rename = "Affinities")]
-    pub affinities: Vec<Option<serde_json::Value>>,
+    pub affinities: Option<Vec<Option<serde_json::Value>>>,
+    #[serde(rename = "Constraints")]
+    pub constraints: Option<Vec<Option<serde_json::Value>>>,
     #[serde(rename = "Spreads")]
-    pub spreads: Option<serde_json::Value>,
+    pub spreads: Option<Vec<Option<serde_json::Value>>>,
     #[serde(rename = "Networks")]
     pub networks: Vec<Network>,
     #[serde(rename = "Services")]
@@ -846,10 +848,10 @@ pub struct TaskElement {
     pub vault: Option<Vault>,
     #[serde(rename = "Templates")]
     pub templates: Vec<Template>,
-    #[serde(rename = "Constraints")]
-    pub constraints: Vec<Option<serde_json::Value>>,
     #[serde(rename = "Affinities")]
-    pub affinities: Vec<Option<serde_json::Value>>,
+    pub affinities: Option<Vec<Option<serde_json::Value>>>,
+    #[serde(rename = "Constraints")]
+    pub constraints: Option<Vec<Option<serde_json::Value>>>,
     #[serde(rename = "Resources")]
     pub resources: Resources,
     #[serde(rename = "RestartPolicy")]
