@@ -674,12 +674,12 @@ pub struct Job {
     pub all_at_once: bool,
     #[serde(rename = "Datacenters")]
     pub datacenters: Vec<String>,
+    #[serde(rename = "Affinities")]
+    pub affinities: Option<Vec<Option<serde_json::Value>>>,
     #[serde(rename = "Constraints")]
     pub constraints: Option<Vec<Option<serde_json::Value>>>,
-    #[serde(rename = "Affinities")]
-    pub affinities: Option<serde_json::Value>,
     #[serde(rename = "Spreads")]
-    pub spreads: Option<serde_json::Value>,
+    pub spreads: Option<Vec<Option<serde_json::Value>>>,
     #[serde(rename = "TaskGroups")]
     pub task_groups: Vec<TaskGroup>,
     #[serde(rename = "Update")]
@@ -732,8 +732,12 @@ pub struct TaskGroup {
     pub update: Update,
     #[serde(rename = "Migrate")]
     pub migrate: Migrate,
+    #[serde(rename = "Affinities")]
+    pub affinities: Option<Vec<Option<serde_json::Value>>>,
     #[serde(rename = "Constraints")]
-    pub constraints: Vec<Constraint>,
+    pub constraints: Option<Vec<Option<serde_json::Value>>>,
+    #[serde(rename = "Spreads")]
+    pub spreads: Option<Vec<Option<serde_json::Value>>>,
     #[serde(rename = "Scaling")]
     pub scaling: Option<serde_json::Value>,
     #[serde(rename = "RestartPolicy")]
@@ -746,10 +750,6 @@ pub struct TaskGroup {
     pub meta: Option<HashMap<String, String>>,
     #[serde(rename = "ReschedulePolicy")]
     pub reschedule_policy: ReschedulePolicy,
-    #[serde(rename = "Affinities")]
-    pub affinities: Option<Vec<Option<serde_json::Value>>>,
-    #[serde(rename = "Spreads")]
-    pub spreads: Option<serde_json::Value>,
     #[serde(rename = "Networks")]
     pub networks: Vec<Network>,
     #[serde(rename = "Services")]
@@ -922,10 +922,10 @@ pub struct TaskElement {
     pub vault: Option<Vault>,
     #[serde(rename = "Templates")]
     pub templates: Vec<Template>,
-    #[serde(rename = "Constraints")]
-    pub constraints: Option<Vec<Option<serde_json::Value>>>,
     #[serde(rename = "Affinities")]
     pub affinities: Option<Vec<Option<serde_json::Value>>>,
+    #[serde(rename = "Constraints")]
+    pub constraints: Option<Vec<Option<serde_json::Value>>>,
     #[serde(rename = "Resources")]
     pub resources: Resources,
     #[serde(rename = "RestartPolicy")]
