@@ -208,39 +208,43 @@ fn execute_plan(client: &mut RestClient, render: &mut CueRender, plan: NomadJobP
     render.enforce_index = Some(true);
     render.job_modify_index = Some(plan.job_modify_index);
     let run: NomadJobRun = client.post_capture((), render)?;
-    println!("The EvalID is: {:?}", run.eval_id);
 
-    loop {
-        let evaluation: NomadEvaluation = client.get(run.eval_id.as_str())?;
-        println!("evaluation: {:?}", &evaluation);
+    match render.job.periodic {
+        // TODO: Implement alternate deployment check logic for periodic jobs
+        Some(_) => return Ok(()),
+        None => loop {
+            println!("The EvalID is: {:?}", run.eval_id);
+            let evaluation: NomadEvaluation = client.get(run.eval_id.as_str())?;
+            println!("evaluation: {:?}", &evaluation);
 
-        match (evaluation.status.as_str(), &evaluation.deployment_id) {
-            ("pending", _) => std::thread::sleep(std::time::Duration::from_secs(1)),
-            ("complete", Some(deployment_id)) => {
-                let mut deployment: NomadDeployment = client.get(deployment_id.as_str())?;
-                deployment.display();
-
-                loop {
-                    let new_deployment = client.get(deployment_id.as_str())?;
-                    if deployment == new_deployment {
-                        std::thread::sleep(std::time::Duration::from_secs(1));
-                        continue;
-                    } else {
-                        deployment = new_deployment;
-                    }
-
+            match (evaluation.status.as_str(), &evaluation.deployment_id) {
+                ("pending", _) => std::thread::sleep(std::time::Duration::from_secs(1)),
+                ("complete", Some(deployment_id)) => {
+                    let mut deployment: NomadDeployment = client.get(deployment_id.as_str())?;
                     deployment.display();
 
-                    if deployment.is_done() {
-                        return Ok(());
+                    loop {
+                        let new_deployment = client.get(deployment_id.as_str())?;
+                        if deployment == new_deployment {
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            continue;
+                        } else {
+                            deployment = new_deployment;
+                        }
+
+                        deployment.display();
+
+                        if deployment.is_done() {
+                            return Ok(());
+                        }
                     }
                 }
+                (_, _) => {
+                    println!("evaluation: {:?}", evaluation);
+                    exit(1)
+                }
             }
-            (_, _) => {
-                println!("evaluation: {:?}", evaluation);
-                exit(1)
-            }
-        }
+        },
     }
 }
 
