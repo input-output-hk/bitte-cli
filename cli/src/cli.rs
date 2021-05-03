@@ -231,10 +231,13 @@ async fn info_print(output: TerraformStateValue) -> Result<()> {
         "Status",
         "Protected",
         "PrivateIp",
-        "PublicIp"
+        "PublicIp",
+        "asgSuffix"
     ]);
 
     for (_key, val) in output.asgs.iter() {
+        let asgPrefix = format!("client-{}-{}", val.region, val.instance_type.replace(".", "-"));
+        let asgSuffix = _key.strip_prefix(&asgPrefix).unwrap_or_else(|| "ERROR").replace("-", "");
         let info = info::asg_info(val.arn.as_str(), val.region.as_str()).await;
         for asgi in info {
             // TODO: rewrite to take all required instance ids as argument to save time
@@ -250,6 +253,7 @@ async fn info_print(output: TerraformStateValue) -> Result<()> {
                 asgi.protected_from_scale_in,
                 iii.private_ip_address.unwrap_or_default(),
                 iii.public_ip_address.unwrap_or_default(),
+                asgSuffix,
             ]);
             // asg_table.add_row(row![key, val.instance_type, val.flake_attr, val.count,]);
         }
