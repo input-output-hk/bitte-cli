@@ -397,6 +397,8 @@ pub struct Job {
     pub job_type: String,
     #[serde(rename = "Priority")]
     pub priority: i64,
+    #[serde(rename = "Periodic")]
+    pub periodic: Option<Periodic>,
     #[serde(rename = "Datacenters")]
     pub datacenters: Vec<String>,
     #[serde(rename = "TaskGroups")]
@@ -415,6 +417,20 @@ pub struct Job {
     pub vault: Option<serde_json::Value>,
     #[serde(rename = "Update")]
     pub update: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Periodic {
+    #[serde(rename = "Enabled")]
+    pub enabled: bool,
+    #[serde(rename = "TimeZone")]
+    pub time_zone: String,
+    #[serde(rename = "SpecType")]
+    pub spec_type: String,
+    #[serde(rename = "Spec")]
+    pub spec: String,
+    #[serde(rename = "ProhibitOverlap")]
+    pub prohibit_overlap: bool,
 }
 
 #[derive(Deserialize)]
