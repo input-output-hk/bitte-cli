@@ -1,7 +1,7 @@
 use std::{fs, process::Command};
 
-use serde::Deserialize;
 use crate::Result;
+use serde::Deserialize;
 
 use super::check_cmd;
 
@@ -99,8 +99,7 @@ fn vault_issuing_ca(domain: &str) -> String {
 }
 
 pub fn vault_login() -> Result<()> {
-    check_cmd(Command::new("vault")
-    .args(&["login", "-method", "aws", "-no-print"]))?;
+    check_cmd(Command::new("vault").args(&["login", "-method", "aws", "-no-print"]))?;
     Ok(())
 }
 

@@ -2,12 +2,12 @@ mod common;
 
 use anyhow::Result;
 use assert_cmd::prelude::*;
+use assert_fs::prelude::*;
 use common::*;
 use predicate::str::*;
 use predicates::prelude::*;
-use assert_fs::prelude::*;
+use rstest::{fixture, rstest};
 use std::process::Command;
-use rstest::{fixture,rstest};
 use tempfile::tempdir;
 
 // Using mod names for context saves some typing compared to fn name prefixes.

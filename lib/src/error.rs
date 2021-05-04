@@ -23,9 +23,7 @@ pub enum Error {
     #[error("couldn't read ~/.netrc")]
     NetrcMissing,
     #[error("error executing external process: {details}")]
-    ExeError {
-        details: String,
-    },
+    ExeError { details: String },
     #[error("unknown error")]
     Unknown,
 }

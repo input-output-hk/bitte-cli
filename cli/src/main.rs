@@ -1,7 +1,7 @@
 mod cli;
 
+use anyhow::{bail, Result};
 use clap::clap_app;
-use anyhow::{Result, bail};
 
 #[tokio::main]
 async fn main() -> Result<()> {

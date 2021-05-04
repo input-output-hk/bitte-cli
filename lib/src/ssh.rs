@@ -1,13 +1,12 @@
+use std::time::Duration;
 use std::{path::Path, process::Command};
 use tokio::{net::TcpStream, time};
-use std::time::Duration;
 
 use super::check_cmd;
-use crate::{Result, error::Error};
+use crate::{error::Error, Result};
 
 pub fn ssh_keygen(ip: &str) -> Result<()> {
-    check_cmd(Command::new("ssh-keygen").arg("-R").arg(ip))
-        .map_err(|_| Error::Unknown)?;
+    check_cmd(Command::new("ssh-keygen").arg("-R").arg(ip)).map_err(|_| Error::Unknown)?;
     Ok(())
 }
 
@@ -35,8 +34,7 @@ pub fn wait_for_ready(cluster: &str, ip: &str) -> Result<()> {
 
     ssh_args.push(&target);
     ssh_args.push("until grep true /etc/ready &>/dev/null; do sleep 1; done");
-    check_cmd(Command::new("ssh").args(ssh_args))
-        .map_err(|_| Error::Unknown)?;
+    check_cmd(Command::new("ssh").args(ssh_args)).map_err(|_| Error::Unknown)?;
     Ok(())
 }
 
@@ -45,8 +43,12 @@ pub async fn wait_for_ssh(ip: &str) -> Result<()> {
     Ok(res)
 }
 
-pub async fn wait_for_port(ip: &str, port: usize, duration_in_ms: u64, attempts: usize) ->
-                                                                                        Result<()> {
+pub async fn wait_for_port(
+    ip: &str,
+    port: usize,
+    duration_in_ms: u64,
+    attempts: usize,
+) -> Result<()> {
     let addr = format!("{}:{}", ip, port);
     let timeout_duration = Duration::from_millis(duration_in_ms);
     let mut interval = time::interval(timeout_duration);

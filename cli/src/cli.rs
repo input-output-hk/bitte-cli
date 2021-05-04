@@ -1,5 +1,7 @@
 use anyhow::{anyhow, Context, Result};
-use bitte_lib::{bitte_cluster, certs, find_instance, info, rebuild, ssh, terraform, types::TerraformStateValue};
+use bitte_lib::{
+    bitte_cluster, certs, find_instance, info, rebuild, ssh, terraform, types::TerraformStateValue,
+};
 use clap::ArgMatches;
 use log::*;
 use prettytable::{cell, row, Table};
@@ -236,8 +238,15 @@ async fn info_print(output: TerraformStateValue) -> Result<()> {
     ]);
 
     for (_key, val) in output.asgs.iter() {
-        let asgPrefix = format!("client-{}-{}", val.region, val.instance_type.replace(".", "-"));
-        let asgSuffix = _key.strip_prefix(&asgPrefix).unwrap_or_else(|| "ERROR").replace("-", "");
+        let asgPrefix = format!(
+            "client-{}-{}",
+            val.region,
+            val.instance_type.replace(".", "-")
+        );
+        let asgSuffix = _key
+            .strip_prefix(&asgPrefix)
+            .unwrap_or_else(|| "ERROR")
+            .replace("-", "");
         let info = info::asg_info(val.arn.as_str(), val.region.as_str()).await;
         for asgi in info {
             // TODO: rewrite to take all required instance ids as argument to save time

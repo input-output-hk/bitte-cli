@@ -5,7 +5,7 @@ use std::{
     io::Read,
 };
 
-use crate::{Result, error::Error};
+use crate::{error::Error, Result};
 use flate2::read::ZlibDecoder;
 use log::info;
 use netrc_rs::Netrc;
@@ -46,7 +46,7 @@ pub fn generate_terraform_config(workspace: &str) -> Result<()> {
             workspace
         ))
         .status()
-        .and_then(|status|
+        .and_then(|status| {
             if !status.success() {
                 Command::new("nix")
                     .arg("-L")
@@ -56,7 +56,7 @@ pub fn generate_terraform_config(workspace: &str) -> Result<()> {
             } else {
                 Ok(status)
             }
-        )?;
+        })?;
 
     if status.success() {
         Ok(())
@@ -107,10 +107,8 @@ fn nix_current_system() -> String {
 fn terraform_vault_client() -> Result<RestClient> {
     let mut client = RestClient::new("https://vault.infra.aws.iohkdev.io")?;
     let token = vault_token()?;
-    client
-        .set_header("X-Vault-Token", &token)?;
-    client
-        .set_header("X-Vault-Request", "true")?;
+    client.set_header("X-Vault-Token", &token)?;
+    client.set_header("X-Vault-Request", "true")?;
     Ok(client)
 }
 
@@ -126,17 +124,15 @@ pub fn output(workspace: &str) -> Result<TerraformStateValue> {
     let decoded = base64::decode(state)?;
     let mut decoder = ZlibDecoder::new(decoded.as_slice());
     let mut buf = "".to_string();
-    decoder
-        .read_to_string(&mut buf)?;
-    let state: TerraformState =
-        serde_json::from_str(&buf)?;
+    decoder.read_to_string(&mut buf)?;
+    let state: TerraformState = serde_json::from_str(&buf)?;
     Ok(state.outputs.cluster.value)
 }
 
 fn github_token() -> Result<String> {
     let exp = &tilde("~/.netrc").to_string();
     let path = Path::new(exp);
-    let netrc_file = read_to_string(path).or_else(|_| Err(Error::NetrcMissing) )?;
+    let netrc_file = read_to_string(path).or_else(|_| Err(Error::NetrcMissing))?;
     let netrc = Netrc::parse(netrc_file, true)?;
     for machine in &netrc.machines {
         if let Some(name) = &machine.name {

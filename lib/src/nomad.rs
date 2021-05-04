@@ -1,7 +1,7 @@
 use super::sh;
+use crate::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::Result;
 
 // TODO: check that we have developer or admin policies
 /*
