@@ -46,14 +46,14 @@
           };
       };
 
-      packages = { bitte, nixos-rebuild }: {
+      packages = { bitte, nixos-rebuild, ... }: {
         defaultPackage = bitte;
         inherit bitte nixos-rebuild;
       };
 
-      hydraJobs = { bitte, nixos-rebuild }@ps: ps;
+      hydraJobs = { bitte, nixos-rebuild, ... }@ps: ps;
 
-      devShell = { mkShell, pkgs }:
+      devShell = { mkShell, pkgs, ... }:
         mkShell {
           RUST_BACKTRACE = "1";
           RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
