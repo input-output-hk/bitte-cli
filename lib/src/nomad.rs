@@ -687,7 +687,7 @@ pub struct Job {
     #[serde(rename = "Multiregion")]
     pub multiregion: Option<serde_json::Value>,
     #[serde(rename = "Periodic")]
-    pub periodic: Option<serde_json::Value>,
+    pub periodic: Option<Periodic>,
     #[serde(rename = "ParameterizedJob")]
     pub parameterized_job: Option<serde_json::Value>,
     #[serde(rename = "Dispatched")]
@@ -902,6 +902,20 @@ pub struct CheckRestart {
     pub grace: i64,
     #[serde(rename = "IgnoreWarnings")]
     pub ignore_warnings: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Periodic {
+    #[serde(rename = "Enabled")]
+    pub enabled: bool,
+    #[serde(rename = "TimeZone")]
+    pub time_zone: String,
+    #[serde(rename = "SpecType")]
+    pub spec_type: String,
+    #[serde(rename = "Spec")]
+    pub spec: String,
+    #[serde(rename = "ProhibitOverlap")]
+    pub prohibit_overlap: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
