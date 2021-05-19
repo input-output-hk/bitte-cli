@@ -343,7 +343,7 @@ pub struct NomadJobPlanTaskGroup {
     #[serde(rename = "Type")]
     pub task_group_type: NomadJobPlanType,
     #[serde(rename = "Updates")]
-    pub updates: NomadJobPlanUpdates,
+    pub updates: Option<NomadJobPlanUpdates>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
