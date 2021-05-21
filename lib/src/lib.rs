@@ -127,7 +127,7 @@ pub async fn find_instance(needle: &str) -> Option<Instance> {
 async fn find_instances(patterns: Vec<&str>) -> Vec<Instance> {
     let output = terraform::output("clients")
         .or_else(|_| terraform::output("core"))
-        .expect("Coudln't fetch clients or core workspaces");
+        .expect("Couldn't fetch clients or core workspaces");
 
     let mut results = Vec::new();
 
