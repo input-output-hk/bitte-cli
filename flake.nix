@@ -67,6 +67,7 @@
             rust-analyzer
             cargo
             clippy
+            rls
             rustc
             rustfmt
           ];
