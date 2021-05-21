@@ -131,25 +131,29 @@ async fn find_instances(patterns: Vec<&str>) -> Vec<Instance> {
 
     let mut results = Vec::new();
 
-    for instance in output.instances.values().into_iter() {
-        let matched = patterns.is_empty()
-            || patterns.iter().any(|pattern| {
-                [
-                    instance.private_ip.as_str(),
-                    instance.public_ip.as_str(),
-                    instance.name.as_str(),
-                ]
-                .contains(pattern)
-            });
+    let only_clients = patterns.contains(&"clients");
 
-        if matched {
-            results.push(Instance::new(
-                instance.public_ip.to_string(),
-                instance.name.to_string(),
-                instance.uid.to_string(),
-                instance.flake_attr.to_string(),
-                output.s3_cache.to_string(),
-            ));
+    if !only_clients {
+        for instance in output.instances.values().into_iter() {
+            let matched = patterns.is_empty()
+                || patterns.iter().any(|pattern| {
+                    [
+                        instance.private_ip.as_str(),
+                        instance.public_ip.as_str(),
+                        instance.name.as_str(),
+                    ]
+                    .contains(pattern)
+                });
+
+            if matched {
+                results.push(Instance::new(
+                    instance.public_ip.to_string(),
+                    instance.name.to_string(),
+                    instance.uid.to_string(),
+                    instance.flake_attr.to_string(),
+                    output.s3_cache.to_string(),
+                ));
+            }
         }
     }
 
@@ -160,6 +164,7 @@ async fn find_instances(patterns: Vec<&str>) -> Vec<Instance> {
                 instance_info(asg_info.instance_id.as_str(), asg.region.as_str()).await;
             for instance_info in instance_infos {
                 let matched = patterns.is_empty()
+                    || { patterns.len() == 1 && only_clients }
                     || patterns.iter().any(|pattern| {
                         [
                             instance_info.instance_id.as_ref(),
