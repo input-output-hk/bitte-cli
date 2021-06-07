@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 regex = "*"
-restson = "0.5.4"
+restson = "0.7.0"
 serde_json = "1.0"
 serde = { version = "1.0", features = [ "derive" ] }
 shellexpand = "2.1"
