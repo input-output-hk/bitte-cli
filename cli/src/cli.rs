@@ -238,20 +238,26 @@ async fn info_print(output: TerraformStateValue) -> Result<()> {
     ]);
 
     for (_key, val) in output.asgs.iter() {
-        let asgPrefix = format!(
+        let asg_prefix = format!(
             "client-{}-{}",
             val.region,
             val.instance_type.replace(".", "-")
         );
-        let asgSuffix = _key
-            .strip_prefix(&asgPrefix)
+        let asg_suffix = _key
+            .strip_prefix(&asg_prefix)
             .unwrap_or_else(|| "ERROR")
             .replace("-", "");
+
         let info = info::asg_info(val.arn.as_str(), val.region.as_str()).await;
+
+        let instance_ids = info.iter().map(|x| x.instance_id.as_str()).collect();
+        let instances = info::instance_info(instance_ids, val.region.as_str()).await;
+
         for asgi in info {
-            // TODO: rewrite to take all required instance ids as argument to save time
-            let ii = info::instance_info(asgi.instance_id.as_str(), val.region.as_str()).await;
-            let iii = ii[0].clone();
+            let instance = instances
+                .iter()
+                .find(|x| x.instance_id == Some(asgi.instance_id.clone()))
+                .unwrap();
 
             asg_table.add_row(row![
                 asgi.instance_id,
@@ -260,9 +266,9 @@ async fn info_print(output: TerraformStateValue) -> Result<()> {
                 asgi.lifecycle_state,
                 asgi.health_status,
                 asgi.protected_from_scale_in,
-                iii.private_ip_address.unwrap_or_default(),
-                iii.public_ip_address.unwrap_or_default(),
-                asgSuffix,
+                instance.private_ip_address.as_ref().unwrap(),
+                instance.public_ip_address.as_ref().unwrap(),
+                asg_suffix,
             ]);
             // asg_table.add_row(row![key, val.instance_type, val.flake_attr, val.count,]);
         }

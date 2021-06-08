@@ -161,7 +161,7 @@ async fn find_instances(patterns: Vec<&str>) -> Vec<Instance> {
         let asg_infos = asg_info(asg.arn.as_str(), asg.region.as_str()).await;
         for asg_info in asg_infos {
             let instance_infos =
-                instance_info(asg_info.instance_id.as_str(), asg.region.as_str()).await;
+                instance_info(vec![asg_info.instance_id.as_str()], asg.region.as_str()).await;
             for instance_info in instance_infos {
                 let matched = patterns.is_empty()
                     || { patterns.len() == 1 && only_clients }

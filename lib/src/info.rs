@@ -17,11 +17,14 @@ pub async fn asg_info(tf_arn: &str, region_name: &str) -> Vec<rusoto_autoscaling
         .collect()
 }
 
-pub async fn instance_info(instance_id: &str, region_name: &str) -> Vec<rusoto_ec2::Instance> {
+pub async fn instance_info(
+    instance_ids: Vec<&str>,
+    region_name: &str,
+) -> Vec<rusoto_ec2::Instance> {
     let region = rusoto_core::Region::from_str(region_name).expect("Region not found");
     let client = Ec2Client::new(region);
     let request = DescribeInstancesRequest {
-        instance_ids: Some(vec![instance_id.to_string()]),
+        instance_ids: Some(instance_ids.iter().map(|x| x.to_string()).collect()),
         dry_run: None,
         filters: None,
         max_results: None,
