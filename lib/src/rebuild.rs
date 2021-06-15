@@ -57,6 +57,8 @@ pub fn nixos_rebuild(target: &str, ip: &str) -> Result<()> {
     check_cmd(
         Command::new("nixos-rebuild")
             .arg("switch")
+            .arg("--build-host")
+            .arg("localhost")
             .arg("--target-host")
             .arg(format!("root@{}", ip))
             .arg("--flake")
