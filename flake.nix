@@ -3,18 +3,17 @@
 
   inputs = {
     utils.url = "github:kreisys/flake-utils";
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    rust.url = "github:input-output-hk/rust.nix/work";
-    rust.inputs.nixpkgs.follows = "nixpkgs";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    naersk.url = "github:nmattia/naersk";
   };
 
-  outputs = { self, nixpkgs, rust, utils, ... }:
+  outputs = { self, nixpkgs, naersk, utils, ... }:
     utils.lib.simpleFlake {
       inherit nixpkgs;
 
       systems = [ "x86_64-darwin" "x86_64-linux" ];
 
-      preOverlays = [ rust ];
+      preOverlays = [ naersk ];
 
       overlay = final: prev: {
         nixos-rebuild = prev.nixos-rebuild.overrideAttrs (o: {
@@ -25,7 +24,7 @@
         });
 
         bitte = with builtins;
-          prev.rust-nix.buildPackage {
+          prev.naersk.buildPackage {
             # Without this we end up with a drv called `rust-workspace-unknown`
             # which makes `nix run` try to execute a bin with that name.
             inherit ((fromTOML (readFile ./cli/Cargo.toml)).package)
