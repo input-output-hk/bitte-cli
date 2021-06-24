@@ -57,11 +57,11 @@
     },
     "utils": {
       "locked": {
-        "lastModified": 1623182707,
-        "narHash": "sha256-JmnqZVS1VP/tSQGSeNs+ru3F3it3ceev7k2rcL4rBGw=",
+        "lastModified": 1624553342,
+        "narHash": "sha256-lHVDPxuvLk0eMGijxnFADfEz1VIyJUwGpaa6ywjyzPQ=",
         "owner": "kreisys",
         "repo": "flake-utils",
-        "rev": "f5b5f258e88d0de1ec97d2e892f20b38796f48ea",
+        "rev": "911d24db17074f5e9e4f183e461558397ca38ab7",
         "type": "github"
       },
       "original": {
