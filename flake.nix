@@ -19,14 +19,14 @@
         bitte = final.callPackage ./package.nix {};
       };
 
-      packages = { bitte, ... }: {
+      packages = { bitte }: {
         defaultPackage = bitte;
         inherit bitte;
       };
 
-      hydraJobs = { bitte, ... }@ps: ps;
+      hydraJobs = { bitte }@ps: ps;
 
-      devShell = { mkShell, pkgs, ... }:
+      devShell = { mkShell, pkgs }:
         mkShell {
           RUST_BACKTRACE = "1";
           RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
