@@ -16,13 +16,6 @@
       preOverlays = [ naersk ];
 
       overlay = final: prev: {
-        nixos-rebuild = prev.nixos-rebuild.overrideAttrs (o: {
-          src = prev.runCommand "nixos-rebuild.sh" { inherit (o) src; } ''
-            substitute $src $out \
-            --replace systemctl false
-          '';
-        });
-
         bitte = with builtins;
           prev.naersk.buildPackage {
             # Without this we end up with a drv called `rust-workspace-unknown`
@@ -45,12 +38,12 @@
           };
       };
 
-      packages = { bitte, nixos-rebuild, ... }: {
+      packages = { bitte, ... }: {
         defaultPackage = bitte;
-        inherit bitte nixos-rebuild;
+        inherit bitte;
       };
 
-      hydraJobs = { bitte, nixos-rebuild, ... }@ps: ps;
+      hydraJobs = { bitte, ... }@ps: ps;
 
       devShell = { mkShell, pkgs, ... }:
         mkShell {
