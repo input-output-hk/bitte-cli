@@ -17,13 +17,13 @@
 
       overlay = final: prev: {
         bitte = with builtins;
-          prev.naersk.buildPackage {
+          final.naersk.buildPackage {
             # Without this we end up with a drv called `rust-workspace-unknown`
             # which makes `nix run` try to execute a bin with that name.
             inherit ((fromTOML (readFile ./cli/Cargo.toml)).package)
               name version;
             root = self;
-            buildInputs = with prev; [ pkg-config openssl zlib ];
+            buildInputs = with final; [ pkg-config openssl zlib ];
 
             overrideMain = _: {
               postInstall = ''
