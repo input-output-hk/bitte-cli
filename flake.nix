@@ -17,13 +17,6 @@
       preOverlays = [ rust ];
 
       overlay = final: prev: {
-        nixos-rebuild = prev.nixos-rebuild.overrideAttrs (o: {
-          src = prev.runCommand "nixos-rebuild.sh" { inherit (o) src; } ''
-            substitute $src $out \
-            --replace systemctl false
-          '';
-        });
-
         bitte = with builtins;
           prev.rust-nix.buildPackage {
             # Without this we end up with a drv called `rust-workspace-unknown`
