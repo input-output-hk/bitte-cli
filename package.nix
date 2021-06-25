@@ -9,7 +9,8 @@ naersk.buildPackage {
   inherit (with builtins; (fromTOML (readFile ./cli/Cargo.toml)).package)
   name version;
   root = ./.;
-  buildInputs = [ pkg-config openssl zlib ];
+  nativeBuildInputs = [ pkg-config ];
+  buildInputs = [ openssl zlib ];
 
   overrideMain = _: {
     postInstall = ''
