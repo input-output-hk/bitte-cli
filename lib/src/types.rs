@@ -67,7 +67,7 @@ pub struct NomadDeployment {
     #[serde(rename = "JobCreateIndex")]
     pub job_create_index: i64,
     #[serde(rename = "JobID")]
-    pub job_id: String,
+    pub job_id: Option<String>,
     #[serde(rename = "JobModifyIndex")]
     pub job_modify_index: i64,
     #[serde(rename = "JobSpecModifyIndex")]
