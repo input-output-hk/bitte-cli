@@ -6,7 +6,8 @@ use clap::clap_app;
 #[tokio::main]
 async fn main() -> Result<()> {
     pretty_env_logger::init();
-    let matches = clap_app!(bitte =>
+
+    let mut app = clap_app!(bitte =>
       (version: "0.0.1")
       (author: "Michael Fellinger <michael.fellinger@iohk.io>")
       (about: "Deploy all the things!")
@@ -48,8 +49,12 @@ async fn main() -> Result<()> {
         (@arg cache: +takes_value +required "cache location"))
       (@subcommand certs =>
         (@arg domain: +takes_value +required "FQDN of the cluster"))
-    )
-    .get_matches();
+    );
+
+    let mut help_text = Vec::new();
+    app.write_help(&mut help_text)
+        .expect("Failed to write help text to buffer");
+    let matches = app.get_matches();
 
     match matches.subcommand() {
         Some(("rebuild", sub)) => cli::rebuild(sub).await,
@@ -58,7 +63,10 @@ async fn main() -> Result<()> {
         Some(("terraform", sub)) => cli::terraform(sub).await,
         Some(("provision", sub)) => cli::provision(sub).await,
         Some(("certs", sub)) => cli::certs(sub).await,
-        _ => bail!("Unknown command"),
+        _ => bail!(format!(
+            "Invalid subcommand\n {}",
+            String::from_utf8(help_text).expect("help text contains invalid UTF8")
+        )),
     }?;
     Ok(())
 }

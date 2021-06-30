@@ -10,14 +10,20 @@ use clap_generate::{generate, generators};
 async fn main() -> Result<()> {
     pretty_env_logger::init();
 
-    let app = make_app();
+    let mut app = make_app();
+    let mut help_text = Vec::new();
+    app.write_help(&mut help_text)
+        .expect("Failed to write help text to buffer");
     let matches = app.get_matches();
 
     match matches.subcommand() {
         Some(("plan", sub)) => cli::plan(sub).await,
         Some(("events", sub)) => cli::events(sub).await,
         Some(("completions", sub)) => completions(sub).await,
-        _ => bail!("Unknown command"),
+        _ => bail!(format!(
+            "Invalid subcommand\n {}",
+            String::from_utf8(help_text).expect("help text contains invalid UTF8")
+        )),
     }?;
     Ok(())
 }

@@ -45,7 +45,7 @@ pub async fn events(sub: &ArgMatches) -> Result<()> {
 
     let https = HttpsConnector::new();
     let client = Client::builder().build::<_, hyper::Body>(https);
-    let url_str: String  = url.into();
+    let url_str: String = url.into();
     let request = hyper::Request::builder()
         .method("GET")
         .header("X-Nomad-Token", nomad_token()?)
