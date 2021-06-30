@@ -45,10 +45,11 @@ pub async fn events(sub: &ArgMatches) -> Result<()> {
 
     let https = HttpsConnector::new();
     let client = Client::builder().build::<_, hyper::Body>(https);
+    let url_str: String  = url.into();
     let request = hyper::Request::builder()
         .method("GET")
         .header("X-Nomad-Token", nomad_token()?)
-        .uri(url.into_string().parse::<hyper::Uri>()?)
+        .uri(url_str.parse::<hyper::Uri>()?)
         .body(hyper::Body::empty())?;
 
     let mut response = client.request(request).await.unwrap();
