@@ -58,30 +58,10 @@ impl RestPath<()> for HttpPutToken {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NomadDeployment {
-    #[serde(rename = "CreateIndex")]
-    pub create_index: i64,
-    #[serde(rename = "ID")]
-    pub id: String,
-    #[serde(rename = "IsMultiregion")]
-    pub is_multiregion: bool,
-    #[serde(rename = "JobCreateIndex")]
-    pub job_create_index: i64,
-    #[serde(rename = "JobID")]
-    pub job_id: Option<String>,
-    #[serde(rename = "JobModifyIndex")]
-    pub job_modify_index: i64,
-    #[serde(rename = "JobSpecModifyIndex")]
-    pub job_spec_modify_index: i64,
-    #[serde(rename = "JobVersion")]
-    pub job_version: i64,
-    #[serde(rename = "ModifyIndex")]
-    pub modify_index: i64,
-    #[serde(rename = "Namespace")]
-    pub namespace: String,
     #[serde(rename = "Status")]
     pub status: NomadDeploymentStatus,
     #[serde(rename = "StatusDescription")]
-    pub status_description: String,
+    pub status_description: Option<String>,
     #[serde(rename = "TaskGroups")]
     pub task_groups: HashMap<String, NomadDeploymentTaskGroup>,
 }
@@ -113,22 +93,25 @@ require progress by: {}",
             );
         }
 
-        match self.status {
-            NomadDeploymentStatus::Running => {
-                println!("{}", self.status_description.yellow());
-            }
-            NomadDeploymentStatus::Complete => {
-                println!("{}", self.status_description.green());
-                return;
-            }
-            NomadDeploymentStatus::Successful => {
-                println!("{}", self.status_description.green());
-                return;
-            }
-            NomadDeploymentStatus::Failed => {
-                println!("{}", self.status_description.red());
-                return;
-            }
+        match &self.status_description {
+            Some(description) => match self.status {
+                NomadDeploymentStatus::Running => {
+                    println!("{}", description.yellow());
+                }
+                NomadDeploymentStatus::Complete => {
+                    println!("{}", description.green());
+                    return;
+                }
+                NomadDeploymentStatus::Successful => {
+                    println!("{}", description.green());
+                    return;
+                }
+                NomadDeploymentStatus::Failed => {
+                    println!("{}", description.red());
+                    return;
+                }
+            },
+            None => {}
         }
     }
 
