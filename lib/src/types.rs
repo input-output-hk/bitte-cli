@@ -110,6 +110,10 @@ require progress by: {}",
                     println!("{}", description.red());
                     return;
                 }
+                NomadDeploymentStatus::Cancelled => {
+                    println!("{}", description.red());
+                    return;
+                }
             },
             None => {}
         }
@@ -121,6 +125,7 @@ require progress by: {}",
             NomadDeploymentStatus::Complete => true,
             NomadDeploymentStatus::Successful => true,
             NomadDeploymentStatus::Failed => true,
+            NomadDeploymentStatus::Cancelled => true,
         }
     }
 }
@@ -161,6 +166,8 @@ pub enum NomadDeploymentStatus {
     Failed,
     #[serde(rename = "successful")]
     Successful,
+    #[serde(rename = "cancelled")]
+    Cancelled,
 }
 
 #[derive(Debug, Deserialize)]
