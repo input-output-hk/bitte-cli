@@ -266,8 +266,8 @@ async fn info_print(output: TerraformStateValue) -> Result<()> {
                 asgi.lifecycle_state,
                 asgi.health_status,
                 asgi.protected_from_scale_in,
-                instance.private_ip_address.as_ref().unwrap(),
-                instance.public_ip_address.as_ref().unwrap(),
+                instance.private_ip_address.as_ref().unwrap_or(&"".to_string()),
+                instance.public_ip_address.as_ref().unwrap_or(&"".to_string()),
                 asg_suffix,
             ]);
             // asg_table.add_row(row![key, val.instance_type, val.flake_attr, val.count,]);
