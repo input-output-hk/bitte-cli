@@ -3,6 +3,7 @@ use bitte_lib::{
     bitte_cluster, certs, find_instance, info, rebuild, ssh, terraform, types::TerraformStateValue,
 };
 use clap::ArgMatches;
+use deploy::cli;
 use log::*;
 use prettytable::{cell, row, Table};
 use std::{env, path::Path, process::Command, time::Duration};
@@ -87,6 +88,16 @@ pub(crate) async fn rebuild(sub: &ArgMatches) -> Result<()> {
 
     rebuild::set_ssh_opts(true)?;
     rebuild::copy(only.iter().map(|o| o.as_str()).collect(), delay, copy).await?;
+    Ok(())
+}
+pub(crate) async fn deploy(sub: &ArgMatches) -> Result<()> {
+    match cli::run(Some(sub)).await {
+        Ok(()) => (),
+        Err(err) => {
+            error!("{}", err);
+            std::process::exit(1);
+        }
+    }
     Ok(())
 }
 
