@@ -137,9 +137,7 @@ pub async fn terraform_plan(workspace: String, sub: &ArgMatches) -> Result<()> {
         full = full.arg("-destroy");
     }
 
-    info!("run: {:?}", full);
-    full.status()
-        .with_context(|| format!("failed to run: {:?}", full))?;
+    bitte_lib::check_cmd(full)?;
     Ok(())
 }
 
@@ -173,9 +171,7 @@ pub async fn terraform_passthrough(workspace: String, sub: &ArgMatches) -> Resul
     let mut cmd = Command::new("terraform");
     let full = cmd.args(args);
 
-    info!("run: {:?}", full);
-    full.status()
-        .with_context(|| format!("failed to run: {:?}", full))?;
+    bitte_lib::check_cmd(full)?;
     Ok(())
 }
 
@@ -201,9 +197,7 @@ pub async fn terraform_apply(workspace: String, _sub: &ArgMatches) -> Result<()>
     let mut cmd = Command::new("terraform");
     let full = cmd.arg("apply").arg(plan_file);
 
-    debug!("run: {:?}", full);
-    full.status()
-        .with_context(|| format!("failed to run: {:?}", full))?;
+    bitte_lib::check_cmd(full)?;
     Ok(())
 }
 
@@ -266,8 +260,14 @@ async fn info_print(output: TerraformStateValue) -> Result<()> {
                 asgi.lifecycle_state,
                 asgi.health_status,
                 asgi.protected_from_scale_in,
-                instance.private_ip_address.as_ref().unwrap_or(&"".to_string()),
-                instance.public_ip_address.as_ref().unwrap_or(&"".to_string()),
+                instance
+                    .private_ip_address
+                    .as_ref()
+                    .unwrap_or(&"".to_string()),
+                instance
+                    .public_ip_address
+                    .as_ref()
+                    .unwrap_or(&"".to_string()),
                 asg_suffix,
             ]);
             // asg_table.add_row(row![key, val.instance_type, val.flake_attr, val.count,]);

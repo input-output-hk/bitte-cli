@@ -12,7 +12,7 @@ use error::Error;
 pub(crate) type Result<T> = std::result::Result<T, Error>;
 
 use execute::Execute;
-use log::debug;
+use log::{debug, info};
 use std::env;
 use std::process::Command;
 use std::process::Stdio;
@@ -82,11 +82,26 @@ pub fn sh(command: std::process::Command) -> Result<String> {
     handle_command_error_common(command, true)
 }
 
-fn check_cmd(cmd: &mut Command) -> Result<()> {
-    println!("run: {:?}", cmd);
-    cmd.status()?;
+pub fn check_cmd(cmd: &mut Command) -> Result<()> {
+    info!("run: {:?}", cmd);
+    let status = cmd.status()?;
 
-    Ok(())
+    if status.success() {
+        return Ok(());
+    } else {
+        match status.code() {
+            Some(err) => {
+                return Err(Error::ExeError {
+                    details: format!("{:?} exited with {}", cmd, err.to_string()),
+                })
+            }
+            None => {
+                return Err(Error::ExeError {
+                    details: format!("{:?} exited with non-zero exit status", cmd),
+                })
+            }
+        };
+    };
 }
 
 #[derive(Clone)]

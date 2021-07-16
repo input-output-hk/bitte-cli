@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     env,
     io::Write,
-    process::{exit, Command, ExitStatus},
+    process::{exit, Command},
 };
 
 use anyhow::{anyhow, Context, Result};
@@ -386,14 +386,15 @@ fn lookup_current_vault_token() -> Result<String> {
 }
 
 // TODO: give option to login using aws?
-fn vault_login() -> Result<ExitStatus> {
-    Command::new("vault")
-        .args(vec![
-            "login",
-            "-method=github",
-            "-path=github-employees",
-            "-no-print",
-        ])
-        .status()
-        .context("vault login failed")
+fn vault_login() -> Result<()> {
+    let mut cmd = Command::new("vault");
+    let full = cmd.args(vec![
+        "login",
+        "-method=github",
+        "-path=github-employees",
+        "-no-print",
+    ]);
+
+    bitte_lib::check_cmd(full)?;
+    Ok(())
 }
