@@ -2,11 +2,11 @@ mod cli;
 
 use anyhow::{bail, Result};
 use clap::clap_app;
+use clap::IntoApp;
+use deploy::cli::Opts;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    pretty_env_logger::init();
-
     let mut app = clap_app!(bitte =>
       (version: "0.0.1")
       (author: "Michael Fellinger <michael.fellinger@iohk.io>")
@@ -49,7 +49,8 @@ async fn main() -> Result<()> {
         (@arg cache: +takes_value +required "cache location"))
       (@subcommand certs =>
         (@arg domain: +takes_value +required "FQDN of the cluster"))
-    );
+    )
+    .subcommand(<Opts as IntoApp>::into_app().name("deploy"));
 
     let mut help_text = Vec::new();
     app.write_help(&mut help_text)
@@ -57,12 +58,31 @@ async fn main() -> Result<()> {
     let matches = app.get_matches();
 
     match matches.subcommand() {
-        Some(("rebuild", sub)) => cli::rebuild(sub).await,
-        Some(("info", sub)) => cli::info(sub).await,
-        Some(("ssh", sub)) => cli::ssh(sub).await,
-        Some(("terraform", sub)) => cli::terraform(sub).await,
-        Some(("provision", sub)) => cli::provision(sub).await,
-        Some(("certs", sub)) => cli::certs(sub).await,
+        Some(("rebuild", sub)) => {
+            pretty_env_logger::init();
+            cli::rebuild(sub).await
+        }
+        Some(("deploy", sub)) => cli::deploy(sub).await,
+        Some(("info", sub)) => {
+            pretty_env_logger::init();
+            cli::info(sub).await
+        }
+        Some(("ssh", sub)) => {
+            pretty_env_logger::init();
+            cli::ssh(sub).await
+        }
+        Some(("terraform", sub)) => {
+            pretty_env_logger::init();
+            cli::terraform(sub).await
+        }
+        Some(("provision", sub)) => {
+            pretty_env_logger::init();
+            cli::provision(sub).await
+        }
+        Some(("certs", sub)) => {
+            pretty_env_logger::init();
+            cli::certs(sub).await
+        }
         _ => bail!(format!(
             "Invalid subcommand\n {}",
             String::from_utf8(help_text).expect("help text contains invalid UTF8")
