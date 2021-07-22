@@ -52,7 +52,7 @@ impl RestPath<&str> for NomadDeployment {
 
 impl RestPath<()> for HttpPutToken {
     fn get_path(_: ()) -> Result<String, restson::Error> {
-        Ok("/v1/auth/github-employees/login".to_string())
+        Ok("/v1/auth/github-terraform/login".to_string())
     }
 }
 
