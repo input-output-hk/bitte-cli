@@ -7,6 +7,8 @@ use deploy::cli::Opts;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let _cluster = tokio::spawn(bitte_lib::find_bitte_cluster());
+
     let mut app = clap_app!(bitte =>
       (version: "0.0.1")
       (author: "Michael Fellinger <michael.fellinger@iohk.io>")
