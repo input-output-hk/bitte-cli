@@ -2,7 +2,20 @@ use std::collections::HashMap;
 
 use colored::*;
 use restson::RestPath;
-use serde::{Deserialize, Serialize};
+use serde::{de::Deserializer, Deserialize, Serialize};
+use std::sync::Arc;
+
+use std::net::IpAddr;
+use uuid::Uuid;
+
+use reqwest::{
+    header::{HeaderMap, HeaderValue},
+    Client,
+};
+
+use regex::Regex;
+
+use crate::nomad;
 
 #[derive(Deserialize)]
 pub struct RawVaultState {
@@ -544,4 +557,125 @@ pub struct TerraformStateRoles {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TerraformStateClient {
     pub arn: String,
+}
+
+/// A description of a Bitte cluster and its nodes
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BitteCluster {
+    pub name: String,
+    pub nodes: Vec<BitteNode>,
+    pub allocs: Vec<NomadAlloc>,
+    pub domain: String,
+    pub provider: BitteProvider,
+    #[serde(skip)]
+    pub nomad_client: Arc<Client>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum BitteProvider {
+    AWS,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BitteNode {
+    pub id: String,
+    pub priv_ip: IpAddr,
+    pub pub_ip: IpAddr,
+    pub region: Option<String>,
+    pub nixos: String,
+    pub nomad_id: Option<Uuid>,
+    /// store the indices of `BitteCluster.allocs` running on this node or `None` if not a Nomad client
+    pub allocs: Option<Vec<usize>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NomadAlloc {
+    #[serde(rename = "ID")]
+    pub id: Uuid,
+    #[serde(rename = "JobID")]
+    pub job_id: String,
+    #[serde(rename = "Namespace")]
+    pub namespace: String,
+    #[serde(rename = "TaskGroup")]
+    pub task_group: String,
+    #[serde(rename = "ClientStatus")]
+    pub status: String,
+    #[serde(
+        rename(deserialize = "Name", serialize = "Index"),
+        deserialize_with = "pull_index"
+    )]
+    pub index: u32,
+    #[serde(rename = "NodeID")]
+    pub node_id: Uuid,
+}
+
+fn pull_index<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let buf = String::deserialize(deserializer)?;
+    let search = Regex::new("[0-9]*\\]$")
+        .unwrap()
+        .find(&buf)
+        .unwrap()
+        .as_str();
+
+    let index = &search[0..search.len() - 1];
+    let index: u32 = index.parse().unwrap();
+
+    Ok(index)
+}
+
+impl BitteCluster {
+    pub async fn new(
+        name: String,
+        domain: String,
+        provider: BitteProvider,
+    ) -> anyhow::Result<Self> {
+        let nomad_client = {
+            let mut token = HeaderValue::from_str(nomad::nomad_token()?.as_str())?;
+            token.set_sensitive(true);
+            let mut headers = HeaderMap::new();
+            headers.insert("X-Nomad-Token", token);
+            Arc::new(
+                Client::builder()
+                    .default_headers(headers)
+                    .gzip(true)
+                    .build()?,
+            )
+        };
+        let allocs = tokio::spawn(BitteCluster::find_allocs(
+            Arc::clone(&nomad_client),
+            domain.clone(),
+        ));
+        let nodes = tokio::spawn(BitteCluster::find_nodes(provider.clone()));
+
+        let allocs = allocs.await??;
+        let nodes = nodes.await?;
+        Ok(Self {
+            name,
+            domain,
+            provider,
+            nomad_client,
+            nodes,
+            allocs,
+        })
+    }
+
+    async fn find_nodes(provider: BitteProvider) -> Vec<BitteNode> {
+        match provider {
+            BitteProvider::AWS => return Vec::new(),
+        }
+    }
+
+    async fn find_allocs(client: Arc<Client>, domain: String) -> anyhow::Result<Vec<NomadAlloc>> {
+        let allocs = client
+            .get(format!("https://nomad.{}/v1/allocations", domain))
+            .query(&[("namespace", "*"), ("task_states", "false")])
+            .send()
+            .await?
+            .json::<Vec<NomadAlloc>>()
+            .await?;
+        Ok(allocs)
+    }
 }
