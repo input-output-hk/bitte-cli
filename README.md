@@ -5,7 +5,7 @@ This is a little tool that helps with deployments of Bitte clusters.
 Bitte is a set of NixOS configurations that are provisioned using Terraform and
 runs a cluster of Consul, Vault, and Nomad instances.
 
-## Build this
+## Build this using nix
 
     nix build -o bitte
 
@@ -13,7 +13,20 @@ runs a cluster of Consul, Vault, and Nomad instances.
 
     ./bitte --help
 
-## Setup the Environment
+### Install cli tools outside of nix
+
+To install the bitte tools, you will also need the following dependencies:
+- pkg-config
+- openssl (linux only, darwin will use Security framework)
+- zlib
+
+To install:
+```bash
+  cargo install --path cli  # for the bitte cli
+  cargo install --path iogo # for the iogo utility
+```
+
+## Setup the Bitte Environment
 
     export BITTE_FLAKE=git+ssh://git@github.com/input-output-hk/bitte
     export BITTE_CLUSTER=cvn-testnet
