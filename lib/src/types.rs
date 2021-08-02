@@ -564,7 +564,7 @@ pub struct TerraformStateClient {
 pub struct BitteCluster {
     pub name: String,
     pub nodes: Vec<BitteNode>,
-    pub allocs: Vec<NomadAlloc>,
+    pub allocs: NomadAllocs,
     pub domain: String,
     pub provider: BitteProvider,
     #[serde(skip)]
@@ -584,9 +584,10 @@ pub struct BitteNode {
     pub region: Option<String>,
     pub nixos: String,
     pub nomad_id: Option<Uuid>,
-    /// store the indices of `BitteCluster.allocs` running on this node or `None` if not a Nomad client
-    pub allocs: Option<Vec<usize>>,
+    pub allocs: Option<NomadAllocs>,
 }
+
+type NomadAllocs = Vec<Arc<NomadAlloc>>;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NomadAlloc {
@@ -668,13 +669,13 @@ impl BitteCluster {
         }
     }
 
-    async fn find_allocs(client: Arc<Client>, domain: String) -> anyhow::Result<Vec<NomadAlloc>> {
+    async fn find_allocs(client: Arc<Client>, domain: String) -> anyhow::Result<NomadAllocs> {
         let allocs = client
             .get(format!("https://nomad.{}/v1/allocations", domain))
             .query(&[("namespace", "*"), ("task_states", "false")])
             .send()
             .await?
-            .json::<Vec<NomadAlloc>>()
+            .json::<NomadAllocs>()
             .await?;
         Ok(allocs)
     }
