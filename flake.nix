@@ -26,7 +26,7 @@
 
       hydraJobs = { bitte }@ps: ps;
 
-      devShell = { mkShell, pkgs }:
+      devShell = { mkShell, pkgs, stdenv, lib, darwin }:
         mkShell {
           RUST_BACKTRACE = "1";
           RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
@@ -43,7 +43,14 @@
             rls
             rustc
             rustfmt
-          ];
+          ] ++ lib.optionals stdenv.isDarwin (with darwin; with apple_sdk.frameworks; [
+            libiconv
+            libresolv
+            Libsystem
+            SystemConfiguration
+            Security
+            CoreFoundation
+          ]);
         };
-    };
-}
+      };
+    }

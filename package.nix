@@ -1,7 +1,13 @@
-{ naersk
+{ stdenv
+, lib
+, naersk
 , pkg-config
 , openssl
-, zlib }:
+, zlib
+
+# darwin dependencies
+, darwin
+}:
 
 naersk.buildPackage {
   # Without this we end up with a drv called `rust-workspace-unknown`
@@ -10,7 +16,15 @@ naersk.buildPackage {
   name version;
   root = ./.;
   nativeBuildInputs = [ pkg-config ];
-  buildInputs = [ openssl zlib ];
+  buildInputs = [ openssl zlib ]
+    ++ lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [
+      SystemConfiguration
+      Security
+      CoreFoundation
+      darwin.libiconv
+      darwin.libresolv
+      darwin.Libsystem
+    ]);
 
   overrideMain = _: {
     postInstall = ''
