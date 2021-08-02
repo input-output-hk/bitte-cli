@@ -571,7 +571,7 @@ pub struct BitteCluster {
     pub nomad_client: Arc<Client>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum BitteProvider {
     AWS,
 }
@@ -647,9 +647,9 @@ impl BitteCluster {
         };
         let allocs = tokio::spawn(BitteCluster::find_allocs(
             Arc::clone(&nomad_client),
-            domain.clone(),
+            domain.to_owned(),
         ));
-        let nodes = tokio::spawn(BitteCluster::find_nodes(provider.clone()));
+        let nodes = tokio::spawn(BitteCluster::find_nodes(provider));
 
         let allocs = allocs.await??;
         let nodes = nodes.await?;
