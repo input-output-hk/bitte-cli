@@ -153,7 +153,7 @@ dependencies = [
  "serde_json",
  "shellexpand",
  "tempfile",
- "tokio 1.6.1",
+ "tokio 1.9.0",
 ]
 
 [[package]]
@@ -182,7 +182,7 @@ dependencies = [
  "serde_json",
  "shellexpand",
  "thiserror",
- "tokio 1.6.1",
+ "tokio 1.9.0",
 ]
 
 [[package]]
@@ -446,7 +446,7 @@ dependencies = [
 [[package]]
 name = "deploy-rs"
 version = "0.1.0"
-source = "git+https://github.com/nrdxp/deploy-rs?branch=as-lib#8a332012a63335f72afaf57fb2eb7f0f755e3d8e"
+source = "git+https://github.com/nrdxp/deploy-rs?branch=as-lib#cfa203b1d344bb68b995a15a8adeb4f23da09ab5"
 dependencies = [
  "clap",
  "flexi_logger",
@@ -461,7 +461,7 @@ dependencies = [
  "signal-hook",
  "smol_str",
  "thiserror",
- "tokio 1.6.1",
+ "tokio 1.9.0",
  "toml",
  "whoami",
  "yn",
@@ -1037,7 +1037,7 @@ dependencies = [
  "itoa",
  "pin-project-lite 0.2.6",
  "socket2 0.4.0",
- "tokio 1.6.1",
+ "tokio 1.9.0",
  "tower-service",
  "tracing",
  "want",
@@ -1065,7 +1065,7 @@ dependencies = [
  "bytes 1.0.1",
  "hyper 0.14.9",
  "native-tls",
- "tokio 1.6.1",
+ "tokio 1.9.0",
  "tokio-native-tls",
 ]
 
@@ -1156,7 +1156,7 @@ dependencies = [
  "restson",
  "serde",
  "serde_json",
- "tokio 1.6.1",
+ "tokio 1.9.0",
  "url",
 ]
 
@@ -1926,7 +1926,7 @@ dependencies = [
  "rustc_version",
  "serde",
  "serde_json",
- "tokio 1.6.1",
+ "tokio 1.9.0",
  "xml-rs",
 ]
 
@@ -1944,7 +1944,7 @@ dependencies = [
  "serde",
  "serde_json",
  "shlex",
- "tokio 1.6.1",
+ "tokio 1.9.0",
  "zeroize",
 ]
 
@@ -1984,7 +1984,7 @@ dependencies = [
  "serde",
  "sha2",
  "time 0.2.26",
- "tokio 1.6.1",
+ "tokio 1.9.0",
 ]
 
 [[package]]
@@ -2493,9 +2493,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.6.1"
+version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a38d31d7831c6ed7aad00aa4c12d9375fd225a6dd77da1d25b707346319a975"
+checksum = "4b7b349f11a7047e6d1276853e612d152f5e8a352c61917887cc2169e2366b4c"
 dependencies = [
  "autocfg",
  "bytes 1.0.1",
@@ -2540,7 +2540,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7d995660bd2b7f8c1568414c1126076c13fbb725c40112dc0120b78eb9b717b"
 dependencies = [
  "native-tls",
- "tokio 1.6.1",
+ "tokio 1.9.0",
 ]
 
 [[package]]
