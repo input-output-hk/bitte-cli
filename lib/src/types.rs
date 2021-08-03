@@ -2,11 +2,18 @@ use std::collections::HashMap;
 
 use colored::*;
 use restson::RestPath;
+use rusoto_core::Region;
+use rusoto_ec2::{DescribeInstancesRequest, Ec2, Ec2Client, Filter, Instance};
 use serde::{de::Deserializer, Deserialize, Serialize};
+use std::collections::hash_set::HashSet;
+use std::env;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use std::net::IpAddr;
 use uuid::Uuid;
+
+use tokio::task::JoinHandle;
 
 use reqwest::{
     header::{HeaderMap, HeaderValue},
@@ -579,12 +586,24 @@ pub enum BitteProvider {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BitteNode {
     pub id: String,
-    pub priv_ip: IpAddr,
-    pub pub_ip: IpAddr,
-    pub region: Option<String>,
+    pub priv_ip: Option<IpAddr>,
+    pub pub_ip: Option<IpAddr>,
     pub nixos: String,
     pub nomad_id: Option<Uuid>,
     pub allocs: Option<NomadAllocs>,
+}
+
+impl From<Instance> for BitteNode {
+    fn from(instance: Instance) -> Self {
+        Self {
+            id: instance.instance_id.unwrap_or_default(),
+            priv_ip: IpAddr::from_str(&instance.private_ip_address.unwrap_or_default()).ok(),
+            pub_ip: IpAddr::from_str(&instance.public_ip_address.unwrap_or_default()).ok(),
+            nomad_id: None,
+            allocs: None,
+            nixos: String::default(),
+        }
+    }
 }
 
 type NomadAllocs = Vec<Arc<NomadAlloc>>;
@@ -649,23 +668,76 @@ impl BitteCluster {
             Arc::clone(&nomad_client),
             domain.to_owned(),
         ));
-        let nodes = tokio::spawn(BitteCluster::find_nodes(provider));
+        let nodes = tokio::spawn(BitteCluster::find_nodes(provider, name.to_owned(), allocs));
 
-        let allocs = allocs.await??;
-        let nodes = nodes.await?;
+        // let allocs = allocs.await??;
+        let nodes = nodes.await??;
         Ok(Self {
             name,
             domain,
             provider,
             nomad_client,
             nodes,
-            allocs,
+            allocs: Vec::new(),
         })
     }
 
-    async fn find_nodes(provider: BitteProvider) -> Vec<BitteNode> {
+    async fn find_nodes(
+        provider: BitteProvider,
+        name: String,
+        alloc_handle: JoinHandle<anyhow::Result<NomadAllocs>>,
+    ) -> anyhow::Result<Vec<BitteNode>> {
         match provider {
-            BitteProvider::AWS => return Vec::new(),
+            BitteProvider::AWS => {
+                let asg_regions = env::var("AWS_ASG_REGIONS")?;
+                let default_region = env::var("AWS_DEFAULT_REGION")?;
+                let regions_str = format!("{}:{}", asg_regions, default_region);
+                let regions: HashSet<&str> = regions_str.split(":").collect();
+                let mut handles = Vec::new();
+
+                for region in regions.iter() {
+                    let region = Region::from_str(region)?;
+                    let client = Ec2Client::new(region);
+                    let request = DescribeInstancesRequest {
+                        instance_ids: None,
+                        dry_run: None,
+                        filters: Some(vec![Filter {
+                            name: Some("tag:Cluster".to_owned()),
+                            values: Some(vec![name.to_owned()]),
+                        }]),
+                        max_results: None,
+                        next_token: None,
+                    };
+                    let response =
+                        tokio::spawn(async move { client.describe_instances(request).await });
+                    handles.push(response);
+                }
+
+                let _allocs = alloc_handle.await??;
+
+                tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                println!("this should print last");
+
+                for response in handles.into_iter() {
+                    let response = response.await??;
+                    let iter = response.reservations.into_iter();
+                    let _instances: Vec<BitteNode> = iter
+                        .flat_map(|reservations| {
+                            reservations
+                                .into_iter()
+                                .flat_map(|reservation| reservation.instances.unwrap_or_default())
+                        })
+                        .map(|instance| {
+                            let node = BitteNode::from(instance);
+                            // TODO: Add nixos config information
+                            node
+                        })
+                        // TODO: finish adding alloc info to nodes
+                        .collect();
+                }
+
+                return Ok(Vec::new());
+            }
         }
     }
 
