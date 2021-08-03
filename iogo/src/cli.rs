@@ -370,15 +370,23 @@ fn nomad_client() -> Result<RestClient> {
 }
 
 fn vault_token() -> Result<String> {
-    if let Ok(token) = lookup_current_vault_token() {
+    if let Ok(token) = lookup_current_vault_token(false) {
         return Ok(token);
     }
-    vault_login()?;
-    lookup_current_vault_token()
+
+    // If VAULT_TOKEN is set it is wrong, otherwise the lookup above would have worked.
+    // Print the token as announced by the warning that `vault login` prints (PM-3654).
+    let print_token = env::var("VAULT_TOKEN").is_ok();
+    vault_login(print_token)?;
+
+    lookup_current_vault_token(true)
 }
 
-fn lookup_current_vault_token() -> Result<String> {
+fn lookup_current_vault_token(ignore_env: bool) -> Result<String> {
     let mut cmd = Command::new("vault");
+    if ignore_env {
+        cmd.env_remove("VAULT_TOKEN");
+    }
     let full = cmd.args(vec!["token", "lookup", "-format=json"]);
     let output = full.output().context("vault token lookup failed")?;
     let lookup: VaultTokenLookup = serde_json::from_slice(output.stdout.as_slice())?;
@@ -386,14 +394,17 @@ fn lookup_current_vault_token() -> Result<String> {
 }
 
 // TODO: give option to login using aws?
-fn vault_login() -> Result<ExitStatus> {
-    Command::new("vault")
-        .args(vec![
-            "login",
-            "-method=github",
-            "-path=github-employees",
-            "-no-print",
-        ])
+fn vault_login(print: bool) -> Result<ExitStatus> {
+    let mut cmd = Command::new("vault");
+    cmd.args(vec![
+        "login",
+        "-method=github",
+        "-path=github-employees",
+    ]);
+    if !print {
+        cmd.arg("-no-print");
+    }
+    cmd
         .status()
         .context("vault login failed")
 }
