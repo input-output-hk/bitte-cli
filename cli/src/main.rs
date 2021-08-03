@@ -7,7 +7,9 @@ use deploy::cli::Opts;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let _cluster = tokio::spawn(bitte_lib::find_bitte_cluster());
+    let cluster = tokio::spawn(bitte_lib::find_bitte_cluster()).await??;
+    let file = std::fs::File::create(format!("{}.json", cluster.name))?;
+    serde_json::to_writer(file, &cluster)?;
 
     let mut app = clap_app!(bitte =>
       (version: "0.0.1")

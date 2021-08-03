@@ -571,11 +571,10 @@ pub struct TerraformStateClient {
 pub struct BitteCluster {
     pub name: String,
     pub nodes: Vec<BitteNode>,
-    pub allocs: NomadAllocs,
     pub domain: String,
     pub provider: BitteProvider,
     #[serde(skip)]
-    pub nomad_client: Arc<Client>,
+    pub nomad_api_client: Arc<Client>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
@@ -583,32 +582,51 @@ pub enum BitteProvider {
     AWS,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct NomadClient {
+    #[serde(rename(deserialize = "ID"))]
+    pub id: Uuid,
+    pub allocs: Option<NomadAllocs>,
+    #[serde(rename(deserialize = "Address"))]
+    pub address: Option<IpAddr>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BitteNode {
-    pub id: String,
+    pub id: Option<String>,
+    pub name: Option<String>,
     pub priv_ip: Option<IpAddr>,
     pub pub_ip: Option<IpAddr>,
-    pub nixos: String,
-    pub nomad_id: Option<Uuid>,
-    pub allocs: Option<NomadAllocs>,
+    pub nixos: Option<String>,
+    pub nomad_client: Option<NomadClient>,
 }
 
 impl From<Instance> for BitteNode {
     fn from(instance: Instance) -> Self {
+        let mut tags = instance.tags.unwrap().into_iter();
+        let nixos = tags
+            .find(|tag| tag.key.as_ref().unwrap_or(&"".to_owned()) == "UID")
+            .unwrap_or_default()
+            .value;
+        let name = tags
+            .find(|tag| tag.key.as_ref().unwrap_or(&"".to_owned()) == "Name")
+            .unwrap_or_default()
+            .value;
+
         Self {
-            id: instance.instance_id.unwrap_or_default(),
+            id: instance.instance_id,
+            name,
             priv_ip: IpAddr::from_str(&instance.private_ip_address.unwrap_or_default()).ok(),
             pub_ip: IpAddr::from_str(&instance.public_ip_address.unwrap_or_default()).ok(),
-            nomad_id: None,
-            allocs: None,
-            nixos: String::default(),
+            nomad_client: None,
+            nixos,
         }
     }
 }
 
-type NomadAllocs = Vec<Arc<NomadAlloc>>;
+type NomadAllocs = Vec<NomadAlloc>;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NomadAlloc {
     #[serde(rename = "ID")]
     pub id: Uuid,
@@ -652,7 +670,7 @@ impl BitteCluster {
         domain: String,
         provider: BitteProvider,
     ) -> anyhow::Result<Self> {
-        let nomad_client = {
+        let nomad_api_client = {
             let mut token = HeaderValue::from_str(nomad::nomad_token()?.as_str())?;
             token.set_sensitive(true);
             let mut headers = HeaderMap::new();
@@ -665,20 +683,26 @@ impl BitteCluster {
             )
         };
         let allocs = tokio::spawn(BitteCluster::find_allocs(
-            Arc::clone(&nomad_client),
+            Arc::clone(&nomad_api_client),
             domain.to_owned(),
         ));
-        let nodes = tokio::spawn(BitteCluster::find_nodes(provider, name.to_owned(), allocs));
-
-        // let allocs = allocs.await??;
+        let client_nodes = tokio::spawn(BitteCluster::find_nomad_nodes(
+            Arc::clone(&nomad_api_client),
+            domain.to_owned(),
+        ));
+        let nodes = tokio::spawn(BitteCluster::find_nodes(
+            provider,
+            name.to_owned(),
+            allocs,
+            client_nodes,
+        ));
         let nodes = nodes.await??;
         Ok(Self {
             name,
             domain,
             provider,
-            nomad_client,
+            nomad_api_client,
             nodes,
-            allocs: Vec::new(),
         })
     }
 
@@ -686,6 +710,7 @@ impl BitteCluster {
         provider: BitteProvider,
         name: String,
         alloc_handle: JoinHandle<anyhow::Result<NomadAllocs>>,
+        clients_handle: JoinHandle<anyhow::Result<Vec<NomadClient>>>,
     ) -> anyhow::Result<Vec<BitteNode>> {
         match provider {
             BitteProvider::AWS => {
@@ -713,32 +738,62 @@ impl BitteCluster {
                     handles.push(response);
                 }
 
-                let _allocs = alloc_handle.await??;
-
-                tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-                println!("this should print last");
+                let allocs = alloc_handle.await??;
+                let clients = clients_handle.await??;
+                let mut result: Vec<BitteNode> = Vec::new();
 
                 for response in handles.into_iter() {
                     let response = response.await??;
                     let iter = response.reservations.into_iter();
-                    let _instances: Vec<BitteNode> = iter
+                    let mut nodes: Vec<BitteNode> = iter
                         .flat_map(|reservations| {
                             reservations
                                 .into_iter()
                                 .flat_map(|reservation| reservation.instances.unwrap_or_default())
                         })
                         .map(|instance| {
-                            let node = BitteNode::from(instance);
-                            // TODO: Add nixos config information
+                            let mut node = BitteNode::from(instance);
+                            node.nomad_client = match clients
+                                .iter()
+                                .find(|client| client.address == node.priv_ip)
+                            {
+                                Some(client_) => {
+                                    let mut client = client_.to_owned();
+                                    client.allocs = {
+                                        let allocs_ = allocs.clone();
+                                        Some(
+                                            allocs_
+                                                .into_iter()
+                                                .filter(|alloc| alloc.node_id == client.id)
+                                                .collect::<NomadAllocs>(),
+                                        )
+                                    };
+                                    Some(client)
+                                }
+                                None => None,
+                            };
                             node
                         })
-                        // TODO: finish adding alloc info to nodes
                         .collect();
+                    result.append(&mut nodes);
                 }
 
-                return Ok(Vec::new());
+                return Ok(result);
             }
         }
+    }
+
+    async fn find_nomad_nodes(
+        client: Arc<Client>,
+        domain: String,
+    ) -> anyhow::Result<Vec<NomadClient>> {
+        let nodes = client
+            .get(format!("https://nomad.{}/v1/nodes", domain))
+            .send()
+            .await?
+            .json::<Vec<NomadClient>>()
+            .await?;
+        Ok(nodes)
     }
 
     async fn find_allocs(client: Arc<Client>, domain: String) -> anyhow::Result<NomadAllocs> {
