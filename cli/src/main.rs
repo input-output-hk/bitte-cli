@@ -1,13 +1,14 @@
 mod cli;
 
 use anyhow::{bail, Result};
+use bitte_lib::types::BitteCluster;
 use clap::clap_app;
 use clap::IntoApp;
 use deploy::cli::Opts;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let cluster = tokio::spawn(bitte_lib::find_bitte_cluster()).await??;
+    let cluster = tokio::spawn(BitteCluster::new()).await??;
     let file = std::fs::File::create(format!("{}.json", cluster.name))?;
     serde_json::to_writer(file, &cluster)?;
 

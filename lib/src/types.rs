@@ -10,6 +10,7 @@ use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use enum_utils;
 use std::net::IpAddr;
 use uuid::Uuid;
 
@@ -19,6 +20,8 @@ use reqwest::{
     header::{HeaderMap, HeaderValue},
     Client,
 };
+
+use crate::error::Error;
 
 use regex::Regex;
 
@@ -577,7 +580,7 @@ pub struct BitteCluster {
     pub nomad_api_client: Arc<Client>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, enum_utils::FromStr)]
 pub enum BitteProvider {
     AWS,
 }
@@ -665,11 +668,17 @@ where
 }
 
 impl BitteCluster {
-    pub async fn new(
-        name: String,
-        domain: String,
-        provider: BitteProvider,
-    ) -> anyhow::Result<Self> {
+    pub async fn new() -> anyhow::Result<Self> {
+        let name = env::var("BITTE_CLUSTER")?;
+        let domain = env::var("BITTE_DOMAIN")?;
+        let provider: BitteProvider = {
+            let string = env::var("BITTE_PROVIDER")?;
+            match string.parse() {
+                Ok(v) => Ok(v),
+                Err(_) => Err(Error::ProviderError { provider: string }),
+            }?
+        };
+
         let nomad_api_client = {
             let mut token = HeaderValue::from_str(nomad::nomad_token()?.as_str())?;
             token.set_sensitive(true);

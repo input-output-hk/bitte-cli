@@ -17,8 +17,6 @@ use std::env;
 use std::process::Command;
 use std::process::Stdio;
 
-use self::types::{BitteCluster, BitteProvider};
-
 use info::{asg_info, instance_info};
 
 #[cfg(test)]
@@ -43,12 +41,6 @@ mod test_bitte_cluster {
 pub fn bitte_cluster() -> Result<String> {
     let cluster = env::var("BITTE_CLUSTER")?;
     Ok(cluster)
-}
-
-pub async fn find_bitte_cluster() -> anyhow::Result<BitteCluster> {
-    let domain = env::var("BITTE_DOMAIN")?;
-    let name = bitte_cluster()?;
-    BitteCluster::new(name, domain, BitteProvider::AWS).await
 }
 
 fn handle_command_error_common(
