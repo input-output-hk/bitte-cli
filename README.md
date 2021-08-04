@@ -16,6 +16,7 @@ runs a cluster of Consul, Vault, and Nomad instances.
 ### Install cli tools outside of nix
 
 To install the bitte tools, you will also need the following dependencies:
+- [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
 - pkg-config
 - openssl (linux only, darwin will use Security framework)
 - zlib
