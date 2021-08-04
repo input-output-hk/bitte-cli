@@ -787,7 +787,12 @@ impl BitteCluster {
         };
 
         let nomad_api_client = {
-            let mut token = HeaderValue::from_str(nomad::nomad_token()?.as_str())?;
+            let token = env::var("NOMAD_TOKEN").unwrap_or({
+                let token = nomad::nomad_token()?;
+                env::set_var("NOMAD_TOKEN", &token);
+                token
+            });
+            let mut token = HeaderValue::from_str(&*&token)?;
             token.set_sensitive(true);
             let mut headers = HeaderMap::new();
             headers.insert("X-Nomad-Token", token);
