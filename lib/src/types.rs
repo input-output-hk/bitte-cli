@@ -573,7 +573,7 @@ pub struct TerraformStateClient {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BitteCluster {
     pub name: String,
-    pub nodes: Vec<BitteNode>,
+    pub nodes: BitteNodes,
     pub domain: String,
     pub provider: BitteProvider,
     #[serde(skip)]
@@ -592,6 +592,18 @@ pub struct NomadClient {
     pub allocs: Option<NomadAllocs>,
     #[serde(rename(deserialize = "Address"))]
     pub address: Option<IpAddr>,
+}
+
+impl NomadClient {
+    async fn find_nomad_nodes(client: Arc<Client>, domain: String) -> anyhow::Result<NomadClients> {
+        let nodes = client
+            .get(format!("https://nomad.{}/v1/nodes", domain))
+            .send()
+            .await?
+            .json::<NomadClients>()
+            .await?;
+        Ok(nodes)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -627,7 +639,88 @@ impl From<Instance> for BitteNode {
     }
 }
 
+impl BitteNode {
+    async fn find_nodes(
+        provider: BitteProvider,
+        name: String,
+        alloc_handle: JoinHandle<anyhow::Result<NomadAllocs>>,
+        clients_handle: JoinHandle<anyhow::Result<NomadClients>>,
+    ) -> anyhow::Result<BitteNodes> {
+        match provider {
+            BitteProvider::AWS => {
+                let asg_regions = env::var("AWS_ASG_REGIONS")?;
+                let default_region = env::var("AWS_DEFAULT_REGION")?;
+                let regions_str = format!("{}:{}", asg_regions, default_region);
+                let regions: HashSet<&str> = regions_str.split(":").collect();
+                let mut handles = Vec::new();
+
+                for region in regions.iter() {
+                    let region = Region::from_str(region)?;
+                    let client = Ec2Client::new(region);
+                    let request = DescribeInstancesRequest {
+                        instance_ids: None,
+                        dry_run: None,
+                        filters: Some(vec![Filter {
+                            name: Some("tag:Cluster".to_owned()),
+                            values: Some(vec![name.to_owned()]),
+                        }]),
+                        max_results: None,
+                        next_token: None,
+                    };
+                    let response =
+                        tokio::spawn(async move { client.describe_instances(request).await });
+                    handles.push(response);
+                }
+
+                let allocs = alloc_handle.await??;
+                let clients = clients_handle.await??;
+                let mut result: BitteNodes = Vec::new();
+
+                for response in handles.into_iter() {
+                    let response = response.await??;
+                    let iter = response.reservations.into_iter();
+                    let mut nodes: BitteNodes = iter
+                        .flat_map(|reservations| {
+                            reservations
+                                .into_iter()
+                                .flat_map(|reservation| reservation.instances.unwrap_or_default())
+                        })
+                        .map(|instance| {
+                            let mut node = BitteNode::from(instance);
+                            node.nomad_client = match clients
+                                .iter()
+                                .find(|client| client.address == node.priv_ip)
+                            {
+                                Some(client_) => {
+                                    let mut client = client_.to_owned();
+                                    client.allocs = {
+                                        let allocs_ = allocs.clone();
+                                        Some(
+                                            allocs_
+                                                .into_iter()
+                                                .filter(|alloc| alloc.node_id == client.id)
+                                                .collect::<NomadAllocs>(),
+                                        )
+                                    };
+                                    Some(client)
+                                }
+                                None => None,
+                            };
+                            node
+                        })
+                        .collect();
+                    result.append(&mut nodes);
+                }
+
+                return Ok(result);
+            }
+        }
+    }
+}
+
+type NomadClients = Vec<NomadClient>;
 type NomadAllocs = Vec<NomadAlloc>;
+type BitteNodes = Vec<BitteNode>;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NomadAlloc {
@@ -648,6 +741,19 @@ pub struct NomadAlloc {
     pub index: u32,
     #[serde(rename = "NodeID")]
     pub node_id: Uuid,
+}
+
+impl NomadAlloc {
+    async fn find_allocs(client: Arc<Client>, domain: String) -> anyhow::Result<NomadAllocs> {
+        let allocs = client
+            .get(format!("https://nomad.{}/v1/allocations", domain))
+            .query(&[("namespace", "*"), ("task_states", "false")])
+            .send()
+            .await?
+            .json::<NomadAllocs>()
+            .await?;
+        Ok(allocs)
+    }
 }
 
 fn pull_index<'de, D>(deserializer: D) -> Result<u32, D::Error>
@@ -691,21 +797,26 @@ impl BitteCluster {
                     .build()?,
             )
         };
-        let allocs = tokio::spawn(BitteCluster::find_allocs(
+
+        let allocs = tokio::spawn(NomadAlloc::find_allocs(
             Arc::clone(&nomad_api_client),
             domain.to_owned(),
         ));
-        let client_nodes = tokio::spawn(BitteCluster::find_nomad_nodes(
+
+        let client_nodes = tokio::spawn(NomadClient::find_nomad_nodes(
             Arc::clone(&nomad_api_client),
             domain.to_owned(),
         ));
-        let nodes = tokio::spawn(BitteCluster::find_nodes(
+
+        let nodes = tokio::spawn(BitteNode::find_nodes(
             provider,
             name.to_owned(),
             allocs,
             client_nodes,
         ));
+
         let nodes = nodes.await??;
+
         Ok(Self {
             name,
             domain,
@@ -713,106 +824,5 @@ impl BitteCluster {
             nomad_api_client,
             nodes,
         })
-    }
-
-    async fn find_nodes(
-        provider: BitteProvider,
-        name: String,
-        alloc_handle: JoinHandle<anyhow::Result<NomadAllocs>>,
-        clients_handle: JoinHandle<anyhow::Result<Vec<NomadClient>>>,
-    ) -> anyhow::Result<Vec<BitteNode>> {
-        match provider {
-            BitteProvider::AWS => {
-                let asg_regions = env::var("AWS_ASG_REGIONS")?;
-                let default_region = env::var("AWS_DEFAULT_REGION")?;
-                let regions_str = format!("{}:{}", asg_regions, default_region);
-                let regions: HashSet<&str> = regions_str.split(":").collect();
-                let mut handles = Vec::new();
-
-                for region in regions.iter() {
-                    let region = Region::from_str(region)?;
-                    let client = Ec2Client::new(region);
-                    let request = DescribeInstancesRequest {
-                        instance_ids: None,
-                        dry_run: None,
-                        filters: Some(vec![Filter {
-                            name: Some("tag:Cluster".to_owned()),
-                            values: Some(vec![name.to_owned()]),
-                        }]),
-                        max_results: None,
-                        next_token: None,
-                    };
-                    let response =
-                        tokio::spawn(async move { client.describe_instances(request).await });
-                    handles.push(response);
-                }
-
-                let allocs = alloc_handle.await??;
-                let clients = clients_handle.await??;
-                let mut result: Vec<BitteNode> = Vec::new();
-
-                for response in handles.into_iter() {
-                    let response = response.await??;
-                    let iter = response.reservations.into_iter();
-                    let mut nodes: Vec<BitteNode> = iter
-                        .flat_map(|reservations| {
-                            reservations
-                                .into_iter()
-                                .flat_map(|reservation| reservation.instances.unwrap_or_default())
-                        })
-                        .map(|instance| {
-                            let mut node = BitteNode::from(instance);
-                            node.nomad_client = match clients
-                                .iter()
-                                .find(|client| client.address == node.priv_ip)
-                            {
-                                Some(client_) => {
-                                    let mut client = client_.to_owned();
-                                    client.allocs = {
-                                        let allocs_ = allocs.clone();
-                                        Some(
-                                            allocs_
-                                                .into_iter()
-                                                .filter(|alloc| alloc.node_id == client.id)
-                                                .collect::<NomadAllocs>(),
-                                        )
-                                    };
-                                    Some(client)
-                                }
-                                None => None,
-                            };
-                            node
-                        })
-                        .collect();
-                    result.append(&mut nodes);
-                }
-
-                return Ok(result);
-            }
-        }
-    }
-
-    async fn find_nomad_nodes(
-        client: Arc<Client>,
-        domain: String,
-    ) -> anyhow::Result<Vec<NomadClient>> {
-        let nodes = client
-            .get(format!("https://nomad.{}/v1/nodes", domain))
-            .send()
-            .await?
-            .json::<Vec<NomadClient>>()
-            .await?;
-        Ok(nodes)
-    }
-
-    async fn find_allocs(client: Arc<Client>, domain: String) -> anyhow::Result<NomadAllocs> {
-        let allocs = client
-            .get(format!("https://nomad.{}/v1/allocations", domain))
-            .query(&[("namespace", "*"), ("task_states", "false")])
-            .send()
-            .await?
-            .json::<NomadAllocs>()
-            .await?;
-        Ok(allocs)
     }
 }
