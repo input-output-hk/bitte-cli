@@ -22,7 +22,7 @@ log = "0.4.14"
 pretty_env_logger = "0.4.0"
 anyhow = "1.0"
 duct = "0.13"
-deploy-rs = { git = "https://github.com/nrdxp/deploy-rs", branch = "as-lib" }
+deploy-rs = { git = "https://github.com/serokell/deploy-rs" }
 
 [dependencies.clap]
 version = "3.0.0-beta.2"
