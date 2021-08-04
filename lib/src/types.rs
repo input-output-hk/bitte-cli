@@ -721,6 +721,7 @@ impl BitteNode {
 type NomadClients = Vec<NomadClient>;
 type NomadAllocs = Vec<NomadAlloc>;
 type BitteNodes = Vec<BitteNode>;
+pub type ClusterHandle = JoinHandle<anyhow::Result<BitteCluster>>;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NomadAlloc {

@@ -8,9 +8,7 @@ use deploy::cli::Opts;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let cluster = tokio::spawn(BitteCluster::new()).await??;
-    let file = std::fs::File::create(format!("{}.json", cluster.name))?;
-    serde_json::to_writer(file, &cluster)?;
+    let cluster = tokio::spawn(BitteCluster::new());
 
     let mut app = clap_app!(bitte =>
       (version: "0.0.1")
@@ -22,7 +20,8 @@ async fn main() -> Result<()> {
         (@arg delay: --delay +takes_value "seconds to delay between rebuilds")
         (@arg copy: --copy "copy to the S3 cache first"))
       (@subcommand info =>
-        (about: "Show information about instances and auto-scaling groups"))
+        (about: "Show information about instances and auto-scaling groups")
+        (@arg json: --json "format as json"))
       (@subcommand ssh =>
         (about: "SSH to instances")
         (@arg host: +takes_value "host")
@@ -70,7 +69,7 @@ async fn main() -> Result<()> {
         Some(("deploy", sub)) => cli::deploy(sub).await,
         Some(("info", sub)) => {
             pretty_env_logger::init();
-            cli::info(sub).await
+            cli::info(sub, cluster).await
         }
         Some(("ssh", sub)) => {
             pretty_env_logger::init();

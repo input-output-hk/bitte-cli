@@ -1,12 +1,12 @@
 use anyhow::{anyhow, Context, Result};
 use bitte_lib::{
-    bitte_cluster, certs, find_instance, info, rebuild, ssh, terraform, types::TerraformStateValue,
+    bitte_cluster, certs, find_instance, rebuild, ssh, terraform, types::ClusterHandle,
 };
 use clap::ArgMatches;
 use deploy::cli;
 use log::*;
 use prettytable::{cell, row, Table};
-use std::{env, path::Path, process::Command, time::Duration};
+use std::{env, io, path::Path, process::Command, time::Duration};
 
 pub(crate) async fn certs(sub: &ArgMatches) -> Result<()> {
     let domain: String = sub.value_of_t_or_exit("domain");
@@ -101,11 +101,9 @@ pub(crate) async fn deploy(sub: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn info(_sub: &ArgMatches) -> Result<()> {
-    let info = terraform::output("clients").or_else(|_| {
-        terraform::output("core").context("Couldn't fetch clients or core workspaces")
-    })?;
-    info_print(info).await?;
+pub(crate) async fn info(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
+    let json: bool = sub.is_present("json");
+    info_print(cluster, json).await?;
     Ok(())
 }
 
@@ -218,73 +216,31 @@ pub async fn terraform_apply(workspace: String, _sub: &ArgMatches) -> Result<()>
     Ok(())
 }
 
-async fn info_print(output: TerraformStateValue) -> Result<()> {
-    let mut instance_table = Table::new();
-    instance_table.add_row(row!["Name", "Type", "FlakeAttr", "Private IP", "Public IP"]);
+async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
+    if json {
+        let stdout = io::stdout();
+        let handle = stdout.lock();
+        serde_json::to_writer(handle, &cluster.await??)?;
+    } else {
+        let mut instance_table = Table::new();
+        instance_table.add_row(row!["Name", "Private IP", "Public IP"]);
 
-    for (key, val) in output.instances.iter() {
-        instance_table.add_row(row![
-            key,
-            val.instance_type,
-            val.flake_attr,
-            val.private_ip,
-            val.public_ip,
-        ]);
-    }
+        let nodes = cluster.await??.nodes;
 
-    instance_table.printstd();
-
-    let mut asg_table = Table::new();
-
-    asg_table.add_row(row![
-        "Id",
-        "Type",
-        "AZ",
-        "State",
-        "Status",
-        "Protected",
-        "PrivateIp",
-        "PublicIp",
-        "asgSuffix"
-    ]);
-
-    for (_key, val) in output.asgs.iter() {
-        let asg_prefix = format!(
-            "client-{}-{}",
-            val.region,
-            val.instance_type.replace(".", "-")
-        );
-        let asg_suffix = _key
-            .strip_prefix(&asg_prefix)
-            .unwrap_or_else(|| "ERROR")
-            .replace("-", "");
-
-        let info = info::asg_info(val.arn.as_str(), val.region.as_str()).await;
-
-        let instance_ids = info.iter().map(|x| x.instance_id.as_str()).collect();
-        let instances = info::instance_info(instance_ids, val.region.as_str()).await;
-
-        for asgi in info {
-            let instance = instances
-                .iter()
-                .find(|x| x.instance_id == Some(asgi.instance_id.clone()))
-                .unwrap();
-
-            asg_table.add_row(row![
-                asgi.instance_id,
-                asgi.instance_type.unwrap_or_default(),
-                asgi.availability_zone,
-                asgi.lifecycle_state,
-                asgi.health_status,
-                asgi.protected_from_scale_in,
-                instance.private_ip_address.as_ref().unwrap_or(&"".to_string()),
-                instance.public_ip_address.as_ref().unwrap_or(&"".to_string()),
-                asg_suffix,
-            ]);
-            // asg_table.add_row(row![key, val.instance_type, val.flake_attr, val.count,]);
+        for node in nodes.into_iter() {
+            let mut name = if node.nomad_client.is_some() {
+                node.nomad_client.unwrap().id.to_hyphenated().to_string()
+            } else {
+                node.name.unwrap_or_default()
+            };
+            if name.is_empty() {
+                name = node.nixos.unwrap_or_default();
+            }
+            instance_table.add_row(row![name, node.priv_ip.unwrap(), node.pub_ip.unwrap()]);
         }
+
+        instance_table.printstd();
     }
 
-    asg_table.printstd();
     Ok(())
 }
