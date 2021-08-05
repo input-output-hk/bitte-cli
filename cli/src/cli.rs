@@ -4,7 +4,7 @@ use clap::ArgMatches;
 use deploy::cli;
 use log::*;
 use prettytable::{cell, row, Table};
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr};
 use std::{env, io, path::Path, process::Command, time::Duration};
 
 pub(crate) async fn certs(sub: &ArgMatches) -> Result<()> {
@@ -312,7 +312,14 @@ async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
             if name.is_empty() {
                 name = node.nixos.unwrap_or_default();
             }
-            instance_table.add_row(row![name, node.priv_ip.unwrap(), node.pub_ip.unwrap()]);
+
+            let no_ip = IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0));
+
+            instance_table.add_row(row![
+                name,
+                node.priv_ip.unwrap_or(no_ip),
+                node.pub_ip.unwrap_or(no_ip)
+            ]);
         }
 
         instance_table.printstd();
