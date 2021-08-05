@@ -585,7 +585,7 @@ pub enum BitteProvider {
     AWS,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct NomadClient {
     #[serde(rename(deserialize = "ID"))]
     pub id: Uuid,

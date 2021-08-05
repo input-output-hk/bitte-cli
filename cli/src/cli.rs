@@ -1,11 +1,10 @@
 use anyhow::{anyhow, Context, Result};
-use bitte_lib::{
-    bitte_cluster, certs, find_instance, rebuild, ssh, terraform, types::ClusterHandle,
-};
+use bitte_lib::{bitte_cluster, certs, rebuild, ssh, terraform, types::ClusterHandle};
 use clap::ArgMatches;
 use deploy::cli;
 use log::*;
 use prettytable::{cell, row, Table};
+use std::net::IpAddr;
 use std::{env, io, path::Path, process::Command, time::Duration};
 
 pub(crate) async fn certs(sub: &ArgMatches) -> Result<()> {
@@ -45,13 +44,90 @@ pub(crate) async fn provision(sub: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn ssh(sub: &ArgMatches) -> Result<()> {
-    let needle: String = sub.value_of_t("host")?;
+pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
     let mut args = sub.values_of_lossy("args").unwrap_or_default();
+    let needle = args.first();
+    let job: Vec<String> = sub.values_of_t("job").unwrap_or_default();
+    let namespace: String = sub
+        .value_of_t("namespace")
+        .unwrap_or(env::var("NOMAD_NAMESPACE")?);
 
-    let ip = find_instance(needle.as_str())
-        .await
-        .map_or_else(|| needle.clone(), |i| i.public_ip);
+    let ip: IpAddr;
+
+    if sub.is_present("job") {
+        let name = job.get(0).unwrap();
+        let group = job.get(1).unwrap();
+        let index = job.get(2).unwrap();
+
+        let nodes = cluster.await??.nodes;
+        let node = nodes
+            .into_iter()
+            .find(|node| {
+                let client = &node.nomad_client;
+                if client.is_none() {
+                    return false;
+                };
+
+                let allocs = &client.as_ref().unwrap().allocs;
+                if allocs.is_none() || allocs.as_ref().unwrap().is_empty() {
+                    return false;
+                };
+
+                allocs
+                    .as_ref()
+                    .unwrap()
+                    .into_iter()
+                    .find(|alloc| {
+                        alloc.namespace == namespace
+                            && &alloc.job_id == name
+                            && &alloc.task_group == group
+                            && Some(alloc.index) == index.parse().ok()
+                    })
+                    .is_some()
+            })
+            .with_context(|| {
+                format!(
+                    "{}, {}, {} does not match any nomad allocations",
+                    name, group, index
+                )
+            })?;
+
+        ip = node
+            .pub_ip
+            .with_context(|| format!("job {} does not have a public IP address", name))?;
+    } else {
+        if needle.is_none() {
+            return Err(anyhow!("first arg must be a host"));
+        }
+        let needle = needle.unwrap().clone();
+        args = args.drain(1..).collect();
+        let nodes = cluster.await??.nodes;
+        let node = nodes
+            .into_iter()
+            .find(|node| {
+                let ip = needle.parse::<IpAddr>().ok();
+                let empty = &"".to_owned();
+
+                node.id.as_ref().unwrap_or(empty) == &needle
+                    || node.name.as_ref().unwrap_or(empty) == &needle
+                    || node
+                        .nomad_client
+                        .as_ref()
+                        .unwrap_or(&Default::default())
+                        .id
+                        .to_hyphenated()
+                        .to_string()
+                        == *needle
+                    || node.priv_ip == ip
+                    || node.pub_ip == ip
+            })
+            .with_context(|| format!("{} does not match any nodes", needle))?;
+
+        ip = node
+            .pub_ip
+            .with_context(|| format!("{} does not have a public IP address", needle))?
+    };
+
     let user_host = format!("root@{}", ip);
     let mut flags = vec!["-x".to_string(), "-p".into(), "22".into()];
 
@@ -72,7 +148,7 @@ pub(crate) async fn ssh(sub: &ArgMatches) -> Result<()> {
 
     let mut cmd = Command::new("ssh");
     let cmd_with_args = cmd.args(ssh_args);
-    println!("cmd: {:?}", cmd_with_args);
+    info!("cmd: {:?}", cmd_with_args);
 
     cmd.spawn()
         .context("ssh command failed")?

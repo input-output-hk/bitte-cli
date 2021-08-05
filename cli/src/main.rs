@@ -24,7 +24,8 @@ async fn main() -> Result<()> {
         (@arg json: --json "format as json"))
       (@subcommand ssh =>
         (about: "SSH to instances")
-        (@arg host: +takes_value "host")
+        (@arg job: -j --job +takes_value +multiple #{3, 3} "specify client by: job group alloc_index")
+        (@arg namespace: -n --namespace +takes_value "specify nomad namespace to search for <job>; only valid for --job flag")
         (@arg args: +takes_value +multiple "arguments to ssh"))
       (@subcommand terraform =>
         (about: "Run terraform")
@@ -73,7 +74,7 @@ async fn main() -> Result<()> {
         }
         Some(("ssh", sub)) => {
             pretty_env_logger::init();
-            cli::ssh(sub).await
+            cli::ssh(sub, cluster).await
         }
         Some(("terraform", sub)) => {
             pretty_env_logger::init();
@@ -87,10 +88,13 @@ async fn main() -> Result<()> {
             pretty_env_logger::init();
             cli::certs(sub).await
         }
-        _ => bail!(format!(
-            "Invalid subcommand\n {}",
-            String::from_utf8(help_text).expect("help text contains invalid UTF8")
-        )),
+        _ => {
+            cluster.abort();
+            bail!(format!(
+                "Invalid subcommand\n {}",
+                String::from_utf8(help_text).expect("help text contains invalid UTF8")
+            ))
+        }
     }?;
     Ok(())
 }
