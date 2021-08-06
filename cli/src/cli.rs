@@ -302,7 +302,17 @@ async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
     if json {
         let stdout = io::stdout();
         let handle = stdout.lock();
-        serde_json::to_writer_pretty(handle, &cluster.await??)?;
+        let mut cluster = cluster.await??;
+        let nodes = cluster
+            .nodes
+            .into_iter()
+            .map(|mut node| {
+                node.nomad_client = None;
+                node
+            })
+            .collect();
+        cluster.nodes = nodes;
+        serde_json::to_writer_pretty(handle, &cluster)?;
     } else {
         let mut instance_table = Table::new();
         instance_table.add_row(row!["Name", "Private IP", "Public IP"]);
