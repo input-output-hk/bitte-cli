@@ -792,7 +792,7 @@ impl BitteNode {
                                 None => None,
                             };
 
-                            if node.name == "" {
+                            if node.name.is_empty() {
                                 for inst in state.instances.values() {
                                     if inst.private_ip == node.priv_ip.to_string() {
                                         node.name = inst.name.clone()

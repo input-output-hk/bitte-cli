@@ -292,14 +292,11 @@ async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
         let nodes = cluster.await??.nodes;
 
         for node in nodes.into_iter() {
-            let mut name = if node.nomad_client.is_some() {
+            let name = if node.nomad_client.is_some() {
                 node.nomad_client.unwrap().id.to_hyphenated().to_string()
             } else {
                 node.name
             };
-            if name.is_empty() {
-                name = node.nixos;
-            }
 
             instance_table.add_row(row![name, node.priv_ip, node.pub_ip]);
         }
