@@ -83,22 +83,6 @@ pub fn init(upgrade: bool) -> Result<()> {
     Ok(())
 }
 
-fn nix_current_system() -> String {
-    let result = Command::new("nix")
-        .args(&[
-            "eval",
-            "--impure",
-            "--raw",
-            "--expr",
-            "builtins.currentSystem",
-        ])
-        .output();
-    match result {
-        Ok(output) => String::from_utf8_lossy(&output.stdout).trim().to_string(),
-        Err(_) => "x86_64-linux".into(),
-    }
-}
-
 fn terraform_vault_client() -> Result<RestClient> {
     let mut client = RestClient::new("https://vault.infra.aws.iohkdev.io")?;
     let token = vault_token()?;

@@ -11,7 +11,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use enum_utils;
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr};
 use uuid::Uuid;
 
 use tokio::task::JoinHandle;
@@ -608,12 +608,70 @@ impl NomadClient {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BitteNode {
-    pub id: Option<String>,
-    pub name: Option<String>,
-    pub priv_ip: Option<IpAddr>,
-    pub pub_ip: Option<IpAddr>,
-    pub nixos: Option<String>,
+    pub id: String,
+    pub name: String,
+    pub priv_ip: IpAddr,
+    pub pub_ip: IpAddr,
+    pub nixos: String,
     pub nomad_client: Option<NomadClient>,
+}
+
+pub trait BitteFind
+where
+    Self: IntoIterator,
+{
+    fn find_needle(self, needle: &str) -> anyhow::Result<Self::Item>;
+    fn find_needles(self, needles: Vec<&str>) -> Self;
+}
+
+impl BitteFind for BitteNodes {
+    fn find_needle(self, needle: &str) -> anyhow::Result<Self::Item> {
+        use anyhow::Context;
+
+        self.into_iter()
+            .find(|node| {
+                let ip = needle.parse::<IpAddr>().ok();
+
+                node.id == needle
+                    || node.name == needle
+                    || node
+                        .nomad_client
+                        .as_ref()
+                        .unwrap_or(&Default::default())
+                        .id
+                        .to_hyphenated()
+                        .to_string()
+                        == needle
+                    || Some(node.priv_ip) == ip
+                    || Some(node.pub_ip) == ip
+            })
+            .with_context(|| format!("{} does not match any nodes", needle))
+    }
+
+    fn find_needles(self, needles: Vec<&str>) -> Self {
+        self.into_iter()
+            .filter(|node| {
+                let ips: Vec<Option<IpAddr>> = needles
+                    .iter()
+                    .map(|needle| needle.parse::<IpAddr>().ok())
+                    .collect();
+
+                needles.contains(&&*node.id)
+                    || needles.contains(&&*node.name)
+                    || needles.contains(
+                        &&*node
+                            .nomad_client
+                            .as_ref()
+                            .unwrap_or(&Default::default())
+                            .id
+                            .to_hyphenated()
+                            .to_string(),
+                    )
+                    || ips.contains(&Some(node.priv_ip))
+                    || ips.contains(&Some(node.pub_ip))
+            })
+            .collect()
+    }
 }
 
 impl From<Instance> for BitteNode {
@@ -622,17 +680,23 @@ impl From<Instance> for BitteNode {
         let nixos = tags
             .find(|tag| tag.key.as_ref().unwrap_or(&"".to_owned()) == "UID")
             .unwrap_or_default()
-            .value;
+            .value
+            .unwrap_or_default();
         let name = tags
             .find(|tag| tag.key.as_ref().unwrap_or(&"".to_owned()) == "Name")
             .unwrap_or_default()
-            .value;
+            .value
+            .unwrap_or_default();
+
+        let no_ip = IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0));
 
         Self {
-            id: instance.instance_id,
+            id: instance.instance_id.unwrap_or_default(),
             name,
-            priv_ip: IpAddr::from_str(&instance.private_ip_address.unwrap_or_default()).ok(),
-            pub_ip: IpAddr::from_str(&instance.public_ip_address.unwrap_or_default()).ok(),
+            priv_ip: IpAddr::from_str(&instance.private_ip_address.unwrap_or_default())
+                .unwrap_or(no_ip),
+            pub_ip: IpAddr::from_str(&instance.public_ip_address.unwrap_or_default())
+                .unwrap_or(no_ip),
             nomad_client: None,
             nixos,
         }
@@ -660,10 +724,16 @@ impl BitteNode {
                     let request = DescribeInstancesRequest {
                         instance_ids: None,
                         dry_run: None,
-                        filters: Some(vec![Filter {
-                            name: Some("tag:Cluster".to_owned()),
-                            values: Some(vec![name.to_owned()]),
-                        }]),
+                        filters: Some(vec![
+                            Filter {
+                                name: Some("tag:Cluster".to_owned()),
+                                values: Some(vec![name.to_owned()]),
+                            },
+                            Filter {
+                                name: Some("instance-state-name".to_owned()),
+                                values: Some(vec!["running".to_owned()]),
+                            },
+                        ]),
                         max_results: None,
                         next_token: None,
                     };
@@ -689,7 +759,7 @@ impl BitteNode {
                             let mut node = BitteNode::from(instance);
                             node.nomad_client = match clients
                                 .iter()
-                                .find(|client| client.address == node.priv_ip)
+                                .find(|client| client.address == Some(node.priv_ip))
                             {
                                 Some(client_) => {
                                     let mut client = client_.to_owned();

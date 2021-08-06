@@ -1,10 +1,13 @@
 use anyhow::{anyhow, Context, Result};
-use bitte_lib::{bitte_cluster, certs, rebuild, ssh, terraform, types::ClusterHandle};
+use bitte_lib::{
+    bitte_cluster, certs, rebuild, ssh, terraform,
+    types::{BitteFind, ClusterHandle},
+};
 use clap::ArgMatches;
 use deploy::cli;
 use log::*;
 use prettytable::{cell, row, Table};
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::IpAddr;
 use std::{env, io, path::Path, process::Command, time::Duration};
 
 pub(crate) async fn certs(sub: &ArgMatches) -> Result<()> {
@@ -21,7 +24,7 @@ pub(crate) async fn certs(sub: &ArgMatches) -> Result<()> {
 }
 
 pub(crate) async fn provision(sub: &ArgMatches) -> Result<()> {
-    let ip: String = sub.value_of_t("ip")?;
+    let ip: IpAddr = sub.value_of_t("ip")?;
     let cluster: String = sub.value_of_t("cluster")?;
     let flake: String = sub.value_of_t_or_exit("flake");
     let attr: String = sub.value_of_t_or_exit("attr");
@@ -92,40 +95,19 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
                 )
             })?;
 
-        ip = node
-            .pub_ip
-            .with_context(|| format!("job {} does not have a public IP address", name))?;
+        ip = node.pub_ip;
     } else {
         if needle.is_none() {
             return Err(anyhow!("first arg must be a host"));
         }
+
         let needle = needle.unwrap().clone();
         args = args.drain(1..).collect();
+
         let nodes = cluster.await??.nodes;
-        let node = nodes
-            .into_iter()
-            .find(|node| {
-                let ip = needle.parse::<IpAddr>().ok();
-                let empty = &"".to_owned();
+        let node = nodes.find_needle(&needle)?;
 
-                node.id.as_ref().unwrap_or(empty) == &needle
-                    || node.name.as_ref().unwrap_or(empty) == &needle
-                    || node
-                        .nomad_client
-                        .as_ref()
-                        .unwrap_or(&Default::default())
-                        .id
-                        .to_hyphenated()
-                        .to_string()
-                        == *needle
-                    || node.priv_ip == ip
-                    || node.pub_ip == ip
-            })
-            .with_context(|| format!("{} does not match any nodes", needle))?;
-
-        ip = node
-            .pub_ip
-            .with_context(|| format!("{} does not have a public IP address", needle))?
+        ip = node.pub_ip;
     };
 
     let user_host = format!("root@{}", ip);
@@ -157,13 +139,19 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
     Ok(())
 }
 
-pub(crate) async fn rebuild(sub: &ArgMatches) -> Result<()> {
+pub(crate) async fn rebuild(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
     let only: Vec<String> = sub.values_of_t("only").unwrap_or_default();
     let delay = Duration::from_secs(sub.value_of_t::<u64>("delay").unwrap_or(0));
     let copy: bool = sub.value_of_t("copy").unwrap_or(false);
 
     rebuild::set_ssh_opts(true)?;
-    rebuild::copy(only.iter().map(|o| o.as_str()).collect(), delay, copy).await?;
+    rebuild::copy(
+        only.iter().map(|o| o.as_str()).collect(),
+        delay,
+        copy,
+        cluster,
+    )
+    .await?;
     Ok(())
 }
 pub(crate) async fn deploy(sub: &ArgMatches) -> Result<()> {
@@ -307,19 +295,13 @@ async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
             let mut name = if node.nomad_client.is_some() {
                 node.nomad_client.unwrap().id.to_hyphenated().to_string()
             } else {
-                node.name.unwrap_or_default()
+                node.name
             };
             if name.is_empty() {
-                name = node.nixos.unwrap_or_default();
+                name = node.nixos;
             }
 
-            let no_ip = IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0));
-
-            instance_table.add_row(row![
-                name,
-                node.priv_ip.unwrap_or(no_ip),
-                node.pub_ip.unwrap_or(no_ip)
-            ]);
+            instance_table.add_row(row![name, node.priv_ip, node.pub_ip]);
         }
 
         instance_table.printstd();

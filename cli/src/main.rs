@@ -65,7 +65,7 @@ async fn main() -> Result<()> {
     match matches.subcommand() {
         Some(("rebuild", sub)) => {
             pretty_env_logger::init();
-            cli::rebuild(sub).await
+            cli::rebuild(sub, cluster).await
         }
         Some(("deploy", sub)) => cli::deploy(sub).await,
         Some(("info", sub)) => {
