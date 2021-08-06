@@ -21,7 +21,7 @@ use reqwest::{
     Client,
 };
 
-use crate::error::Error;
+use crate::{error::Error, terraform};
 
 use regex::Regex;
 
@@ -576,6 +576,7 @@ pub struct BitteCluster {
     pub nodes: BitteNodes,
     pub domain: String,
     pub provider: BitteProvider,
+    pub s3_cache: String,
     #[serde(skip)]
     pub nomad_api_client: Arc<Client>,
 }
@@ -709,7 +710,8 @@ impl BitteNode {
         name: String,
         alloc_handle: JoinHandle<anyhow::Result<NomadAllocs>>,
         clients_handle: JoinHandle<anyhow::Result<NomadClients>>,
-    ) -> anyhow::Result<BitteNodes> {
+        terra_handle: TerraHandle,
+    ) -> anyhow::Result<(BitteNodes, String)> {
         match provider {
             BitteProvider::AWS => {
                 let asg_regions = env::var("AWS_ASG_REGIONS")?;
@@ -742,9 +744,22 @@ impl BitteNode {
                     handles.push(response);
                 }
 
+                let mut result: BitteNodes = Vec::new();
+
                 let allocs = alloc_handle.await??;
                 let clients = clients_handle.await??;
-                let mut result: BitteNodes = Vec::new();
+
+                let state = {
+                    let clients = terra_handle.clients.await?.ok();
+                    if let Some(t) = clients {
+                        t
+                    } else {
+                        terra_handle
+                            .core
+                            .await?
+                            .expect("Couldn't fetch clients or core workspaces")
+                    }
+                };
 
                 for response in handles.into_iter() {
                     let response = response.await??;
@@ -776,13 +791,23 @@ impl BitteNode {
                                 }
                                 None => None,
                             };
+
+                            if node.name == "" {
+                                for inst in state.instances.values() {
+                                    if inst.private_ip == node.priv_ip.to_string() {
+                                        node.name = inst.name.clone()
+                                    };
+                                }
+                            }
+
                             node
                         })
                         .collect();
+
                     result.append(&mut nodes);
                 }
 
-                return Ok(result);
+                return Ok((result, state.s3_cache));
             }
         }
     }
@@ -879,6 +904,11 @@ impl BitteCluster {
             domain.to_owned(),
         ));
 
+        let terra_state = TerraHandle {
+            clients: tokio::spawn(async move { terraform::output("clients") }),
+            core: tokio::spawn(async move { terraform::output("core") }),
+        };
+
         let client_nodes = tokio::spawn(NomadClient::find_nomad_nodes(
             Arc::clone(&nomad_api_client),
             domain.to_owned(),
@@ -889,9 +919,10 @@ impl BitteCluster {
             name.to_owned(),
             allocs,
             client_nodes,
+            terra_state,
         ));
 
-        let nodes = nodes.await??;
+        let (nodes, s3_cache) = nodes.await??;
 
         Ok(Self {
             name,
@@ -899,6 +930,12 @@ impl BitteCluster {
             provider,
             nomad_api_client,
             nodes,
+            s3_cache,
         })
     }
+}
+
+struct TerraHandle {
+    clients: JoinHandle<Result<TerraformStateValue, Error>>,
+    core: JoinHandle<Result<TerraformStateValue, Error>>,
 }

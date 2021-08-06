@@ -25,10 +25,12 @@ pub async fn copy(
 
     let mut iter = instances.iter().peekable();
 
+    let cache = if copy { Some(cluster.s3_cache) } else { None };
+
     while let Some(instance) = iter.next() {
         info!("rebuild: {}", instance.name);
         wait_for_ssh(&instance.pub_ip).await?;
-        copy_to(&instance, 10, copy)?;
+        copy_to(&instance, 10, &cache)?;
         if iter.peek().is_some() {
             tokio::time::sleep(delay).await;
         }
@@ -37,7 +39,7 @@ pub async fn copy(
     Ok(())
 }
 
-fn copy_to(instance: &BitteNode, _attempts: u64, _copy: bool) -> Result<()> {
+fn copy_to(instance: &BitteNode, _attempts: u64, cache: &Option<String>) -> Result<()> {
     env::set_var("IP", instance.pub_ip.to_string());
     let flake = ".";
 
@@ -54,16 +56,15 @@ fn copy_to(instance: &BitteNode, _attempts: u64, _copy: bool) -> Result<()> {
         "{}#nixosConfigurations.{}.config.system.build.toplevel",
         flake, instance.nixos
     );
-    // let cache = format!(
-    //     "{}&secret-key=secrets/nix-secret-key-file",
-    //     instance.s3_cache
-    // );
     let rebuild_flake: String = format!("{}#{}", flake, instance.nixos);
 
     nix_build(&target)?;
-    // if copy {
-    //     nix_copy_to_cache(&target, &cache)?;
-    // }
+
+    if let Some(c) = cache {
+        let cache = format!("{}&secret-key=secrets/nix-secret-key-file", c);
+        nix_copy_to_cache(&target, &cache)?;
+    }
+
     nix_copy_to_machine(&target, &instance.pub_ip)?;
     nixos_rebuild(&rebuild_flake, &instance.pub_ip)
 }
