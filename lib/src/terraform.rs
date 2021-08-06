@@ -39,12 +39,7 @@ pub fn generate_terraform_config(workspace: &str) -> Result<()> {
     let status = Command::new("nix")
         .arg("-L")
         .arg("run")
-        .arg(format!(
-            ".#clusters.{}.{}.tf.{}.config",
-            nix_current_system(),
-            cluster,
-            workspace
-        ))
+        .arg(format!(".#clusters.{}.tf.{}.config", cluster, workspace))
         .status()
         .and_then(|status| {
             if !status.success() {
