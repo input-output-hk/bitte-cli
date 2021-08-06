@@ -12,13 +12,23 @@ pub async fn copy(
     only: Vec<&str>,
     delay: Duration,
     copy: bool,
+    clients: bool,
     cluster: ClusterHandle,
 ) -> Result<()> {
     info!("only: {:?}", only);
 
     let cluster = cluster.await??;
+
     let instances = if only.is_empty() {
-        cluster.nodes
+        if clients {
+            cluster
+                .nodes
+                .into_iter()
+                .filter(|node| node.nomad_client.is_some())
+                .collect()
+        } else {
+            cluster.nodes
+        }
     } else {
         cluster.nodes.find_needles(only)
     };
@@ -28,7 +38,7 @@ pub async fn copy(
     let cache = if copy { Some(cluster.s3_cache) } else { None };
 
     while let Some(instance) = iter.next() {
-        info!("rebuild: {}", instance.name);
+        info!("rebuild: {}, {}", instance.name, instance.pub_ip);
         wait_for_ssh(&instance.pub_ip).await?;
         copy_to(&instance, 10, &cache)?;
         if iter.peek().is_some() {

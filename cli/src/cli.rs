@@ -142,13 +142,15 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
 pub(crate) async fn rebuild(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
     let only: Vec<String> = sub.values_of_t("only").unwrap_or_default();
     let delay = Duration::from_secs(sub.value_of_t::<u64>("delay").unwrap_or(0));
-    let copy: bool = sub.value_of_t("copy").unwrap_or(false);
+    let copy: bool = sub.is_present("copy");
+    let clients: bool = sub.is_present("clients");
 
     rebuild::set_ssh_opts(true)?;
     rebuild::copy(
         only.iter().map(|o| o.as_str()).collect(),
         delay,
         copy,
+        clients,
         cluster,
     )
     .await?;

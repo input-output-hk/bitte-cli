@@ -16,12 +16,13 @@ async fn main() -> Result<()> {
       (about: "Deploy all the things!")
       (@subcommand rebuild =>
         (about: "nixos-rebuild")
-        (@arg only: --only +takes_value +multiple "pattern of hosts to deploy")
-        (@arg delay: --delay +takes_value "seconds to delay between rebuilds")
-        (@arg copy: --copy "copy to the S3 cache first"))
+        (@arg only: -o --only +takes_value +multiple "pattern of hosts to deploy")
+        (@arg clients: -l --clients conflicts_with[only] "rebuild all nomad client nodes")
+        (@arg delay: -d --delay +takes_value "seconds to delay between rebuilds")
+        (@arg copy: -c --copy "copy to the S3 cache first"))
       (@subcommand info =>
         (about: "Show information about instances and auto-scaling groups")
-        (@arg json: --json "format as json"))
+        (@arg json: -j --json "format as json"))
       (@subcommand ssh =>
         (about: "SSH to instances")
         (@arg job: -j --job +takes_value +multiple #{3, 3} "specify client by: job group alloc_index")
