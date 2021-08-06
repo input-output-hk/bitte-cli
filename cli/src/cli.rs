@@ -49,20 +49,30 @@ pub(crate) async fn provision(sub: &ArgMatches) -> Result<()> {
 
 pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
     let mut args = sub.values_of_lossy("args").unwrap_or_default();
-    let needle = args.first();
     let job: Vec<String> = sub.values_of_t("job").unwrap_or_default();
+
     let namespace: String = sub
         .value_of_t("namespace")
         .unwrap_or(env::var("NOMAD_NAMESPACE")?);
 
     let ip: IpAddr;
 
-    if sub.is_present("job") {
+    let cluster = cluster.await??;
+
+    if sub.is_present("all") {
+        let nodes = cluster.nodes;
+
+        for node in nodes.iter() {
+            init_ssh(node.pub_ip, args.clone())?;
+        }
+
+        return Ok(());
+    } else if sub.is_present("job") {
         let name = job.get(0).unwrap();
         let group = job.get(1).unwrap();
         let index = job.get(2).unwrap();
 
-        let nodes = cluster.await??.nodes;
+        let nodes = cluster.nodes;
         let node = nodes
             .into_iter()
             .find(|node| {
@@ -97,6 +107,8 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
 
         ip = node.pub_ip;
     } else {
+        let needle = args.first();
+
         if needle.is_none() {
             return Err(anyhow!("first arg must be a host"));
         }
@@ -104,12 +116,16 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
         let needle = needle.unwrap().clone();
         args = args.drain(1..).collect();
 
-        let nodes = cluster.await??.nodes;
+        let nodes = cluster.nodes;
         let node = nodes.find_needle(&needle)?;
 
         ip = node.pub_ip;
     };
 
+    init_ssh(ip, args)
+}
+
+fn init_ssh(ip: IpAddr, mut args: Vec<String>) -> Result<()> {
     let user_host = format!("root@{}", ip);
     let mut flags = vec!["-x".to_string(), "-p".into(), "22".into()];
 

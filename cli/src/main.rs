@@ -26,6 +26,7 @@ async fn main() -> Result<()> {
       (@subcommand ssh =>
         (about: "SSH to instances")
         (@arg job: -j --job +takes_value +multiple #{3, 3} "specify client by: job group alloc_index")
+        (@arg all: -a --all conflicts_with[job] "run [args] on all nodes")
         (@arg namespace: -n --namespace +takes_value "specify nomad namespace to search for <job>; only valid for --job flag")
         (@arg args: +takes_value +multiple "arguments to ssh"))
       (@subcommand terraform =>
