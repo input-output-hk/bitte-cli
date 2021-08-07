@@ -53,7 +53,7 @@ impl RestPath<(&str, &str)> for RawVaultState {
 
 impl RestPath<&str> for CueRender {
     fn get_path(id: &str) -> Result<String, restson::Error> {
-        Ok(format!("/v1/job/{}/plan", id).to_string())
+        Ok(format!("/v1/job/{}/plan", id))
     }
 }
 
@@ -65,13 +65,13 @@ impl RestPath<()> for CueRender {
 
 impl RestPath<&str> for NomadEvaluation {
     fn get_path(eval_id: &str) -> Result<String, restson::Error> {
-        Ok(format!("/v1/evaluation/{}", eval_id).to_string())
+        Ok(format!("/v1/evaluation/{}", eval_id))
     }
 }
 
 impl RestPath<&str> for NomadDeployment {
     fn get_path(deployment_id: &str) -> Result<String, restson::Error> {
-        Ok(format!("/v1/deployment/{}", deployment_id).to_string())
+        Ok(format!("/v1/deployment/{}", deployment_id))
     }
 }
 
@@ -125,19 +125,15 @@ require progress by: {}",
                 }
                 NomadDeploymentStatus::Complete => {
                     println!("{}", description.green());
-                    return;
                 }
                 NomadDeploymentStatus::Successful => {
                     println!("{}", description.green());
-                    return;
                 }
                 NomadDeploymentStatus::Failed => {
                     println!("{}", description.red());
-                    return;
                 }
                 NomadDeploymentStatus::Cancelled => {
                     println!("{}", description.red());
-                    return;
                 }
             },
             None => {}
@@ -720,7 +716,7 @@ impl BitteNode {
                 let asg_regions = env::var("AWS_ASG_REGIONS")?;
                 let default_region = env::var("AWS_DEFAULT_REGION")?;
                 let regions_str = format!("{}:{}", asg_regions, default_region);
-                let regions: HashSet<&str> = regions_str.split(":").collect();
+                let regions: HashSet<&str> = regions_str.split(':').collect();
                 let mut handles = Vec::new();
 
                 for region in regions.iter() {
@@ -810,7 +806,7 @@ impl BitteNode {
                     result.append(&mut nodes);
                 }
 
-                return Ok((result, state.s3_cache));
+                Ok((result, state.s3_cache))
             }
         }
     }
@@ -879,14 +875,14 @@ where
     let buf = AllocIndex::deserialize(deserializer)?;
 
     match buf {
-        AllocIndex::Int(i) => return Ok(AllocIndex::Int(i)),
+        AllocIndex::Int(i) => Ok(AllocIndex::Int(i)),
         AllocIndex::String(s) => {
             let search = Regex::new("[0-9]*\\]$").unwrap().find(&s).unwrap().as_str();
 
             let index = &search[0..search.len() - 1];
             let index: u32 = index.parse().unwrap();
 
-            return Ok(AllocIndex::Int(index));
+            Ok(AllocIndex::Int(index))
         }
     }
 }
@@ -909,7 +905,7 @@ impl BitteCluster {
                 env::set_var("NOMAD_TOKEN", &token);
                 token
             });
-            let mut token = HeaderValue::from_str(&*&token)?;
+            let mut token = HeaderValue::from_str(&token)?;
             token.set_sensitive(true);
             let mut headers = HeaderMap::new();
             headers.insert("X-Nomad-Token", token);

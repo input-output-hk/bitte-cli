@@ -86,17 +86,12 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
                     return false;
                 };
 
-                allocs
-                    .as_ref()
-                    .unwrap()
-                    .into_iter()
-                    .find(|alloc| {
-                        alloc.namespace == namespace
-                            && &alloc.job_id == name
-                            && &alloc.task_group == group
-                            && alloc.index.get() == index.parse().ok()
-                    })
-                    .is_some()
+                allocs.as_ref().unwrap().iter().any(|alloc| {
+                    alloc.namespace == namespace
+                        && &alloc.job_id == name
+                        && &alloc.task_group == group
+                        && alloc.index.get() == index.parse().ok()
+                })
             })
             .with_context(|| {
                 format!(

@@ -147,7 +147,7 @@ struct CueExport {
     rendered: HashMap<String, HashMap<String, serde_json::Value>>,
 }
 
-async fn plan_jobs(namespace: &String) -> Result<()> {
+async fn plan_jobs(namespace: &str) -> Result<()> {
     let output = sh(execute::command_args!("cue", "export"))?;
     let export: CueExport =
         serde_json::from_str(output.as_str()).context("Couldn't parse CUE export")?;
@@ -212,7 +212,7 @@ fn execute_plan(client: &mut RestClient, render: &mut CueRender, plan: NomadJobP
 
     match render.job.periodic {
         // TODO: Implement alternate deployment check logic for periodic jobs
-        Some(_) => return Ok(()),
+        Some(_) => Ok(()),
         None => loop {
             println!("The EvalID is: {:?}", run.eval_id);
             let evaluation: NomadEvaluation = client.get(run.eval_id.as_str())?;
@@ -396,15 +396,9 @@ fn lookup_current_vault_token(ignore_env: bool) -> Result<String> {
 // TODO: give option to login using aws?
 fn vault_login(print: bool) -> Result<ExitStatus> {
     let mut cmd = Command::new("vault");
-    cmd.args(vec![
-        "login",
-        "-method=github",
-        "-path=github-employees",
-    ]);
+    cmd.args(vec!["login", "-method=github", "-path=github-employees"]);
     if !print {
         cmd.arg("-no-print");
     }
-    cmd
-        .status()
-        .context("vault login failed")
+    cmd.status().context("vault login failed")
 }

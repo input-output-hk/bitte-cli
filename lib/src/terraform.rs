@@ -64,10 +64,7 @@ pub fn init(upgrade: bool) -> Result<()> {
     set_http_auth()?;
     println!("run: terraform init");
 
-    match remove_dir_all(".terraform") {
-        Ok(_) => {}
-        Err(_) => {}
-    }
+    remove_dir_all(".terraform").ok();
 
     if upgrade {
         Command::new("terraform")
@@ -111,7 +108,7 @@ pub fn output(workspace: &str) -> Result<TerraformStateValue> {
 fn github_token() -> Result<String> {
     let exp = &tilde("~/.netrc").to_string();
     let path = Path::new(exp);
-    let netrc_file = read_to_string(path).or_else(|_| Err(Error::NetrcMissing))?;
+    let netrc_file = read_to_string(path).map_err(|_| Error::NetrcMissing)?;
     let netrc = Netrc::parse(netrc_file, true)?;
     for machine in &netrc.machines {
         if let Some(name) = &machine.name {
