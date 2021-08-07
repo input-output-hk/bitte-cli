@@ -7,8 +7,10 @@ use rusoto_ec2::{DescribeInstancesRequest, Ec2, Ec2Client, Filter, Instance};
 use serde::{de::Deserializer, Deserialize, Serialize};
 use std::collections::hash_set::HashSet;
 use std::env;
+use std::io::BufReader;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::{Duration, SystemTime};
 
 use enum_utils;
 use std::net::{IpAddr, Ipv4Addr};
@@ -579,6 +581,7 @@ pub struct BitteCluster {
     pub s3_cache: String,
     #[serde(skip)]
     pub nomad_api_client: Arc<Client>,
+    pub ttl: SystemTime,
 }
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, enum_utils::FromStr)]
@@ -588,10 +591,10 @@ pub enum BitteProvider {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct NomadClient {
-    #[serde(rename(deserialize = "ID"))]
+    #[serde(rename = "ID")]
     pub id: Uuid,
     pub allocs: Option<NomadAllocs>,
-    #[serde(rename(deserialize = "Address"))]
+    #[serde(rename = "Address")]
     pub address: Option<IpAddr>,
 }
 
@@ -819,6 +822,22 @@ type BitteNodes = Vec<BitteNode>;
 pub type ClusterHandle = JoinHandle<anyhow::Result<BitteCluster>>;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum AllocIndex {
+    Int(u32),
+    String(String),
+}
+
+impl AllocIndex {
+    pub fn get(&self) -> Option<u32> {
+        match self {
+            Self::Int(i) => Some(*i),
+            Self::String(_) => None,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NomadAlloc {
     #[serde(rename = "ID")]
     pub id: Uuid,
@@ -834,7 +853,8 @@ pub struct NomadAlloc {
         rename(deserialize = "Name", serialize = "Index"),
         deserialize_with = "pull_index"
     )]
-    pub index: u32,
+    #[serde(alias = "Index")]
+    pub index: AllocIndex,
     #[serde(rename = "NodeID")]
     pub node_id: Uuid,
 }
@@ -852,21 +872,23 @@ impl NomadAlloc {
     }
 }
 
-fn pull_index<'de, D>(deserializer: D) -> Result<u32, D::Error>
+fn pull_index<'de, D>(deserializer: D) -> Result<AllocIndex, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let buf = String::deserialize(deserializer)?;
-    let search = Regex::new("[0-9]*\\]$")
-        .unwrap()
-        .find(&buf)
-        .unwrap()
-        .as_str();
+    let buf = AllocIndex::deserialize(deserializer)?;
 
-    let index = &search[0..search.len() - 1];
-    let index: u32 = index.parse().unwrap();
+    match buf {
+        AllocIndex::Int(i) => return Ok(AllocIndex::Int(i)),
+        AllocIndex::String(s) => {
+            let search = Regex::new("[0-9]*\\]$").unwrap().find(&s).unwrap().as_str();
 
-    Ok(index)
+            let index = &search[0..search.len() - 1];
+            let index: u32 = index.parse().unwrap();
+
+            return Ok(AllocIndex::Int(index));
+        }
+    }
 }
 
 impl BitteCluster {
@@ -924,13 +946,55 @@ impl BitteCluster {
 
         let (nodes, s3_cache) = nodes.await??;
 
-        Ok(Self {
+        let cluster = Self {
             name,
             domain,
             provider,
             nomad_api_client,
             nodes,
             s3_cache,
+            ttl: SystemTime::now()
+                .checked_add(Duration::from_secs(300))
+                .unwrap(),
+        };
+
+        let file = std::fs::File::create(".cache.json").ok();
+
+        if let Some(file) = file {
+            serde_json::to_writer(file, &cluster)?;
+        }
+
+        Ok(cluster)
+    }
+
+    #[inline(always)]
+    pub fn init() -> ClusterHandle {
+        tokio::spawn(async move {
+            let file = std::fs::File::open(".cache.json").ok();
+
+            let cluster: BitteCluster;
+
+            if let Some(file) = file {
+                let reader = BufReader::new(file);
+
+                cluster = {
+                    let cluster = {
+                        let cluster = serde_json::from_reader(reader);
+                        match cluster.ok() {
+                            Some(c) => c,
+                            None => BitteCluster::new().await?,
+                        }
+                    };
+                    match cluster.ttl.duration_since(SystemTime::now()) {
+                        Ok(_) => cluster,
+                        Err(_) => BitteCluster::new().await?,
+                    }
+                }
+            } else {
+                cluster = BitteCluster::new().await?;
+            }
+
+            Ok(cluster)
         })
     }
 }

@@ -1,14 +1,14 @@
 mod cli;
 
 use anyhow::{bail, Result};
-use bitte_lib::types::BitteCluster;
+use bitte_lib::types::{BitteCluster, ClusterHandle};
 use clap::clap_app;
 use clap::IntoApp;
 use deploy::cli::Opts;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let cluster = tokio::spawn(BitteCluster::new());
+    let cluster: ClusterHandle = BitteCluster::init();
 
     let mut app = clap_app!(bitte =>
       (version: "0.0.1")

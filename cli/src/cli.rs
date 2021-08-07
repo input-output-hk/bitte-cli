@@ -94,7 +94,7 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
                         alloc.namespace == namespace
                             && &alloc.job_id == name
                             && &alloc.task_group == group
-                            && Some(alloc.index) == index.parse().ok()
+                            && alloc.index.get() == index.parse().ok()
                     })
                     .is_some()
             })
