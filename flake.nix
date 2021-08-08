@@ -15,9 +15,7 @@
 
       preOverlays = [ naersk ];
 
-      overlay = final: prev: {
-        bitte = final.callPackage ./package.nix {};
-      };
+      overlay = final: prev: { bitte = final.callPackage ./package.nix { }; };
 
       packages = { bitte }: {
         defaultPackage = bitte;
@@ -31,26 +29,28 @@
           RUST_BACKTRACE = "1";
           RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
 
-          buildInputs = with pkgs; [
-            cfssl
-            sops
-            openssl
-            zlib
-            pkg-config
-            rust-analyzer
-            cargo
-            clippy
-            rls
-            rustc
-            rustfmt
-          ] ++ lib.optionals stdenv.isDarwin (with darwin; with apple_sdk.frameworks; [
-            libiconv
-            libresolv
-            Libsystem
-            SystemConfiguration
-            Security
-            CoreFoundation
-          ]);
+          buildInputs = with pkgs;
+            [
+              cfssl
+              sops
+              openssl
+              zlib
+              pkg-config
+              rust-analyzer
+              cargo
+              clippy
+              rls
+              rustc
+              rustfmt
+            ] ++ lib.optionals stdenv.isDarwin (with darwin;
+              with apple_sdk.frameworks; [
+                libiconv
+                libresolv
+                Libsystem
+                SystemConfiguration
+                Security
+                CoreFoundation
+              ]);
         };
-      };
-    }
+    };
+}
