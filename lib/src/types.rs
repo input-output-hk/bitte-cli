@@ -613,7 +613,12 @@ pub struct BitteNode {
     pub priv_ip: IpAddr,
     pub pub_ip: IpAddr,
     pub nixos: String,
+    #[serde(skip_serializing_if = "skip_info")]
     pub nomad_client: Option<NomadClient>,
+}
+
+fn skip_info(_: &Option<NomadClient>) -> bool {
+    env::args().any(|arg| arg == "info")
 }
 
 pub trait BitteFind
