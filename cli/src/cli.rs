@@ -299,6 +299,7 @@ async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
         let stdout = io::stdout();
         let handle = stdout.lock();
         let cluster = cluster.await??;
+        env::set_var("BITTE_INFO_NO_ALLOCS", "");
         serde_json::to_writer_pretty(handle, &cluster)?;
     } else {
         let mut instance_table = Table::new();

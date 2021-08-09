@@ -582,8 +582,8 @@ pub struct BitteCluster {
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, FromStr)]
 pub enum BitteProvider {
- #[allow(clippy::upper_case_acronyms)]
- AWS,
+    #[allow(clippy::upper_case_acronyms)]
+    AWS,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -619,7 +619,7 @@ pub struct BitteNode {
 }
 
 fn skip_info(_: &Option<NomadClient>) -> bool {
-    env::args().any(|arg| arg == "info")
+    env::var("BITTE_INFO_NO_ALLOCS").is_ok()
 }
 
 pub trait BitteFind
