@@ -15,6 +15,7 @@ async fn main() -> Result<()> {
             "This program should be run from a bitte shell:\n",
             "https://github.com/input-output-hk/bitte/blob/master/pkgs/bitte-shell.nix"
         ))?;
+
     let cluster: ClusterHandle = BitteCluster::init();
 
     let mut app = clap_app!(bitte =>

@@ -91,6 +91,7 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
                         && &alloc.job_id == name
                         && &alloc.task_group == group
                         && alloc.index.get() == index.parse().ok()
+                        && alloc.status == "running"
                 })
             })
             .with_context(|| {
