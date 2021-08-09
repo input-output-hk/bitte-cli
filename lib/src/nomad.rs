@@ -19,24 +19,6 @@ Modify Index = 2492001
 */
 
 pub fn nomad_token() -> Result<String> {
-    match sh(execute::command_args!("nomad", "acl", "token", "self")) {
-        Ok(output) => {
-            for line in output.lines() {
-                let parts: Vec<&str> = line.splitn(2, '=').collect();
-                let key = parts[0].trim();
-
-                if key == "Secret ID" {
-                    let value = parts[1].trim();
-                    return Ok(value.to_string());
-                }
-            }
-            issue_nomad_token()
-        }
-        Err(_err) => issue_nomad_token(),
-    }
-}
-
-fn issue_nomad_token() -> Result<String> {
     sh(execute::command_args!(
         "vault",
         "read",
