@@ -12,7 +12,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use enum_utils;
+use enum_utils::FromStr;
 use std::net::{IpAddr, Ipv4Addr};
 use uuid::Uuid;
 
@@ -580,9 +580,10 @@ pub struct BitteCluster {
     pub ttl: SystemTime,
 }
 
-#[derive(Debug, Serialize, Deserialize, Copy, Clone, enum_utils::FromStr)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, FromStr)]
 pub enum BitteProvider {
-    AWS,
+ #[allow(clippy::upper_case_acronyms)]
+ AWS,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]

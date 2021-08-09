@@ -1,13 +1,20 @@
 mod cli;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use bitte_lib::types::{BitteCluster, ClusterHandle};
 use clap::clap_app;
 use clap::IntoApp;
 use deploy::cli::Opts;
+use std::env;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    env::var("IN_NIX_SHELL")
+        .and(env::var("BITTE_DOMAIN"))
+        .context(concat!(
+            "This program should be run from a bitte shell:\n",
+            "https://github.com/input-output-hk/bitte/blob/master/pkgs/bitte-shell.nix"
+        ))?;
     let cluster: ClusterHandle = BitteCluster::init();
 
     let mut app = clap_app!(bitte =>
