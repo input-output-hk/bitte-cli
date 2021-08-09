@@ -2,7 +2,32 @@ use std::collections::HashMap;
 
 use colored::*;
 use restson::RestPath;
-use serde::{Deserialize, Serialize};
+use rusoto_core::Region;
+use rusoto_ec2::{DescribeInstancesRequest, Ec2, Ec2Client, Filter, Instance};
+use serde::{de::Deserializer, Deserialize, Serialize};
+use std::collections::hash_set::HashSet;
+use std::env;
+use std::io::BufReader;
+use std::str::FromStr;
+use std::sync::Arc;
+use std::time::{Duration, SystemTime};
+
+use enum_utils::FromStr;
+use std::net::{IpAddr, Ipv4Addr};
+use uuid::Uuid;
+
+use tokio::task::JoinHandle;
+
+use reqwest::{
+    header::{HeaderMap, HeaderValue},
+    Client,
+};
+
+use crate::{error::Error, terraform};
+
+use regex::Regex;
+
+use crate::nomad;
 
 #[derive(Deserialize)]
 pub struct RawVaultState {
@@ -28,7 +53,7 @@ impl RestPath<(&str, &str)> for RawVaultState {
 
 impl RestPath<&str> for CueRender {
     fn get_path(id: &str) -> Result<String, restson::Error> {
-        Ok(format!("/v1/job/{}/plan", id).to_string())
+        Ok(format!("/v1/job/{}/plan", id))
     }
 }
 
@@ -40,13 +65,13 @@ impl RestPath<()> for CueRender {
 
 impl RestPath<&str> for NomadEvaluation {
     fn get_path(eval_id: &str) -> Result<String, restson::Error> {
-        Ok(format!("/v1/evaluation/{}", eval_id).to_string())
+        Ok(format!("/v1/evaluation/{}", eval_id))
     }
 }
 
 impl RestPath<&str> for NomadDeployment {
     fn get_path(deployment_id: &str) -> Result<String, restson::Error> {
-        Ok(format!("/v1/deployment/{}", deployment_id).to_string())
+        Ok(format!("/v1/deployment/{}", deployment_id))
     }
 }
 
@@ -100,19 +125,15 @@ require progress by: {}",
                 }
                 NomadDeploymentStatus::Complete => {
                     println!("{}", description.green());
-                    return;
                 }
                 NomadDeploymentStatus::Successful => {
                     println!("{}", description.green());
-                    return;
                 }
                 NomadDeploymentStatus::Failed => {
                     println!("{}", description.red());
-                    return;
                 }
                 NomadDeploymentStatus::Cancelled => {
                     println!("{}", description.red());
-                    return;
                 }
             },
             None => {}
@@ -544,4 +565,443 @@ pub struct TerraformStateRoles {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TerraformStateClient {
     pub arn: String,
+}
+
+/// A description of a Bitte cluster and its nodes
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BitteCluster {
+    pub name: String,
+    pub nodes: BitteNodes,
+    pub domain: String,
+    pub provider: BitteProvider,
+    pub s3_cache: String,
+    #[serde(skip)]
+    pub nomad_api_client: Arc<Client>,
+    pub ttl: SystemTime,
+}
+
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, FromStr)]
+pub enum BitteProvider {
+    #[allow(clippy::upper_case_acronyms)]
+    AWS,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct NomadClient {
+    #[serde(rename = "ID")]
+    pub id: Uuid,
+    pub allocs: Option<NomadAllocs>,
+    #[serde(rename = "Address")]
+    pub address: Option<IpAddr>,
+}
+
+impl NomadClient {
+    async fn find_nomad_nodes(client: Arc<Client>, domain: String) -> anyhow::Result<NomadClients> {
+        let nodes = client
+            .get(format!("https://nomad.{}/v1/nodes", domain))
+            .send()
+            .await?
+            .json::<NomadClients>()
+            .await?;
+        Ok(nodes)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BitteNode {
+    pub id: String,
+    pub name: String,
+    pub priv_ip: IpAddr,
+    pub pub_ip: IpAddr,
+    pub nixos: String,
+    #[serde(skip_serializing_if = "skip_info")]
+    pub nomad_client: Option<NomadClient>,
+}
+
+fn skip_info(_: &Option<NomadClient>) -> bool {
+    env::var("BITTE_INFO_NO_ALLOCS").is_ok()
+}
+
+pub trait BitteFind
+where
+    Self: IntoIterator,
+{
+    fn find_needle(self, needle: &str) -> anyhow::Result<Self::Item>;
+    fn find_needles(self, needles: Vec<&str>) -> Self;
+}
+
+impl BitteFind for BitteNodes {
+    fn find_needle(self, needle: &str) -> anyhow::Result<Self::Item> {
+        use anyhow::Context;
+
+        self.into_iter()
+            .find(|node| {
+                let ip = needle.parse::<IpAddr>().ok();
+
+                node.id == needle
+                    || node.name == needle
+                    || node
+                        .nomad_client
+                        .as_ref()
+                        .unwrap_or(&Default::default())
+                        .id
+                        .to_hyphenated()
+                        .to_string()
+                        == needle
+                    || Some(node.priv_ip) == ip
+                    || Some(node.pub_ip) == ip
+            })
+            .with_context(|| format!("{} does not match any nodes", needle))
+    }
+
+    fn find_needles(self, needles: Vec<&str>) -> Self {
+        self.into_iter()
+            .filter(|node| {
+                let ips: Vec<Option<IpAddr>> = needles
+                    .iter()
+                    .map(|needle| needle.parse::<IpAddr>().ok())
+                    .collect();
+
+                needles.contains(&&*node.id)
+                    || needles.contains(&&*node.name)
+                    || needles.contains(
+                        &&*node
+                            .nomad_client
+                            .as_ref()
+                            .unwrap_or(&Default::default())
+                            .id
+                            .to_hyphenated()
+                            .to_string(),
+                    )
+                    || ips.contains(&Some(node.priv_ip))
+                    || ips.contains(&Some(node.pub_ip))
+            })
+            .collect()
+    }
+}
+
+impl From<Instance> for BitteNode {
+    fn from(instance: Instance) -> Self {
+        let mut tags = instance.tags.unwrap().into_iter();
+        let nixos = tags
+            .find(|tag| tag.key.as_ref().unwrap_or(&"".to_owned()) == "UID")
+            .unwrap_or_default()
+            .value
+            .unwrap_or_default();
+        let name = tags
+            .find(|tag| tag.key.as_ref().unwrap_or(&"".to_owned()) == "Name")
+            .unwrap_or_default()
+            .value
+            .unwrap_or_default();
+
+        let no_ip = IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0));
+
+        Self {
+            id: instance.instance_id.unwrap_or_default(),
+            name,
+            priv_ip: IpAddr::from_str(&instance.private_ip_address.unwrap_or_default())
+                .unwrap_or(no_ip),
+            pub_ip: IpAddr::from_str(&instance.public_ip_address.unwrap_or_default())
+                .unwrap_or(no_ip),
+            nomad_client: None,
+            nixos,
+        }
+    }
+}
+
+impl BitteNode {
+    async fn find_nodes(
+        provider: BitteProvider,
+        name: String,
+        alloc_handle: JoinHandle<anyhow::Result<NomadAllocs>>,
+        clients_handle: JoinHandle<anyhow::Result<NomadClients>>,
+        terra_handle: TerraHandle,
+    ) -> anyhow::Result<(BitteNodes, String)> {
+        match provider {
+            BitteProvider::AWS => {
+                let asg_regions = env::var("AWS_ASG_REGIONS")?;
+                let default_region = env::var("AWS_DEFAULT_REGION")?;
+                let regions_str = format!("{}:{}", asg_regions, default_region);
+                let regions: HashSet<&str> = regions_str.split(':').collect();
+                let mut handles = Vec::new();
+
+                for region in regions.iter() {
+                    let region = Region::from_str(region)?;
+                    let client = Ec2Client::new(region);
+                    let request = DescribeInstancesRequest {
+                        instance_ids: None,
+                        dry_run: None,
+                        filters: Some(vec![
+                            Filter {
+                                name: Some("tag:Cluster".to_owned()),
+                                values: Some(vec![name.to_owned()]),
+                            },
+                            Filter {
+                                name: Some("instance-state-name".to_owned()),
+                                values: Some(vec!["running".to_owned()]),
+                            },
+                        ]),
+                        max_results: None,
+                        next_token: None,
+                    };
+                    let response =
+                        tokio::spawn(async move { client.describe_instances(request).await });
+                    handles.push(response);
+                }
+
+                let mut result: BitteNodes = Vec::new();
+
+                let allocs = alloc_handle.await??;
+                let clients = clients_handle.await??;
+
+                let state = {
+                    let clients = terra_handle.clients.await?.ok();
+                    if let Some(t) = clients {
+                        t
+                    } else {
+                        terra_handle
+                            .core
+                            .await?
+                            .expect("Couldn't fetch clients or core workspaces")
+                    }
+                };
+
+                for response in handles.into_iter() {
+                    let response = response.await??;
+                    let iter = response.reservations.into_iter();
+                    let mut nodes: BitteNodes = iter
+                        .flat_map(|reservations| {
+                            reservations
+                                .into_iter()
+                                .flat_map(|reservation| reservation.instances.unwrap_or_default())
+                        })
+                        .map(|instance| {
+                            let mut node = BitteNode::from(instance);
+                            node.nomad_client = match clients
+                                .iter()
+                                .find(|client| client.address == Some(node.priv_ip))
+                            {
+                                Some(client_) => {
+                                    let mut client = client_.to_owned();
+                                    client.allocs = {
+                                        let allocs_ = allocs.clone();
+                                        Some(
+                                            allocs_
+                                                .into_iter()
+                                                .filter(|alloc| alloc.node_id == client.id)
+                                                .collect::<NomadAllocs>(),
+                                        )
+                                    };
+                                    Some(client)
+                                }
+                                None => None,
+                            };
+
+                            if node.name.is_empty() {
+                                for inst in state.instances.values() {
+                                    if inst.private_ip == node.priv_ip.to_string() {
+                                        node.name = inst.name.clone()
+                                    };
+                                }
+                            }
+
+                            node
+                        })
+                        .collect();
+
+                    result.append(&mut nodes);
+                }
+
+                Ok((result, state.s3_cache))
+            }
+        }
+    }
+}
+
+type NomadClients = Vec<NomadClient>;
+type NomadAllocs = Vec<NomadAlloc>;
+type BitteNodes = Vec<BitteNode>;
+pub type ClusterHandle = JoinHandle<anyhow::Result<BitteCluster>>;
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum AllocIndex {
+    Int(u32),
+    String(String),
+}
+
+impl AllocIndex {
+    pub fn get(&self) -> Option<u32> {
+        match self {
+            Self::Int(i) => Some(*i),
+            Self::String(_) => None,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct NomadAlloc {
+    #[serde(rename = "ID")]
+    pub id: Uuid,
+    #[serde(rename = "JobID")]
+    pub job_id: String,
+    #[serde(rename = "Namespace")]
+    pub namespace: String,
+    #[serde(rename = "TaskGroup")]
+    pub task_group: String,
+    #[serde(rename = "ClientStatus")]
+    pub status: String,
+    #[serde(
+        rename(deserialize = "Name", serialize = "Index"),
+        deserialize_with = "pull_index"
+    )]
+    #[serde(alias = "Index")]
+    pub index: AllocIndex,
+    #[serde(rename = "NodeID")]
+    pub node_id: Uuid,
+}
+
+impl NomadAlloc {
+    async fn find_allocs(client: Arc<Client>, domain: String) -> anyhow::Result<NomadAllocs> {
+        let allocs = client
+            .get(format!("https://nomad.{}/v1/allocations", domain))
+            .query(&[("namespace", "*"), ("task_states", "false")])
+            .send()
+            .await?
+            .json::<NomadAllocs>()
+            .await?;
+        Ok(allocs)
+    }
+}
+
+fn pull_index<'de, D>(deserializer: D) -> Result<AllocIndex, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let buf = AllocIndex::deserialize(deserializer)?;
+
+    match buf {
+        AllocIndex::Int(i) => Ok(AllocIndex::Int(i)),
+        AllocIndex::String(s) => {
+            let search = Regex::new("[0-9]*\\]$").unwrap().find(&s).unwrap().as_str();
+
+            let index = &search[0..search.len() - 1];
+            let index: u32 = index.parse().unwrap();
+
+            Ok(AllocIndex::Int(index))
+        }
+    }
+}
+
+impl BitteCluster {
+    pub async fn new() -> anyhow::Result<Self> {
+        let name = env::var("BITTE_CLUSTER")?;
+        let domain = env::var("BITTE_DOMAIN")?;
+        let provider: BitteProvider = {
+            let string = env::var("BITTE_PROVIDER")?;
+            match string.parse() {
+                Ok(v) => Ok(v),
+                Err(_) => Err(Error::ProviderError { provider: string }),
+            }?
+        };
+
+        let nomad_api_client = {
+            let token = env::var("NOMAD_TOKEN").unwrap_or({
+                let token = nomad::nomad_token()?;
+                env::set_var("NOMAD_TOKEN", &token);
+                token
+            });
+            let mut token = HeaderValue::from_str(&token)?;
+            token.set_sensitive(true);
+            let mut headers = HeaderMap::new();
+            headers.insert("X-Nomad-Token", token);
+            Arc::new(
+                Client::builder()
+                    .default_headers(headers)
+                    .gzip(true)
+                    .build()?,
+            )
+        };
+
+        let allocs = tokio::spawn(NomadAlloc::find_allocs(
+            Arc::clone(&nomad_api_client),
+            domain.to_owned(),
+        ));
+
+        let terra_state = TerraHandle {
+            clients: tokio::spawn(async move { terraform::output("clients") }),
+            core: tokio::spawn(async move { terraform::output("core") }),
+        };
+
+        let client_nodes = tokio::spawn(NomadClient::find_nomad_nodes(
+            Arc::clone(&nomad_api_client),
+            domain.to_owned(),
+        ));
+
+        let nodes = tokio::spawn(BitteNode::find_nodes(
+            provider,
+            name.to_owned(),
+            allocs,
+            client_nodes,
+            terra_state,
+        ));
+
+        let (nodes, s3_cache) = nodes.await??;
+
+        let cluster = Self {
+            name,
+            domain,
+            provider,
+            nomad_api_client,
+            nodes,
+            s3_cache,
+            ttl: SystemTime::now()
+                .checked_add(Duration::from_secs(300))
+                .unwrap(),
+        };
+
+        let file = std::fs::File::create(".cache.json").ok();
+
+        if let Some(file) = file {
+            serde_json::to_writer(file, &cluster)?;
+        }
+
+        Ok(cluster)
+    }
+
+    #[inline(always)]
+    pub fn init() -> ClusterHandle {
+        tokio::spawn(async move {
+            let file = std::fs::File::open(".cache.json").ok();
+
+            let cluster: BitteCluster;
+
+            if let Some(file) = file {
+                let reader = BufReader::new(file);
+
+                cluster = {
+                    let cluster = {
+                        let cluster = serde_json::from_reader(reader);
+                        match cluster.ok() {
+                            Some(c) => c,
+                            None => BitteCluster::new().await?,
+                        }
+                    };
+                    match cluster.ttl.duration_since(SystemTime::now()) {
+                        Ok(_) => cluster,
+                        Err(_) => BitteCluster::new().await?,
+                    }
+                }
+            } else {
+                cluster = BitteCluster::new().await?;
+            }
+
+            Ok(cluster)
+        })
+    }
+}
+
+struct TerraHandle {
+    clients: JoinHandle<Result<TerraformStateValue, Error>>,
+    core: JoinHandle<Result<TerraformStateValue, Error>>,
 }

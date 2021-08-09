@@ -1,26 +1,43 @@
 mod cli;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
+use bitte_lib::types::{BitteCluster, ClusterHandle};
 use clap::clap_app;
 use clap::IntoApp;
 use deploy::cli::Opts;
+use std::env;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let mut app = clap_app!(bitte =>
-      (version: "0.0.1")
-      (author: "Michael Fellinger <michael.fellinger@iohk.io>")
-      (about: "Deploy all the things!")
+    let _toml = include_str!("../Cargo.toml");
+
+    env::var("IN_NIX_SHELL")
+        .and(env::var("BITTE_DOMAIN"))
+        .context(concat!(
+            "This program should be run from a bitte shell:\n",
+            "https://github.com/input-output-hk/bitte/blob/master/pkgs/bitte-shell.nix"
+        ))?;
+
+    let cluster: ClusterHandle = BitteCluster::init();
+
+    let mut app = clap_app!((clap::crate_name!()) =>
+      (version: clap::crate_version!())
+      (author: clap::crate_authors!("\n"))
+      (about: clap::crate_description!())
       (@subcommand rebuild =>
         (about: "nixos-rebuild")
-        (@arg only: --only +takes_value +multiple "pattern of hosts to deploy")
-        (@arg delay: --delay +takes_value "seconds to delay between rebuilds")
-        (@arg copy: --copy "copy to the S3 cache first"))
+        (@arg only: -o --only +takes_value +multiple "pattern of hosts to deploy")
+        (@arg clients: -l --clients conflicts_with[only] "rebuild all nomad client nodes")
+        (@arg delay: -d --delay +takes_value "seconds to delay between rebuilds")
+        (@arg copy: -c --copy "copy to the S3 cache first"))
       (@subcommand info =>
-        (about: "Show information about instances and auto-scaling groups"))
+        (about: "Show information about instances and auto-scaling groups")
+        (@arg json: -j --json "format as json"))
       (@subcommand ssh =>
         (about: "SSH to instances")
-        (@arg host: +takes_value "host")
+        (@arg job: -j --job +takes_value +multiple #{3, 3} "specify client by: job group alloc_index")
+        (@arg all: -a --all conflicts_with[job] "run [args] on all nodes")
+        (@arg namespace: -n --namespace +takes_value "specify nomad namespace to search for <job>; only valid for --job flag")
         (@arg args: +takes_value +multiple "arguments to ssh"))
       (@subcommand terraform =>
         (about: "Run terraform")
@@ -60,16 +77,16 @@ async fn main() -> Result<()> {
     match matches.subcommand() {
         Some(("rebuild", sub)) => {
             pretty_env_logger::init();
-            cli::rebuild(sub).await
+            cli::rebuild(sub, cluster).await
         }
         Some(("deploy", sub)) => cli::deploy(sub).await,
         Some(("info", sub)) => {
             pretty_env_logger::init();
-            cli::info(sub).await
+            cli::info(sub, cluster).await
         }
         Some(("ssh", sub)) => {
             pretty_env_logger::init();
-            cli::ssh(sub).await
+            cli::ssh(sub, cluster).await
         }
         Some(("terraform", sub)) => {
             pretty_env_logger::init();
@@ -83,10 +100,13 @@ async fn main() -> Result<()> {
             pretty_env_logger::init();
             cli::certs(sub).await
         }
-        _ => bail!(format!(
-            "Invalid subcommand\n {}",
-            String::from_utf8(help_text).expect("help text contains invalid UTF8")
-        )),
+        _ => {
+            cluster.abort();
+            bail!(format!(
+                "Invalid subcommand\n {}",
+                String::from_utf8(help_text).expect("help text contains invalid UTF8")
+            ))
+        }
     }?;
     Ok(())
 }

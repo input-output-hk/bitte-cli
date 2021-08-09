@@ -1,12 +1,14 @@
 use anyhow::{anyhow, Context, Result};
 use bitte_lib::{
-    bitte_cluster, certs, find_instance, info, rebuild, ssh, terraform, types::TerraformStateValue,
+    bitte_cluster, certs, rebuild, ssh, terraform,
+    types::{BitteFind, ClusterHandle},
 };
 use clap::ArgMatches;
 use deploy::cli;
 use log::*;
 use prettytable::{cell, row, Table};
-use std::{env, path::Path, process::Command, time::Duration};
+use std::net::IpAddr;
+use std::{env, io, path::Path, process::Command, time::Duration};
 
 pub(crate) async fn certs(sub: &ArgMatches) -> Result<()> {
     let domain: String = sub.value_of_t_or_exit("domain");
@@ -22,7 +24,7 @@ pub(crate) async fn certs(sub: &ArgMatches) -> Result<()> {
 }
 
 pub(crate) async fn provision(sub: &ArgMatches) -> Result<()> {
-    let ip: String = sub.value_of_t("ip")?;
+    let ip: IpAddr = sub.value_of_t("ip")?;
     let cluster: String = sub.value_of_t("cluster")?;
     let flake: String = sub.value_of_t_or_exit("flake");
     let attr: String = sub.value_of_t_or_exit("attr");
@@ -45,13 +47,81 @@ pub(crate) async fn provision(sub: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn ssh(sub: &ArgMatches) -> Result<()> {
-    let needle: String = sub.value_of_t("host")?;
+pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
     let mut args = sub.values_of_lossy("args").unwrap_or_default();
+    let job: Vec<String> = sub.values_of_t("job").unwrap_or_default();
 
-    let ip = find_instance(needle.as_str())
-        .await
-        .map_or_else(|| needle.clone(), |i| i.public_ip);
+    let namespace: String = sub
+        .value_of_t("namespace")
+        .unwrap_or(env::var("NOMAD_NAMESPACE")?);
+
+    let ip: IpAddr;
+
+    let cluster = cluster.await??;
+
+    if sub.is_present("all") {
+        let nodes = cluster.nodes;
+
+        for node in nodes.iter() {
+            init_ssh(node.pub_ip, args.clone())?;
+        }
+
+        return Ok(());
+    } else if sub.is_present("job") {
+        let name = job.get(0).unwrap();
+        let group = job.get(1).unwrap();
+        let index = job.get(2).unwrap();
+
+        let nodes = cluster.nodes;
+        let node = nodes
+            .into_iter()
+            .find(|node| {
+                let client = &node.nomad_client;
+                if client.is_none() {
+                    return false;
+                };
+
+                let allocs = &client.as_ref().unwrap().allocs;
+                if allocs.is_none() || allocs.as_ref().unwrap().is_empty() {
+                    return false;
+                };
+
+                allocs.as_ref().unwrap().iter().any(|alloc| {
+                    alloc.namespace == namespace
+                        && &alloc.job_id == name
+                        && &alloc.task_group == group
+                        && alloc.index.get() == index.parse().ok()
+                        && alloc.status == "running"
+                })
+            })
+            .with_context(|| {
+                format!(
+                    "{}, {}, {} does not match any nomad allocations",
+                    name, group, index
+                )
+            })?;
+
+        ip = node.pub_ip;
+    } else {
+        let needle = args.first();
+
+        if needle.is_none() {
+            return Err(anyhow!("first arg must be a host"));
+        }
+
+        let needle = needle.unwrap().clone();
+        args = args.drain(1..).collect();
+
+        let nodes = cluster.nodes;
+        let node = nodes.find_needle(&needle)?;
+
+        ip = node.pub_ip;
+    };
+
+    init_ssh(ip, args)
+}
+
+fn init_ssh(ip: IpAddr, mut args: Vec<String>) -> Result<()> {
     let user_host = format!("root@{}", ip);
     let mut flags = vec!["-x".to_string(), "-p".into(), "22".into()];
 
@@ -72,7 +142,7 @@ pub(crate) async fn ssh(sub: &ArgMatches) -> Result<()> {
 
     let mut cmd = Command::new("ssh");
     let cmd_with_args = cmd.args(ssh_args);
-    println!("cmd: {:?}", cmd_with_args);
+    info!("cmd: {:?}", cmd_with_args);
 
     cmd.spawn()
         .context("ssh command failed")?
@@ -81,13 +151,21 @@ pub(crate) async fn ssh(sub: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn rebuild(sub: &ArgMatches) -> Result<()> {
+pub(crate) async fn rebuild(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
     let only: Vec<String> = sub.values_of_t("only").unwrap_or_default();
     let delay = Duration::from_secs(sub.value_of_t::<u64>("delay").unwrap_or(0));
-    let copy: bool = sub.value_of_t("copy").unwrap_or(false);
+    let copy: bool = sub.is_present("copy");
+    let clients: bool = sub.is_present("clients");
 
     rebuild::set_ssh_opts(true)?;
-    rebuild::copy(only.iter().map(|o| o.as_str()).collect(), delay, copy).await?;
+    rebuild::copy(
+        only.iter().map(|o| o.as_str()).collect(),
+        delay,
+        copy,
+        clients,
+        cluster,
+    )
+    .await?;
     Ok(())
 }
 pub(crate) async fn deploy(sub: &ArgMatches) -> Result<()> {
@@ -101,11 +179,9 @@ pub(crate) async fn deploy(sub: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn info(_sub: &ArgMatches) -> Result<()> {
-    let info = terraform::output("clients").or_else(|_| {
-        terraform::output("core").context("Couldn't fetch clients or core workspaces")
-    })?;
-    info_print(info).await?;
+pub(crate) async fn info(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
+    let json: bool = sub.is_present("json");
+    info_print(cluster, json).await?;
     Ok(())
 }
 
@@ -218,73 +294,31 @@ pub async fn terraform_apply(workspace: String, _sub: &ArgMatches) -> Result<()>
     Ok(())
 }
 
-async fn info_print(output: TerraformStateValue) -> Result<()> {
-    let mut instance_table = Table::new();
-    instance_table.add_row(row!["Name", "Type", "FlakeAttr", "Private IP", "Public IP"]);
+async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
+    if json {
+        let stdout = io::stdout();
+        let handle = stdout.lock();
+        let cluster = cluster.await??;
+        env::set_var("BITTE_INFO_NO_ALLOCS", "");
+        serde_json::to_writer_pretty(handle, &cluster)?;
+    } else {
+        let mut instance_table = Table::new();
+        instance_table.add_row(row!["Name", "Private IP", "Public IP"]);
 
-    for (key, val) in output.instances.iter() {
-        instance_table.add_row(row![
-            key,
-            val.instance_type,
-            val.flake_attr,
-            val.private_ip,
-            val.public_ip,
-        ]);
-    }
+        let nodes = cluster.await??.nodes;
 
-    instance_table.printstd();
+        for node in nodes.into_iter() {
+            let name = if node.nomad_client.is_some() {
+                node.nomad_client.unwrap().id.to_hyphenated().to_string()
+            } else {
+                node.name
+            };
 
-    let mut asg_table = Table::new();
-
-    asg_table.add_row(row![
-        "Id",
-        "Type",
-        "AZ",
-        "State",
-        "Status",
-        "Protected",
-        "PrivateIp",
-        "PublicIp",
-        "asgSuffix"
-    ]);
-
-    for (_key, val) in output.asgs.iter() {
-        let asg_prefix = format!(
-            "client-{}-{}",
-            val.region,
-            val.instance_type.replace(".", "-")
-        );
-        let asg_suffix = _key
-            .strip_prefix(&asg_prefix)
-            .unwrap_or_else(|| "ERROR")
-            .replace("-", "");
-
-        let info = info::asg_info(val.arn.as_str(), val.region.as_str()).await;
-
-        let instance_ids = info.iter().map(|x| x.instance_id.as_str()).collect();
-        let instances = info::instance_info(instance_ids, val.region.as_str()).await;
-
-        for asgi in info {
-            let instance = instances
-                .iter()
-                .find(|x| x.instance_id == Some(asgi.instance_id.clone()))
-                .unwrap();
-
-            asg_table.add_row(row![
-                asgi.instance_id,
-                asgi.instance_type.unwrap_or_default(),
-                asgi.availability_zone,
-                asgi.lifecycle_state,
-                asgi.health_status,
-                asgi.protected_from_scale_in,
-                instance.private_ip_address.as_ref().unwrap_or(&"".to_string()),
-                instance.public_ip_address.as_ref().unwrap_or(&"".to_string()),
-                asg_suffix,
-            ]);
-            // asg_table.add_row(row![key, val.instance_type, val.flake_attr, val.count,]);
+            instance_table.add_row(row![name, node.priv_ip, node.pub_ip]);
         }
+
+        instance_table.printstd();
     }
 
-    asg_table.printstd();
     Ok(())
 }

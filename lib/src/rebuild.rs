@@ -1,22 +1,46 @@
-use crate::Result;
+use anyhow::Result;
 use log::info;
-use std::{env, path::Path, process::Command, time::Duration};
+use std::{env, net::IpAddr, path::Path, process::Command, time::Duration};
 
 use super::{
-    bitte_cluster, check_cmd, find_instances, handle_command_error, ssh::wait_for_ssh, Instance,
+    bitte_cluster, check_cmd, handle_command_error,
+    ssh::wait_for_ssh,
+    types::{BitteFind, BitteNode, ClusterHandle},
 };
 
-pub async fn copy(only: Vec<&str>, delay: Duration, copy: bool) -> Result<()> {
+pub async fn copy(
+    only: Vec<&str>,
+    delay: Duration,
+    copy: bool,
+    clients: bool,
+    cluster: ClusterHandle,
+) -> Result<()> {
     info!("only: {:?}", only);
-    let instances = find_instances(only.clone()).await.into_iter();
-    let instance_names: Vec<String> = instances.clone().map(|i| i.name).collect();
-    info!("instances: {:?}", instance_names);
-    let mut iter = instances.peekable();
+
+    let cluster = cluster.await??;
+
+    let instances = if only.is_empty() {
+        if clients {
+            cluster
+                .nodes
+                .into_iter()
+                .filter(|node| node.nomad_client.is_some())
+                .collect()
+        } else {
+            cluster.nodes
+        }
+    } else {
+        cluster.nodes.find_needles(only)
+    };
+
+    let mut iter = instances.iter().peekable();
+
+    let cache = if copy { Some(cluster.s3_cache) } else { None };
 
     while let Some(instance) = iter.next() {
-        info!("rebuild: {}", instance.name);
-        wait_for_ssh(&instance.public_ip).await?;
-        copy_to(&instance, 10, copy)?;
+        info!("rebuild: {}, {}", instance.name, instance.pub_ip);
+        wait_for_ssh(&instance.pub_ip).await?;
+        copy_to(&instance, 10, &cache)?;
         if iter.peek().is_some() {
             tokio::time::sleep(delay).await;
         }
@@ -25,8 +49,8 @@ pub async fn copy(only: Vec<&str>, delay: Duration, copy: bool) -> Result<()> {
     Ok(())
 }
 
-fn copy_to(instance: &Instance, _attempts: u64, copy: bool) -> Result<()> {
-    env::set_var("IP", instance.public_ip.clone());
+fn copy_to(instance: &BitteNode, _attempts: u64, cache: &Option<String>) -> Result<()> {
+    env::set_var("IP", instance.pub_ip.to_string());
     let flake = ".";
 
     handle_command_error(execute::command_args!(
@@ -34,26 +58,28 @@ fn copy_to(instance: &Instance, _attempts: u64, copy: bool) -> Result<()> {
         "run",
         format!(
             "{}#nixosConfigurations.{}.config.secrets.generateScript",
-            flake, instance.uid
+            flake, instance.nixos
         )
     ))?;
 
-    let target = format!("{}#{}", flake, instance.flake_attr);
-    let cache = format!(
-        "{}&secret-key=secrets/nix-secret-key-file",
-        instance.s3_cache
+    let target = format!(
+        "{}#nixosConfigurations.{}.config.system.build.toplevel",
+        flake, instance.nixos
     );
-    let rebuild_flake: String = format!("{}#{}", flake, instance.uid);
+    let rebuild_flake: String = format!("{}#{}", flake, instance.nixos);
 
     nix_build(&target)?;
-    if copy {
+
+    if let Some(c) = cache {
+        let cache = format!("{}&secret-key=secrets/nix-secret-key-file", c);
         nix_copy_to_cache(&target, &cache)?;
     }
-    nix_copy_to_machine(&target, &instance.public_ip)?;
-    nixos_rebuild(&rebuild_flake, &instance.public_ip)
+
+    nix_copy_to_machine(&target, &instance.pub_ip)?;
+    nixos_rebuild(&rebuild_flake, &instance.pub_ip)
 }
 
-pub fn nixos_rebuild(target: &str, ip: &str) -> Result<()> {
+pub fn nixos_rebuild(target: &str, ip: &IpAddr) -> Result<()> {
     check_cmd(
         Command::new("nixos-rebuild")
             .arg("switch")
@@ -84,7 +110,7 @@ pub fn nix_copy_to_cache(target: &str, cache: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn nix_copy_to_machine(target: &str, ssh: &str) -> Result<()> {
+pub fn nix_copy_to_machine(target: &str, ssh: &IpAddr) -> Result<()> {
     check_cmd(
         Command::new("nix")
             .arg("-L")

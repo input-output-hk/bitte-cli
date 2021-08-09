@@ -39,12 +39,7 @@ pub fn generate_terraform_config(workspace: &str) -> Result<()> {
     let status = Command::new("nix")
         .arg("-L")
         .arg("run")
-        .arg(format!(
-            ".#clusters.{}.{}.tf.{}.config",
-            nix_current_system(),
-            cluster,
-            workspace
-        ))
+        .arg(format!(".#clusters.{}.tf.{}.config", cluster, workspace))
         .status()
         .and_then(|status| {
             if !status.success() {
@@ -69,10 +64,7 @@ pub fn init(upgrade: bool) -> Result<()> {
     set_http_auth()?;
     println!("run: terraform init");
 
-    match remove_dir_all(".terraform") {
-        Ok(_) => {}
-        Err(_) => {}
-    }
+    remove_dir_all(".terraform").ok();
 
     if upgrade {
         Command::new("terraform")
@@ -86,22 +78,6 @@ pub fn init(upgrade: bool) -> Result<()> {
             .expect("terraform init failed")
     };
     Ok(())
-}
-
-fn nix_current_system() -> String {
-    let result = Command::new("nix")
-        .args(&[
-            "eval",
-            "--impure",
-            "--raw",
-            "--expr",
-            "builtins.currentSystem",
-        ])
-        .output();
-    match result {
-        Ok(output) => String::from_utf8_lossy(&output.stdout).trim().to_string(),
-        Err(_) => "x86_64-linux".into(),
-    }
 }
 
 fn terraform_vault_client() -> Result<RestClient> {
@@ -132,7 +108,7 @@ pub fn output(workspace: &str) -> Result<TerraformStateValue> {
 fn github_token() -> Result<String> {
     let exp = &tilde("~/.netrc").to_string();
     let path = Path::new(exp);
-    let netrc_file = read_to_string(path).or_else(|_| Err(Error::NetrcMissing))?;
+    let netrc_file = read_to_string(path).map_err(|_| Error::NetrcMissing)?;
     let netrc = Netrc::parse(netrc_file, true)?;
     for machine in &netrc.machines {
         if let Some(name) = &machine.name {

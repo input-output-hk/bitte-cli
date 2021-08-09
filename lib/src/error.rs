@@ -24,6 +24,8 @@ pub enum Error {
     NetrcMissing,
     #[error("error executing external process: {details}")]
     ExeError { details: String },
+    #[error("current BITTE_PROVIDER is not valid: {provider}")]
+    ProviderError { provider: String },
     #[error("unknown error")]
     Unknown,
 }
