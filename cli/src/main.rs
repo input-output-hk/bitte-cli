@@ -9,6 +9,8 @@ use std::env;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let _toml = include_str!("../Cargo.toml");
+
     env::var("IN_NIX_SHELL")
         .and(env::var("BITTE_DOMAIN"))
         .context(concat!(
@@ -18,10 +20,10 @@ async fn main() -> Result<()> {
 
     let cluster: ClusterHandle = BitteCluster::init();
 
-    let mut app = clap_app!(bitte =>
-      (version: "0.0.1")
-      (author: "Michael Fellinger <michael.fellinger@iohk.io>")
-      (about: "Deploy all the things!")
+    let mut app = clap_app!((clap::crate_name!()) =>
+      (version: clap::crate_version!())
+      (author: clap::crate_authors!("\n"))
+      (about: clap::crate_description!())
       (@subcommand rebuild =>
         (about: "nixos-rebuild")
         (@arg only: -o --only +takes_value +multiple "pattern of hosts to deploy")
