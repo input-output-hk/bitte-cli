@@ -719,8 +719,8 @@ impl BitteNode {
     ) -> anyhow::Result<(BitteNodes, String)> {
         match provider {
             BitteProvider::AWS => {
-                let asg_regions = env::var("AWS_ASG_REGIONS")?;
-                let default_region = env::var("AWS_DEFAULT_REGION")?;
+                let asg_regions = get_env("AWS_ASG_REGIONS");
+                let default_region = get_env("AWS_DEFAULT_REGION");
                 let regions_str = format!("{}:{}", asg_regions, default_region);
                 let regions: HashSet<&str> = regions_str.split(':').collect();
                 let mut handles = Vec::new();
@@ -891,14 +891,24 @@ where
             Ok(AllocIndex::Int(index))
         }
     }
+
+}
+
+fn get_env(name: &str) -> String {
+    let value = env::var(name);
+    if value.is_err() {
+        value.expect(format!("environment variable not found: {}", name).as_str())
+    } else {
+        return value.unwrap()
+    }
 }
 
 impl BitteCluster {
     pub async fn new() -> anyhow::Result<Self> {
-        let name = env::var("BITTE_CLUSTER")?;
-        let domain = env::var("BITTE_DOMAIN")?;
+        let name = get_env("BITTE_CLUSTER");
+        let domain = get_env("BITTE_DOMAIN");
         let provider: BitteProvider = {
-            let string = env::var("BITTE_PROVIDER")?;
+            let string = get_env("BITTE_PROVIDER");
             match string.parse() {
                 Ok(v) => Ok(v),
                 Err(_) => Err(Error::ProviderError { provider: string }),
