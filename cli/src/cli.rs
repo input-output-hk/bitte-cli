@@ -168,7 +168,8 @@ pub(crate) async fn rebuild(sub: &ArgMatches, cluster: ClusterHandle) -> Result<
     .await?;
     Ok(())
 }
-pub(crate) async fn deploy(sub: &ArgMatches) -> Result<()> {
+pub(crate) async fn deploy(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
+    cluster.await??;
     match cli::run(Some(sub)).await {
         Ok(()) => (),
         Err(err) => {

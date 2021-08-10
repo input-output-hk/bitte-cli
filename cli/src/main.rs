@@ -79,7 +79,7 @@ async fn main() -> Result<()> {
             pretty_env_logger::init();
             cli::rebuild(sub, cluster).await
         }
-        Some(("deploy", sub)) => cli::deploy(sub).await,
+        Some(("deploy", sub)) => cli::deploy(sub, cluster).await,
         Some(("info", sub)) => {
             pretty_env_logger::init();
             cli::info(sub, cluster).await
