@@ -123,7 +123,7 @@ pub(crate) async fn plan(sub: &ArgMatches) -> Result<()> {
     let job_arg: Result<String, clap::Error> = sub.value_of_t("job");
 
     sh(execute::command_args!("cue", "vet", "-c", "./..."))
-        .context("failure during: `cue vet -c ./...`")?;
+        .with_context(|| "failure during: `cue vet -c ./...`")?;
 
     env::set_var("NOMAD_NAMESPACE", &namespace);
 
@@ -150,7 +150,7 @@ struct CueExport {
 async fn plan_jobs(namespace: &str) -> Result<()> {
     let output = sh(execute::command_args!("cue", "export"))?;
     let export: CueExport =
-        serde_json::from_str(output.as_str()).context("Couldn't parse CUE export")?;
+        serde_json::from_str(output.as_str()).with_context(|| "Couldn't parse CUE export")?;
 
     if let Some(n) = export.rendered.get(namespace) {
         for job in n.keys() {
@@ -172,7 +172,7 @@ async fn plan_job(namespace: String, job: String) -> Result<()> {
     ))?;
 
     let mut render: CueRender =
-        serde_json::from_str(output.as_str()).context("couldn't parse CUE render")?;
+        serde_json::from_str(output.as_str()).with_context(|| "couldn't parse CUE render")?;
     // render.job.consul_token = Some(consul_token);
     render.diff = Some(true);
 
@@ -388,7 +388,7 @@ fn lookup_current_vault_token(ignore_env: bool) -> Result<String> {
         cmd.env_remove("VAULT_TOKEN");
     }
     let full = cmd.args(vec!["token", "lookup", "-format=json"]);
-    let output = full.output().context("vault token lookup failed")?;
+    let output = full.output().with_context(|| "vault token lookup failed")?;
     let lookup: VaultTokenLookup = serde_json::from_slice(output.stdout.as_slice())?;
     Ok(lookup.data.id)
 }
@@ -400,5 +400,5 @@ fn vault_login(print: bool) -> Result<ExitStatus> {
     if !print {
         cmd.arg("-no-print");
     }
-    cmd.status().context("vault login failed")
+    cmd.status().with_context(|| "vault login failed")
 }

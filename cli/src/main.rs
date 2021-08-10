@@ -13,10 +13,12 @@ async fn main() -> Result<()> {
 
     env::var("IN_NIX_SHELL")
         .and(env::var("BITTE_DOMAIN"))
-        .context(concat!(
-            "This program should be run from a bitte shell:\n",
-            "https://github.com/input-output-hk/bitte/blob/master/pkgs/bitte-shell.nix"
-        ))?;
+        .with_context(|| {
+            concat!(
+                "This program should be run from a bitte shell:\n",
+                "https://github.com/input-output-hk/bitte/blob/master/pkgs/bitte-shell.nix"
+            )
+        })?;
 
     let cluster: ClusterHandle = BitteCluster::init();
 

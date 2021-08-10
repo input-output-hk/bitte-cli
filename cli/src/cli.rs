@@ -145,9 +145,9 @@ fn init_ssh(ip: IpAddr, mut args: Vec<String>) -> Result<()> {
     info!("cmd: {:?}", cmd_with_args);
 
     cmd.spawn()
-        .context("ssh command failed")?
+        .with_context(|| "ssh command failed")?
         .wait()
-        .context("ssh command didn't finish?")?;
+        .with_context(|| "ssh command didn't finish?")?;
     Ok(())
 }
 

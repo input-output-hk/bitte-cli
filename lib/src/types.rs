@@ -12,6 +12,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
+use anyhow::Context;
 use enum_utils::FromStr;
 use std::net::{IpAddr, Ipv4Addr};
 use uuid::Uuid;
@@ -632,8 +633,6 @@ where
 
 impl BitteFind for BitteNodes {
     fn find_needle(self, needle: &str) -> anyhow::Result<Self::Item> {
-        use anyhow::Context;
-
         self.into_iter()
             .find(|node| {
                 let ip = needle.parse::<IpAddr>().ok();
@@ -719,8 +718,8 @@ impl BitteNode {
     ) -> anyhow::Result<(BitteNodes, String)> {
         match provider {
             BitteProvider::AWS => {
-                let asg_regions = get_env("AWS_ASG_REGIONS");
-                let default_region = get_env("AWS_DEFAULT_REGION");
+                let asg_regions = get_env("AWS_ASG_REGIONS")?;
+                let default_region = get_env("AWS_DEFAULT_REGION")?;
                 let regions_str = format!("{}:{}", asg_regions, default_region);
                 let regions: HashSet<&str> = regions_str.split(':').collect();
                 let mut handles = Vec::new();
@@ -891,24 +890,19 @@ where
             Ok(AllocIndex::Int(index))
         }
     }
-
 }
 
-fn get_env(name: &str) -> String {
+fn get_env(name: &str) -> anyhow::Result<String> {
     let value = env::var(name);
-    if value.is_err() {
-        value.expect(format!("environment variable not found: {}", name).as_str())
-    } else {
-        return value.unwrap()
-    }
+    value.with_context(|| format!("{} is not set", name))
 }
 
 impl BitteCluster {
     pub async fn new() -> anyhow::Result<Self> {
-        let name = get_env("BITTE_CLUSTER");
-        let domain = get_env("BITTE_DOMAIN");
+        let name = get_env("BITTE_CLUSTER")?;
+        let domain = get_env("BITTE_DOMAIN")?;
         let provider: BitteProvider = {
-            let string = get_env("BITTE_PROVIDER");
+            let string = get_env("BITTE_PROVIDER")?;
             match string.parse() {
                 Ok(v) => Ok(v),
                 Err(_) => Err(Error::ProviderError { provider: string }),
@@ -970,7 +964,8 @@ impl BitteCluster {
                 .unwrap(),
         };
 
-        let file = std::fs::File::create(".cache.json").ok();
+        let flake_root = get_env("FLAKE_ROOT")?;
+        let file = std::fs::File::create(format!("{}/.cache.json", flake_root)).ok();
 
         if let Some(file) = file {
             serde_json::to_writer(file, &cluster)?;
@@ -982,7 +977,8 @@ impl BitteCluster {
     #[inline(always)]
     pub fn init() -> ClusterHandle {
         tokio::spawn(async move {
-            let file = std::fs::File::open(".cache.json").ok();
+            let flake_root = get_env("FLAKE_ROOT")?;
+            let file = std::fs::File::open(format!("{}/.cache.json", flake_root)).ok();
 
             let cluster: BitteCluster;
 
