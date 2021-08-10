@@ -4,7 +4,7 @@
   inputs = {
     utils.url = "github:kreisys/flake-utils";
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    naersk.url = "github:yusdacra/naersk?ref=feat/cargolock-git-deps";
+    naersk.url = "github:nrdxp/naersk/git-deps-fix";
   };
 
   outputs = { self, nixpkgs, naersk, utils, ... }:

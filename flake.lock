@@ -7,14 +7,14 @@
       "locked": {
         "lastModified": 1623558292,
         "narHash": "sha256-YjyRflpvKzstN9Yy5pVOmreckcL1Fu6TGe8Tf8y9fm4=",
-        "owner": "yusdacra",
+        "owner": "nrdxp",
         "repo": "naersk",
         "rev": "f411315a2954bd60bdcba2bc0cff7f4b0012a12a",
         "type": "github"
       },
       "original": {
-        "owner": "yusdacra",
-        "ref": "feat/cargolock-git-deps",
+        "owner": "nrdxp",
+        "ref": "git-deps-fix",
         "repo": "naersk",
         "type": "github"
       }
