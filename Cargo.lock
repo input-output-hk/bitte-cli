@@ -487,9 +487,10 @@ dependencies = [
 [[package]]
 name = "deploy-rs"
 version = "0.1.0"
-source = "git+https://github.com/serokell/deploy-rs#d72174307d5b88ec24cc2e69e875228fe3d642ed"
+source = "git+https://github.com/nrdxp/deploy-rs?branch=expand-ssh-opts#72ff5f8817159037471c45f711f2020ca142e023"
 dependencies = [
  "clap",
+ "envmnt",
  "flexi_logger",
  "fork",
  "futures-util",
@@ -644,6 +645,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "envmnt"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dbfac51e9996e41d78a943227b7f313efcebf545b21584a0e213b956a062e11e"
+dependencies = [
+ "fsio",
+ "indexmap",
+]
+
+[[package]]
 name = "execute"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -787,6 +798,12 @@ checksum = "5c0e564d24da983c053beff1bb7178e237501206840a3e6bf4e267b9e8ae734a"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "fsio"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a50045aa8931ae01afbc5d72439e8f57f326becb8c70d07dfc816778eff3d167"
 
 [[package]]
 name = "fuchsia-zircon"
