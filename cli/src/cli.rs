@@ -9,6 +9,7 @@ use log::*;
 use prettytable::{cell, row, Table};
 use std::net::IpAddr;
 use std::{env, io, path::Path, process::Command, time::Duration};
+use tokio_stream::{self as stream, StreamExt};
 
 pub(crate) async fn certs(sub: &ArgMatches) -> Result<()> {
     let domain: String = sub.value_of_t_or_exit("domain");
@@ -63,8 +64,17 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
         let nodes = cluster.nodes;
 
         for node in nodes.iter() {
-            init_ssh(node.pub_ip, args.clone())?;
+            init_ssh(node.pub_ip, args.clone()).await?;
         }
+
+        return Ok(());
+    } else if sub.is_present("parallel") {
+        let nodes = cluster.nodes;
+
+        let mut stream =
+            stream::iter(nodes).map(|node| tokio::spawn(init_ssh(node.pub_ip, args.clone())));
+
+        while stream.next().await.is_some() {}
 
         return Ok(());
     } else if sub.is_present("job") {
@@ -118,10 +128,10 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
         ip = node.pub_ip;
     };
 
-    init_ssh(ip, args)
+    init_ssh(ip, args).await
 }
 
-fn init_ssh(ip: IpAddr, mut args: Vec<String>) -> Result<()> {
+async fn init_ssh(ip: IpAddr, mut args: Vec<String>) -> Result<()> {
     let user_host = format!("root@{}", ip);
     let mut flags = vec!["-x".to_string(), "-p".into(), "22".into()];
 
