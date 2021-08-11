@@ -780,14 +780,14 @@ impl BitteNode {
                                 .iter()
                                 .find(|client| client.address == Some(node.priv_ip))
                             {
-                                Some(client_) => {
-                                    let mut client = client_.to_owned();
+                                Some(client) => {
+                                    let mut client = client.to_owned();
                                     client.allocs = {
-                                        let allocs_ = allocs.clone();
                                         Some(
-                                            allocs_
-                                                .into_iter()
+                                            allocs
+                                                .iter()
                                                 .filter(|alloc| alloc.node_id == client.id)
+                                                .map(|alloc| alloc.to_owned())
                                                 .collect::<NomadAllocs>(),
                                         )
                                     };
