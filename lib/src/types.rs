@@ -598,12 +598,15 @@ pub struct NomadClient {
 
 impl NomadClient {
     async fn find_nomad_nodes(client: Arc<Client>, domain: String) -> anyhow::Result<NomadClients> {
+        let url = format!("https://nomad.{}/v1/nodes", domain);
         let nodes = client
-            .get(format!("https://nomad.{}/v1/nodes", domain))
+            .get(&url)
             .send()
-            .await?
+            .await
+            .with_context(|| format!("failed to query: {}", &url))?
             .json::<NomadClients>()
-            .await?;
+            .await
+            .with_context(|| format!("failed to decode response from: {}", &url))?;
         Ok(nodes)
     }
 }
@@ -862,13 +865,16 @@ pub struct NomadAlloc {
 
 impl NomadAlloc {
     async fn find_allocs(client: Arc<Client>, domain: String) -> anyhow::Result<NomadAllocs> {
+        let url = format!("https://nomad.{}/v1/allocations", domain);
         let allocs = client
-            .get(format!("https://nomad.{}/v1/allocations", domain))
+            .get(&url)
             .query(&[("namespace", "*"), ("task_states", "false")])
             .send()
-            .await?
+            .await
+            .with_context(|| format!("failed to query: {}", &url))?
             .json::<NomadAllocs>()
-            .await?;
+            .await
+            .with_context(|| format!("failed to decode response from: {}", &url))?;
         Ok(allocs)
     }
 }
