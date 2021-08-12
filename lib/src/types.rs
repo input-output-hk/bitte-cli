@@ -724,11 +724,14 @@ impl BitteNode {
                 let asg_regions = get_env("AWS_ASG_REGIONS")?;
                 let default_region = get_env("AWS_DEFAULT_REGION")?;
                 let regions_str = format!("{}:{}", asg_regions, default_region);
-                let regions: HashSet<&str> = regions_str.split(':').collect();
+                let regions: HashSet<String> = regions_str
+                    .split(':')
+                    .map(|region| region.to_owned())
+                    .collect();
                 let mut handles = Vec::new();
 
-                for region in regions.iter() {
-                    let region = Region::from_str(region)?;
+                for region_str in regions {
+                    let region = Region::from_str(&region_str)?;
                     let client = Ec2Client::new(region);
                     let request = DescribeInstancesRequest {
                         instance_ids: None,
@@ -746,8 +749,11 @@ impl BitteNode {
                         max_results: None,
                         next_token: None,
                     };
-                    let response =
-                        tokio::spawn(async move { client.describe_instances(request).await });
+                    let response = tokio::spawn(async move {
+                        client.describe_instances(request).await.with_context(|| {
+                            format!("failed to connect to ec2.{}.amazonaws.com", region_str)
+                        })
+                    });
                     handles.push(response);
                 }
 
