@@ -143,11 +143,12 @@ async fn init_ssh(ip: IpAddr, args: Vec<String>, cluster: String) -> Result<()> 
         flags.push(&*ssh_key_path);
     }
 
+    flags.append(&mut vec!["-o", "StrictHostKeyChecking=accept-new"]);
+
     flags.push(user_host);
-    flags.append(&mut args.iter().map(|string| string.as_str()).collect());
 
     if !args.is_empty() {
-        flags.append(&mut vec!["-t"]);
+        flags.append(&mut args.iter().map(|string| string.as_str()).collect());
     }
     let ssh_args = flags.into_iter();
 
