@@ -5,16 +5,18 @@ use std::{
     io::Read,
 };
 
-use crate::{error::Error, Result};
+use crate::error::Error;
+use anyhow::Result;
 use flate2::read::ZlibDecoder;
 use log::info;
 use netrc_rs::Netrc;
 use restson::RestClient;
 use shellexpand::tilde;
 
-use crate::types::{HttpPutToken, TerraformState, TerraformStateValue, VaultLogin};
-
-use super::{bitte_cluster, types::RawVaultState};
+use crate::{
+    self as lib,
+    types::{HttpPutToken, RawVaultState, TerraformState, TerraformStateValue, VaultLogin},
+};
 
 pub fn prepare(workspace: String) -> Result<()> {
     set_http_auth()?;
@@ -33,7 +35,7 @@ fn test_generate_terraform_config() {
 }
 
 pub fn generate_terraform_config(workspace: &str) -> Result<()> {
-    let cluster = bitte_cluster()?;
+    let cluster: String = lib::get_env("BITTE_CLUSTER")?;
 
     // To work on Darwin, we need to pass the current system
     let status = Command::new("nix")
@@ -56,7 +58,7 @@ pub fn generate_terraform_config(workspace: &str) -> Result<()> {
     if status.success() {
         Ok(())
     } else {
-        Err(Error::FailedTerraformConfig)
+        Err(Error::FailedTerraformConfig.into())
     }
 }
 
@@ -90,7 +92,7 @@ fn terraform_vault_client() -> Result<RestClient> {
 
 fn terraform_vault_state(workspace: &str) -> Result<String> {
     let mut client = terraform_vault_client()?;
-    let value: RawVaultState = client.get((bitte_cluster()?.as_str(), workspace))?;
+    let value: RawVaultState = client.get((lib::get_env("BITTE_CLUSTER")?.as_str(), workspace))?;
     Ok(value.data.data.value)
 }
 
@@ -109,7 +111,7 @@ fn github_token() -> Result<String> {
     let exp = &tilde("~/.netrc").to_string();
     let path = Path::new(exp);
     let netrc_file = read_to_string(path).map_err(|_| Error::NetrcMissing)?;
-    let netrc = Netrc::parse(netrc_file, true)?;
+    let netrc = Netrc::parse(netrc_file, true).map_err(anyhow::Error::msg)?;
     for machine in &netrc.machines {
         if let Some(name) = &machine.name {
             if let ("github.com", Some(token)) = (name.as_str(), machine.password.as_ref()) {
@@ -121,7 +123,7 @@ fn github_token() -> Result<String> {
         };
     }
 
-    Err(Error::NoGithubToken)
+    Err(Error::NoGithubToken.into())
 }
 
 fn vault_token() -> Result<String> {

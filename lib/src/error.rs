@@ -1,4 +1,5 @@
 #[derive(thiserror::Error, Debug)]
+#[error(transparent)]
 pub enum Error {
     #[error("timeout elapsed")]
     Timeout(#[from] tokio::time::error::Elapsed),

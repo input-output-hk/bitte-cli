@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context, Result};
 use bitte_lib::{
-    bitte_cluster, certs, rebuild, ssh, terraform,
+    certs, rebuild, ssh, terraform,
     types::{BitteFind, ClusterHandle},
 };
 use clap::ArgMatches;
@@ -64,15 +64,16 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
         let nodes = cluster.nodes;
 
         for node in nodes.iter() {
-            init_ssh(node.pub_ip, args.clone()).await?;
+            init_ssh(node.pub_ip, args.clone(), cluster.name.clone()).await?;
         }
 
         return Ok(());
     } else if sub.is_present("parallel") {
         let nodes = cluster.nodes;
+        let name = cluster.name.clone();
 
-        let mut stream =
-            stream::iter(nodes).map(|node| tokio::spawn(init_ssh(node.pub_ip, args.clone())));
+        let mut stream = stream::iter(nodes)
+            .map(|node| tokio::spawn(init_ssh(node.pub_ip, args.clone(), name.clone())));
 
         while stream.next().await.is_some() {}
 
@@ -128,25 +129,25 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
         ip = node.pub_ip;
     };
 
-    init_ssh(ip, args).await
+    init_ssh(ip, args, cluster.name).await
 }
 
-async fn init_ssh(ip: IpAddr, mut args: Vec<String>) -> Result<()> {
-    let user_host = format!("root@{}", ip);
-    let mut flags = vec!["-x".to_string(), "-p".into(), "22".into()];
+async fn init_ssh(ip: IpAddr, args: Vec<String>, cluster: String) -> Result<()> {
+    let user_host = &*format!("root@{}", ip);
+    let mut flags = vec!["-x", "-p", "22"];
 
-    let ssh_key_path = format!("secrets/ssh-{}", bitte_cluster()?);
+    let ssh_key_path = format!("secrets/ssh-{}", cluster);
     let ssh_key = Path::new(&ssh_key_path);
     if ssh_key.is_file() {
-        flags.push("-i".to_string());
-        flags.push(ssh_key_path.to_string());
+        flags.push("-i");
+        flags.push(&*ssh_key_path);
     }
 
     flags.push(user_host);
-    flags.append(args.as_mut());
+    flags.append(&mut args.iter().map(|string| string.as_str()).collect());
 
     if !args.is_empty() {
-        flags.append(&mut vec!["-t".to_string()]);
+        flags.append(&mut vec!["-t"]);
     }
     let ssh_args = flags.into_iter();
 

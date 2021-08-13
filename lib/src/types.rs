@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate as lib;
 use colored::*;
 use restson::RestPath;
 use rusoto_core::Region;
@@ -12,7 +13,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use anyhow::Context;
+use anyhow::{Context, Result};
 use enum_utils::FromStr;
 use std::net::{IpAddr, Ipv4Addr};
 use uuid::Uuid;
@@ -597,7 +598,7 @@ pub struct NomadClient {
 }
 
 impl NomadClient {
-    async fn find_nomad_nodes(client: Arc<Client>, domain: String) -> anyhow::Result<NomadClients> {
+    async fn find_nomad_nodes(client: Arc<Client>, domain: String) -> Result<NomadClients> {
         let url = format!("https://nomad.{}/v1/nodes", domain);
         let nodes = client
             .get(&url)
@@ -630,12 +631,12 @@ pub trait BitteFind
 where
     Self: IntoIterator,
 {
-    fn find_needle(self, needle: &str) -> anyhow::Result<Self::Item>;
+    fn find_needle(self, needle: &str) -> Result<Self::Item>;
     fn find_needles(self, needles: Vec<&str>) -> Self;
 }
 
 impl BitteFind for BitteNodes {
-    fn find_needle(self, needle: &str) -> anyhow::Result<Self::Item> {
+    fn find_needle(self, needle: &str) -> Result<Self::Item> {
         self.into_iter()
             .find(|node| {
                 let ip = needle.parse::<IpAddr>().ok();
@@ -715,14 +716,14 @@ impl BitteNode {
     async fn find_nodes(
         provider: BitteProvider,
         name: String,
-        alloc_handle: JoinHandle<anyhow::Result<NomadAllocs>>,
-        clients_handle: JoinHandle<anyhow::Result<NomadClients>>,
+        alloc_handle: JoinHandle<Result<NomadAllocs>>,
+        clients_handle: JoinHandle<Result<NomadClients>>,
         terra_handle: TerraHandle,
-    ) -> anyhow::Result<(BitteNodes, String)> {
+    ) -> Result<(BitteNodes, String)> {
         match provider {
             BitteProvider::AWS => {
-                let asg_regions = get_env("AWS_ASG_REGIONS")?;
-                let default_region = get_env("AWS_DEFAULT_REGION")?;
+                let asg_regions = lib::get_env("AWS_ASG_REGIONS")?;
+                let default_region = lib::get_env("AWS_DEFAULT_REGION")?;
                 let regions_str = format!("{}:{}", asg_regions, default_region);
                 let regions: HashSet<String> = regions_str
                     .split(':')
@@ -829,7 +830,7 @@ impl BitteNode {
 type NomadClients = Vec<NomadClient>;
 type NomadAllocs = Vec<NomadAlloc>;
 type BitteNodes = Vec<BitteNode>;
-pub type ClusterHandle = JoinHandle<anyhow::Result<BitteCluster>>;
+pub type ClusterHandle = JoinHandle<Result<BitteCluster>>;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
@@ -870,7 +871,7 @@ pub struct NomadAlloc {
 }
 
 impl NomadAlloc {
-    async fn find_allocs(client: Arc<Client>, domain: String) -> anyhow::Result<NomadAllocs> {
+    async fn find_allocs(client: Arc<Client>, domain: String) -> Result<NomadAllocs> {
         let url = format!("https://nomad.{}/v1/allocations", domain);
         let allocs = client
             .get(&url)
@@ -904,17 +905,12 @@ where
     }
 }
 
-fn get_env(name: &str) -> anyhow::Result<String> {
-    let value = env::var(name);
-    value.with_context(|| format!("{} is not set", name))
-}
-
 impl BitteCluster {
-    pub async fn new() -> anyhow::Result<Self> {
-        let name = get_env("BITTE_CLUSTER")?;
-        let domain = get_env("BITTE_DOMAIN")?;
+    pub async fn new() -> Result<Self> {
+        let name = lib::get_env("BITTE_CLUSTER")?;
+        let domain = lib::get_env("BITTE_DOMAIN")?;
         let provider: BitteProvider = {
-            let string = get_env("BITTE_PROVIDER")?;
+            let string = lib::get_env("BITTE_PROVIDER")?;
             match string.parse() {
                 Ok(v) => Ok(v),
                 Err(_) => Err(Error::ProviderError { provider: string }),
@@ -976,7 +972,7 @@ impl BitteCluster {
                 .unwrap(),
         };
 
-        let flake_root = get_env("FLAKE_ROOT")?;
+        let flake_root = lib::get_env("FLAKE_ROOT")?;
         let file = std::fs::File::create(format!("{}/.cache.json", flake_root)).ok();
 
         if let Some(file) = file {
@@ -989,7 +985,7 @@ impl BitteCluster {
     #[inline(always)]
     pub fn init() -> ClusterHandle {
         tokio::spawn(async move {
-            let flake_root = get_env("FLAKE_ROOT")?;
+            let flake_root = lib::get_env("FLAKE_ROOT")?;
             let file = std::fs::File::open(format!("{}/.cache.json", flake_root)).ok();
 
             let cluster: BitteCluster;
@@ -1020,6 +1016,6 @@ impl BitteCluster {
 }
 
 struct TerraHandle {
-    clients: JoinHandle<Result<TerraformStateValue, Error>>,
-    core: JoinHandle<Result<TerraformStateValue, Error>>,
+    clients: JoinHandle<Result<TerraformStateValue>>,
+    core: JoinHandle<Result<TerraformStateValue>>,
 }

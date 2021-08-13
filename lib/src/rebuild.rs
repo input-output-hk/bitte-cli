@@ -2,8 +2,8 @@ use anyhow::Result;
 use log::info;
 use std::{env, net::IpAddr, path::Path, process::Command, time::Duration};
 
-use super::{
-    bitte_cluster, check_cmd, handle_command_error,
+use crate::{
+    self as lib, check_cmd, handle_command_error,
     ssh::wait_for_ssh,
     types::{BitteFind, BitteNode, ClusterHandle},
 };
@@ -143,7 +143,7 @@ pub fn set_ssh_opts(key_checking: bool) -> Result<()> {
         &check_flag,
     ];
 
-    let ssh_key_path = format!("secrets/ssh-{}", bitte_cluster()?);
+    let ssh_key_path = format!("secrets/ssh-{}", lib::get_env("BITTE_CLUSTER")?);
     let ssh_key = Path::new(&ssh_key_path);
     if ssh_key.is_file() {
         args.push("-i");

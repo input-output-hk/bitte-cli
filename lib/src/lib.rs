@@ -11,34 +11,16 @@ pub mod types;
 use error::Error;
 pub(crate) type Result<T> = std::result::Result<T, Error>;
 
+use anyhow::Context;
 use execute::Execute;
 use log::debug;
 use std::env;
 use std::process::Command;
 use std::process::Stdio;
 
-#[cfg(test)]
-mod test_bitte_cluster {
-    use super::*;
-
-    #[test]
-    fn returns_error() {
-        assert!(bitte_cluster().is_err())
-    }
-
-    mod when_env_var_set {
-        use super::*;
-        #[test]
-        fn returns_content_of_environment() {
-            env::set_var("BITTE_CLUSTER", "lies");
-            pretty_assertions::assert_eq!(bitte_cluster().unwrap(), "lies")
-        }
-    }
-}
-
-pub fn bitte_cluster() -> Result<String> {
-    let cluster = env::var("BITTE_CLUSTER")?;
-    Ok(cluster)
+pub fn get_env(name: &str) -> anyhow::Result<String> {
+    let value = env::var(name);
+    value.with_context(|| format!("{} is not set", name))
 }
 
 fn handle_command_error_common(
