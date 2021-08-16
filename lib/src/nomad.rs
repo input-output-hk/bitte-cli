@@ -24,7 +24,7 @@ pub fn nomad_token() -> Result<String> {
         "read",
         "-field",
         "secret_id",
-        "nomad/creds/developer"
+        "nomad/creds/admin"
     ))
 }
 
