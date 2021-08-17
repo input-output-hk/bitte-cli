@@ -4,7 +4,8 @@ use std::{path::Path, process::Command};
 use tokio::{net::TcpStream, time};
 
 use super::check_cmd;
-use crate::{error::Error, Result};
+use crate::error::Error;
+use anyhow::Result;
 
 pub fn ssh_keygen(ip: &IpAddr) -> Result<()> {
     check_cmd(Command::new("ssh-keygen").arg("-R").arg(ip.to_string()))
@@ -71,5 +72,5 @@ pub async fn wait_for_port(
             Err(e) => println!("Waiting for {} to respond: {}", addr, e),
         }
     }
-    Err(Error::ExhaustedAttempts(attempts))
+    Err(Error::ExhaustedAttempts(attempts).into())
 }

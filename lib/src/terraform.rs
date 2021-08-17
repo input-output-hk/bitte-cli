@@ -6,6 +6,7 @@ use std::{
 };
 
 use crate::error::Error;
+use crate::types::ClusterHandle;
 use anyhow::Result;
 use flate2::read::ZlibDecoder;
 use log::info;
@@ -18,24 +19,16 @@ use crate::{
     types::{HttpPutToken, RawVaultState, TerraformState, TerraformStateValue, VaultLogin},
 };
 
-pub fn prepare(workspace: String) -> Result<()> {
+pub async fn prepare(workspace: String, cluster: ClusterHandle) -> Result<()> {
     set_http_auth()?;
     info!("prepare terraform");
-    generate_terraform_config(&workspace)?;
+    generate_terraform_config(&workspace, cluster).await?;
     init(false)?;
     Ok(())
 }
 
-#[test]
-fn test_generate_terraform_config() {
-    assert!(
-        generate_terraform_config("lies").is_err(),
-        "should have errored out"
-    )
-}
-
-pub fn generate_terraform_config(workspace: &str) -> Result<()> {
-    let cluster: String = lib::get_env("BITTE_CLUSTER")?;
+pub async fn generate_terraform_config(workspace: &str, cluster: ClusterHandle) -> Result<()> {
+    let cluster: String = cluster.await??.name;
 
     // To work on Darwin, we need to pass the current system
     let status = Command::new("nix")

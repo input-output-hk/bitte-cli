@@ -576,6 +576,7 @@ pub struct BitteCluster {
     pub nodes: BitteNodes,
     pub domain: String,
     pub provider: BitteProvider,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub terra: Option<TerraformStateValue>,
     #[serde(skip)]
     pub nomad_api_client: Arc<Client>,

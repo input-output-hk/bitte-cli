@@ -8,8 +8,8 @@ pub mod ssh;
 pub mod terraform;
 pub mod types;
 
+use anyhow::Result;
 use error::Error;
-pub(crate) type Result<T> = std::result::Result<T, Error>;
 
 use anyhow::Context;
 use execute::Execute;
@@ -41,16 +41,19 @@ fn handle_command_error_common(
                 } else {
                     Err(Error::ExeError {
                         details: String::from_utf8_lossy(&output.stderr).to_string(),
-                    })
+                    }
+                    .into())
                 }
             }
             None => Err(Error::ExeError {
                 details: "interrupted".to_string(),
-            }),
+            }
+            .into()),
         },
         Err(e) => Err(Error::ExeError {
             details: e.to_string(),
-        }),
+        }
+        .into()),
     }
 }
 

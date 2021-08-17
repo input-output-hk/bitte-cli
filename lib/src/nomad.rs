@@ -1,5 +1,5 @@
 use super::sh;
-use crate::Result;
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

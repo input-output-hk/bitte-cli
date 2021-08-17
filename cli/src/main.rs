@@ -93,17 +93,16 @@ async fn main() -> Result<()> {
         }
         Some(("terraform", sub)) => {
             pretty_env_logger::init();
-            cluster.await??;
-            cli::terraform(sub).await
+            cli::terraform(sub, cluster).await
         }
         Some(("provision", sub)) => {
             pretty_env_logger::init();
-            cluster.await??;
+            cluster.abort();
             cli::provision(sub).await
         }
         Some(("certs", sub)) => {
             pretty_env_logger::init();
-            cluster.await??;
+            cluster.abort();
             cli::certs(sub).await
         }
         _ => {

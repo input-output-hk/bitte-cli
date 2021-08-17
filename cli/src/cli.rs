@@ -198,16 +198,19 @@ pub(crate) async fn info(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()>
     Ok(())
 }
 
-pub(crate) async fn terraform(sub: &ArgMatches) -> Result<()> {
+pub(crate) async fn terraform(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
     let workspace: String = sub.value_of_t_or_exit("workspace");
 
     match sub.subcommand() {
-        Some(("plan", sub_sub)) => terraform_plan(workspace, sub_sub).await,
-        Some(("apply", sub_sub)) => terraform_apply(workspace, sub_sub).await,
-        Some(("init", sub_sub)) => terraform_init(workspace, sub_sub).await,
-        Some(("passthrough", sub_sub)) => terraform_passthrough(workspace, sub_sub).await,
-        Some(("output", sub_sub)) => terraform_output(workspace, sub_sub).await,
-        _ => Err(anyhow!("Unknown command")),
+        Some(("plan", sub_sub)) => terraform_plan(workspace, sub_sub, cluster).await,
+        Some(("apply", sub_sub)) => terraform_apply(workspace, sub_sub, cluster).await,
+        Some(("init", sub_sub)) => terraform_init(workspace, sub_sub, cluster).await,
+        Some(("passthrough", sub_sub)) => terraform_passthrough(workspace, sub_sub, cluster).await,
+        Some(("output", sub_sub)) => terraform_output(sub_sub, cluster).await,
+        _ => {
+            cluster.abort();
+            Err(anyhow!("Unknown command"))
+        }
     }
 }
 
@@ -223,13 +226,17 @@ pub(crate) async fn terraform(sub: &ArgMatches) -> Result<()> {
 /// ```
 /// terraform_plan("network", arg_matches);
 /// ```
-pub async fn terraform_plan(workspace: String, sub: &ArgMatches) -> Result<()> {
+pub async fn terraform_plan(
+    workspace: String,
+    sub: &ArgMatches,
+    cluster: ClusterHandle,
+) -> Result<()> {
     let destroy: bool = sub.is_present("destroy");
     let plan_file = format!("{}.plan", workspace);
 
     info!("Plan file: {:?}", plan_file);
 
-    terraform::prepare(workspace)?;
+    terraform::prepare(workspace, cluster).await?;
 
     let mut cmd = Command::new("terraform");
     let mut full = cmd.arg("plan").arg("-out").arg(plan_file);
@@ -255,7 +262,11 @@ pub async fn terraform_plan(workspace: String, sub: &ArgMatches) -> Result<()> {
 /// ```
 /// terraform_passthrough("core", arg_matches);
 /// ```
-pub async fn terraform_passthrough(workspace: String, sub: &ArgMatches) -> Result<()> {
+pub async fn terraform_passthrough(
+    workspace: String,
+    sub: &ArgMatches,
+    cluster: ClusterHandle,
+) -> Result<()> {
     let init: bool = sub.is_present("init");
     let config: bool = !sub.is_present("no_config");
     let args = sub.values_of_lossy("args").unwrap_or_default();
@@ -263,7 +274,7 @@ pub async fn terraform_passthrough(workspace: String, sub: &ArgMatches) -> Resul
     terraform::set_http_auth()?;
 
     if config {
-        terraform::generate_terraform_config(&workspace)?;
+        terraform::generate_terraform_config(&workspace, cluster).await?;
     }
 
     if init {
@@ -279,24 +290,34 @@ pub async fn terraform_passthrough(workspace: String, sub: &ArgMatches) -> Resul
     Ok(())
 }
 
-pub async fn terraform_init(workspace: String, sub: &ArgMatches) -> Result<()> {
+pub async fn terraform_init(
+    workspace: String,
+    sub: &ArgMatches,
+    cluster: ClusterHandle,
+) -> Result<()> {
     let upgrade: bool = sub.is_present("upgrade");
-    terraform::generate_terraform_config(&workspace)?;
+    terraform::generate_terraform_config(&workspace, cluster).await?;
     terraform::init(upgrade)?;
     Ok(())
 }
 
-pub async fn terraform_output(workspace: String, _sub: &ArgMatches) -> Result<()> {
-    let output = terraform::output(workspace.as_str())?;
-    println!("{:?}", output);
+pub async fn terraform_output(_sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
+    let output = cluster.await??.terra;
+    let stdout = io::stdout();
+    let handle = stdout.lock();
+    serde_json::to_writer_pretty(handle, &output)?;
     Ok(())
 }
 
-pub async fn terraform_apply(workspace: String, _sub: &ArgMatches) -> Result<()> {
+pub async fn terraform_apply(
+    workspace: String,
+    _sub: &ArgMatches,
+    cluster: ClusterHandle,
+) -> Result<()> {
     let plan_file = format!("{}.plan", workspace);
     info!("Plan file: {:?}", plan_file);
 
-    terraform::prepare(workspace)?;
+    terraform::prepare(workspace, cluster).await?;
 
     let mut cmd = Command::new("terraform");
     let full = cmd.arg("apply").arg(plan_file);
