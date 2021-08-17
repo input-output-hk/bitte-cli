@@ -26,6 +26,15 @@ pub fn nomad_token() -> Result<String> {
         "secret_id",
         "nomad/creds/admin"
     ))
+    .or_else(|_| {
+        sh(execute::command_args!(
+            "vault",
+            "read",
+            "-field",
+            "secret_id",
+            "nomad/creds/developer"
+        ))
+    })
 }
 
 impl std::fmt::Display for Topic {
