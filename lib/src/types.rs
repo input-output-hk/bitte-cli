@@ -576,7 +576,7 @@ pub struct BitteCluster {
     pub nodes: BitteNodes,
     pub domain: String,
     pub provider: BitteProvider,
-    pub s3_cache: String,
+    pub terra: Option<TerraformStateValue>,
     #[serde(skip)]
     pub nomad_api_client: Arc<Client>,
     pub ttl: SystemTime,
@@ -719,7 +719,7 @@ impl BitteNode {
         allocs: AllocHandle,
         clients: ClientHandle,
         state: TerraHandle,
-    ) -> Result<(BitteNodes, String)> {
+    ) -> Result<(BitteNodes, Option<TerraformStateValue>)> {
         match provider {
             BitteProvider::AWS => {
                 let asg_regions = lib::get_env("AWS_ASG_REGIONS")?;
@@ -763,7 +763,11 @@ impl BitteNode {
                 let allocs = allocs.await??;
                 let clients = clients.await??;
 
-                let state = state.await??;
+                let state = if let Some(state) = state {
+                    Some(state.await??)
+                } else {
+                    None
+                };
 
                 for response in handles.into_iter() {
                     let response = response.await??;
@@ -797,11 +801,13 @@ impl BitteNode {
                             };
 
                             if node.name.is_empty() {
-                                for inst in state.instances.values() {
-                                    if inst.private_ip == node.priv_ip.to_string() {
-                                        node.name = inst.name.clone()
-                                    };
-                                }
+                                if let Some(state) = &state {
+                                    for inst in state.instances.values() {
+                                        if inst.private_ip == node.priv_ip.to_string() {
+                                            node.name = inst.name.clone()
+                                        };
+                                    }
+                                };
                             }
 
                             node
@@ -811,7 +817,7 @@ impl BitteNode {
                     result.append(&mut nodes);
                 }
 
-                Ok((result, state.s3_cache))
+                Ok((result, state))
             }
         }
     }
@@ -895,7 +901,7 @@ where
     }
 }
 
-type TerraHandle = JoinHandle<Result<TerraformStateValue>>;
+type TerraHandle = Option<JoinHandle<Result<TerraformStateValue>>>;
 type ClientHandle = JoinHandle<Result<NomadClients>>;
 type AllocHandle = JoinHandle<Result<NomadAllocs>>;
 
@@ -911,10 +917,12 @@ impl BitteCluster {
             }?
         };
 
-        let t_state = tokio::spawn(async move {
-            Ok(terraform::output("clients")
-                .or_else::<anyhow::Error, _>(|_| terraform::output("core"))?)
-        });
+        let t_state = match &provider {
+            BitteProvider::AWS => Some(tokio::spawn(async move {
+                terraform::output("clients")
+                    .or_else::<anyhow::Error, _>(|_| terraform::output("core"))
+            })),
+        };
 
         let nomad_api_client = {
             let token = lib::get_env("NOMAD_TOKEN").or_else::<anyhow::Error, _>(|_| {
@@ -952,7 +960,7 @@ impl BitteCluster {
             t_state,
         ));
 
-        let (nodes, s3_cache) = nodes.await??;
+        let (nodes, terra) = nodes.await??;
 
         let cluster = Self {
             name,
@@ -960,7 +968,7 @@ impl BitteCluster {
             provider,
             nomad_api_client,
             nodes,
-            s3_cache,
+            terra,
             ttl: SystemTime::now()
                 .checked_add(Duration::from_secs(300))
                 .unwrap(),

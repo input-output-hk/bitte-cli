@@ -3,7 +3,9 @@ use log::info;
 use std::{env, net::IpAddr, path::Path, process::Command, time::Duration};
 
 use crate::{
-    self as lib, check_cmd, handle_command_error,
+    self as lib, check_cmd,
+    error::Error,
+    handle_command_error,
     ssh::wait_for_ssh,
     types::{BitteFind, BitteNode, ClusterHandle},
 };
@@ -35,7 +37,14 @@ pub async fn copy(
 
     let mut iter = instances.iter().peekable();
 
-    let cache = if copy { Some(cluster.s3_cache) } else { None };
+    let cache = if copy {
+        match cluster.terra {
+            Some(terra) => Ok(Some(terra.s3_cache)),
+            None => Err(Error::MissingCache),
+        }
+    } else {
+        Ok(None)
+    }?;
 
     while let Some(instance) = iter.next() {
         info!("rebuild: {}, {}", instance.name, instance.pub_ip);

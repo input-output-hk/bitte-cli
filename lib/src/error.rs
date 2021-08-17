@@ -23,6 +23,8 @@ pub enum Error {
     NetrcError(netrc_rs::Error),
     #[error("couldn't read ~/.netrc")]
     NetrcMissing,
+    #[error("There is no s3 cache for this cluster; remove the `-c` flag")]
+    MissingCache,
     #[error("error executing external process: {details}")]
     ExeError { details: String },
     #[error("current BITTE_PROVIDER is not valid: {provider}")]
