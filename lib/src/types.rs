@@ -716,9 +716,9 @@ impl BitteNode {
     async fn find_nodes(
         provider: BitteProvider,
         name: String,
-        alloc_handle: JoinHandle<Result<NomadAllocs>>,
-        clients_handle: JoinHandle<Result<NomadClients>>,
-        terra_handle: TerraHandle,
+        allocs: AllocHandle,
+        clients: ClientHandle,
+        state: TerraHandle,
     ) -> Result<(BitteNodes, String)> {
         match provider {
             BitteProvider::AWS => {
@@ -760,20 +760,10 @@ impl BitteNode {
 
                 let mut result: BitteNodes = Vec::new();
 
-                let allocs = alloc_handle.await??;
-                let clients = clients_handle.await??;
+                let allocs = allocs.await??;
+                let clients = clients.await??;
 
-                let state = {
-                    let clients = terra_handle.clients.await?.ok();
-                    if let Some(t) = clients {
-                        t
-                    } else {
-                        terra_handle
-                            .core
-                            .await?
-                            .expect("Couldn't fetch clients or core workspaces")
-                    }
-                };
+                let state = state.await??;
 
                 for response in handles.into_iter() {
                     let response = response.await??;
@@ -905,6 +895,10 @@ where
     }
 }
 
+type TerraHandle = JoinHandle<Result<TerraformStateValue>>;
+type ClientHandle = JoinHandle<Result<NomadClients>>;
+type AllocHandle = JoinHandle<Result<NomadAllocs>>;
+
 impl BitteCluster {
     pub async fn new() -> Result<Self> {
         let name = lib::get_env("BITTE_CLUSTER")?;
@@ -916,6 +910,11 @@ impl BitteCluster {
                 Err(_) => Err(Error::ProviderError { provider: string }),
             }?
         };
+
+        let t_state = tokio::spawn(async move {
+            Ok(terraform::output("clients")
+                .or_else::<anyhow::Error, _>(|_| terraform::output("core"))?)
+        });
 
         let nomad_api_client = {
             let token = lib::get_env("NOMAD_TOKEN").or_else::<anyhow::Error, _>(|_| {
@@ -940,11 +939,6 @@ impl BitteCluster {
             domain.to_owned(),
         ));
 
-        let terra_state = TerraHandle {
-            clients: tokio::spawn(async move { terraform::output("clients") }),
-            core: tokio::spawn(async move { terraform::output("core") }),
-        };
-
         let client_nodes = tokio::spawn(NomadClient::find_nomad_nodes(
             Arc::clone(&nomad_api_client),
             domain.to_owned(),
@@ -955,7 +949,7 @@ impl BitteCluster {
             name.to_owned(),
             allocs,
             client_nodes,
-            terra_state,
+            t_state,
         ));
 
         let (nodes, s3_cache) = nodes.await??;
@@ -1013,9 +1007,4 @@ impl BitteCluster {
             Ok(cluster)
         })
     }
-}
-
-struct TerraHandle {
-    clients: JoinHandle<Result<TerraformStateValue>>,
-    core: JoinHandle<Result<TerraformStateValue>>,
 }
