@@ -52,9 +52,7 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
     let mut args = sub.values_of_lossy("args").unwrap_or_default();
     let job: Vec<String> = sub.values_of_t("job").unwrap_or_default();
 
-    let namespace: String = sub
-        .value_of_t("namespace")
-        .unwrap_or(env::var("NOMAD_NAMESPACE")?);
+    let namespace: String = sub.value_of_t("namespace").unwrap_or_default();
 
     let ip: IpAddr;
 
@@ -98,11 +96,20 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
                 };
 
                 allocs.as_ref().unwrap().iter().any(|alloc| {
-                    alloc.namespace == namespace
+                    let is_alloc = alloc.namespace == namespace
                         && &alloc.job_id == name
                         && &alloc.task_group == group
                         && alloc.index.get() == index.parse().ok()
-                        && alloc.status == "running"
+                        && alloc.status == "running";
+
+                    if is_alloc && args.is_empty() {
+                        args.extend(vec![
+                            "-t".into(),
+                            format!("cd /var/lib/nomad/alloc/{}; bash", alloc.id),
+                        ]);
+                    }
+
+                    is_alloc
                 })
             })
             .with_context(|| {

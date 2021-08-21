@@ -37,10 +37,10 @@ async fn main() -> Result<()> {
         (@arg json: -j --json "format as json"))
       (@subcommand ssh =>
         (about: "SSH to instances")
-        (@arg job: -j --job +takes_value +multiple #{3, 3} "specify client by: job group alloc_index")
-        (@arg all: -a --all conflicts_with[job] requires[args] "run [args] on all nodes")
-        (@arg parallel: -p --parallel conflicts_with[job] requires[args] conflicts_with[all] "run [args] on nodes in parallel")
-        (@arg namespace: -n --namespace +takes_value "specify nomad namespace to search for <job>; only valid for --job flag")
+        (@arg job: -j --job +takes_value +multiple #{3, 3} "specify client by: job group alloc_index\nauto 'cd' to alloc dir when <args> are not specified")
+        (@arg all: -a --all conflicts_with[job] requires[args] "run <args> on all nodes")
+        (@arg parallel: -p --parallel conflicts_with[job] requires[args] conflicts_with[all] "run <args> on nodes in parallel")
+        (@arg namespace: -n --namespace +takes_value env[NOMAD_NAMESPACE] "specify nomad namespace to search for <job>\nonly valid with --job flag")
         (@arg args: +takes_value +multiple "arguments to ssh"))
       (@subcommand terraform =>
         (about: "Run terraform")
