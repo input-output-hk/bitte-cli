@@ -1,9 +1,9 @@
 mod cli;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use bitte_lib::types::{BitteCluster, ClusterHandle};
 use clap::clap_app;
-use clap::IntoApp;
+use clap::{Arg, IntoApp};
 use deploy::cli::Opts;
 use std::env;
 
@@ -11,21 +11,15 @@ use std::env;
 async fn main() -> Result<()> {
     let _toml = include_str!("../Cargo.toml");
 
-    env::var("IN_NIX_SHELL")
-        .and(env::var("BITTE_DOMAIN"))
-        .with_context(|| {
-            concat!(
-                "This program should be run from a bitte shell:\n",
-                "https://github.com/input-output-hk/bitte/blob/master/pkgs/bitte-shell.nix"
-            )
-        })?;
-
-    let cluster: ClusterHandle = BitteCluster::init();
-
     let mut app = clap_app!((clap::crate_name!()) =>
       (version: clap::crate_version!())
       (author: clap::crate_authors!("\n"))
       (about: clap::crate_description!())
+      (@arg provider: --provider<NAME> env[BITTE_PROVIDER] "The cluster infrastructure provider")
+      (@arg domain: --domain<NAME> env[BITTE_DOMAIN] "The public domain of the cluster")
+      (@arg name: --cluster<NAME> env[BITTE_CLUSTER] "The unique name of the cluster")
+      (@arg nomad: --nomad<TOKEN> env[NOMAD_TOKEN] "The Nomad token used to query node information")
+      (@arg root: --root<FLAKE_DIR> env[FLAKE_ROOT] "The cluster flake's root directory")
       (@subcommand rebuild =>
         (about: "nixos-rebuild")
         (@arg only: -o --only +takes_value +multiple "pattern of hosts to deploy")
@@ -70,12 +64,30 @@ async fn main() -> Result<()> {
       (@subcommand certs =>
         (@arg domain: +takes_value +required "FQDN of the cluster"))
     )
-    .subcommand(<Opts as IntoApp>::into_app().name("deploy"));
+    .subcommand(<Opts as IntoApp>::into_app().name("deploy"))
+    .arg(
+        Arg::new("aws-region")
+        .about("The default AWS region")
+        .long("aws-region")
+        .takes_value(true)
+        .required_if_eq("provider", "AWS")
+        .env("AWS_DEFAULT_REGION")
+    ).arg(
+        Arg::new("aws-asg-regions")
+        .about("Regions containing Nomad clients")
+        .long("aws-asg-regions")
+        .value_delimiter(":")
+        .require_delimiter(true)
+        .required_if_eq("provider", "AWS")
+        .env("AWS_ASG_REGIONS")
+    );
 
     let mut help_text = Vec::new();
     app.write_help(&mut help_text)
         .expect("Failed to write help text to buffer");
     let matches = app.get_matches();
+
+    let cluster: ClusterHandle = BitteCluster::init(matches.clone());
 
     match matches.subcommand() {
         Some(("rebuild", sub)) => {

@@ -3,7 +3,7 @@ use log::info;
 use std::{env, net::IpAddr, path::Path, process::Command, time::Duration};
 
 use crate::{
-    self as lib, check_cmd,
+    check_cmd,
     error::Error,
     handle_command_error,
     ssh::wait_for_ssh,
@@ -132,7 +132,7 @@ pub fn nix_copy_to_machine(target: &str, ssh: &IpAddr) -> Result<()> {
     Ok(())
 }
 
-pub fn set_ssh_opts(key_checking: bool) -> Result<()> {
+pub fn set_ssh_opts(key_checking: bool, cluster: &str) -> Result<()> {
     if env::var("NIX_SSHOPTS").is_ok() {
         return Ok(());
     }
@@ -152,7 +152,7 @@ pub fn set_ssh_opts(key_checking: bool) -> Result<()> {
         &check_flag,
     ];
 
-    let ssh_key_path = format!("secrets/ssh-{}", lib::get_env("BITTE_CLUSTER")?);
+    let ssh_key_path = format!("secrets/ssh-{}", cluster);
     let ssh_key = Path::new(&ssh_key_path);
     if ssh_key.is_file() {
         args.push("-i");

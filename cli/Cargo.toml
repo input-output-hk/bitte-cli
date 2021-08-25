@@ -1,6 +1,6 @@
 [package]
 name = "bitte"
-version = "0.2.2"
+version = "0.3.0"
 authors = ["manveru <michael.fellinger@iohk.io>"]
 description = "Deploy all the things!"
 edition = "2018"
@@ -18,7 +18,6 @@ rusoto_core = "^0.46"
 rusoto_signature = "^0.46"
 rusoto_autoscaling = "^0.46"
 tokio = "1.9.0"
-tokio-stream = "0.1.7"
 execute = "0.2.8"
 log = "0.4.14"
 pretty_env_logger = "0.4.0"
@@ -27,7 +26,7 @@ duct = "0.13"
 deploy-rs = { git = "https://github.com/nrdxp/deploy-rs", branch = "expand-ssh-opts" }
 
 [dependencies.clap]
-version = "3.0.0-beta.2"
+version = "=3.0.0-beta.2"
 features = ["suggestions", "color", "wrap_help"]
 
 [dev-dependencies]

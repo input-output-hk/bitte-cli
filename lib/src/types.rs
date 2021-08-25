@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate as lib;
+use clap::ArgMatches;
 use colored::*;
 use restson::RestPath;
 use rusoto_core::Region;
@@ -25,11 +25,9 @@ use reqwest::{
     Client,
 };
 
-use crate::{error::Error, terraform};
+use crate::{terraform, Error};
 
 use regex::Regex;
-
-use crate::nomad;
 
 #[derive(Deserialize)]
 pub struct RawVaultState {
@@ -720,16 +718,17 @@ impl BitteNode {
         allocs: AllocHandle,
         clients: ClientHandle,
         state: TerraHandle,
+        args: ArgMatches,
     ) -> Result<(BitteNodes, Option<TerraformStateValue>)> {
         match provider {
             BitteProvider::AWS => {
-                let asg_regions = lib::get_env("AWS_ASG_REGIONS")?;
-                let default_region = lib::get_env("AWS_DEFAULT_REGION")?;
-                let regions_str = format!("{}:{}", asg_regions, default_region);
-                let regions: HashSet<String> = regions_str
-                    .split(':')
-                    .map(|region| region.to_owned())
-                    .collect();
+                let regions: HashSet<String> = {
+                    let mut result = args.values_of_t("aws-asg-regions")?;
+                    let default = args.value_of_t("aws-region")?;
+                    result.push(default);
+                    result.into_iter().collect()
+                };
+
                 let mut handles = Vec::new();
 
                 for region_str in regions {
@@ -907,14 +906,14 @@ type ClientHandle = JoinHandle<Result<NomadClients>>;
 type AllocHandle = JoinHandle<Result<NomadAllocs>>;
 
 impl BitteCluster {
-    pub async fn new() -> Result<Self> {
-        let name = lib::get_env("BITTE_CLUSTER")?;
-        let domain = lib::get_env("BITTE_DOMAIN")?;
+    pub async fn new(args: &ArgMatches) -> Result<Self> {
+        let name: String = args.value_of_t("name")?;
+        let domain: String = args.value_of_t("domain")?;
         let provider: BitteProvider = {
-            let string = lib::get_env("BITTE_PROVIDER")?;
-            match string.parse() {
+            let provider: String = args.value_of_t("provider")?;
+            match provider.parse() {
                 Ok(v) => Ok(v),
-                Err(_) => Err(Error::ProviderError { provider: string }),
+                Err(_) => Err(Error::ProviderError { provider }),
             }?
         };
 
@@ -926,12 +925,7 @@ impl BitteCluster {
         };
 
         let nomad_api_client = {
-            let token = lib::get_env("NOMAD_TOKEN").or_else::<anyhow::Error, _>(|_| {
-                let token = nomad::nomad_token()?;
-                env::set_var("NOMAD_TOKEN", &token);
-                Ok(token)
-            })?;
-            let mut token = HeaderValue::from_str(&token)?;
+            let mut token = HeaderValue::from_str(args.value_of("nomad").unwrap())?;
             token.set_sensitive(true);
             let mut headers = HeaderMap::new();
             headers.insert("X-Nomad-Token", token);
@@ -953,12 +947,16 @@ impl BitteCluster {
             domain.to_owned(),
         ));
 
+        let flake_root: String = args.value_of_t("root")?;
+        let args = args.clone();
+
         let nodes = tokio::spawn(BitteNode::find_nodes(
             provider,
             name.to_owned(),
             allocs,
             client_nodes,
             t_state,
+            args,
         ));
 
         let (nodes, terra) = nodes.await??;
@@ -975,7 +973,6 @@ impl BitteCluster {
                 .unwrap(),
         };
 
-        let flake_root = lib::get_env("FLAKE_ROOT")?;
         let file = std::fs::File::create(format!("{}/.cache.json", flake_root)).ok();
 
         if let Some(file) = file {
@@ -986,9 +983,9 @@ impl BitteCluster {
     }
 
     #[inline(always)]
-    pub fn init() -> ClusterHandle {
+    pub fn init(args: ArgMatches) -> ClusterHandle {
         tokio::spawn(async move {
-            let flake_root = lib::get_env("FLAKE_ROOT")?;
+            let flake_root: String = args.value_of_t("root")?;
             let file = std::fs::File::open(format!("{}/.cache.json", flake_root)).ok();
 
             let cluster: BitteCluster;
@@ -1001,16 +998,16 @@ impl BitteCluster {
                         let cluster = serde_json::from_reader(reader);
                         match cluster.ok() {
                             Some(c) => c,
-                            None => BitteCluster::new().await?,
+                            None => BitteCluster::new(&args).await?,
                         }
                     };
                     match cluster.ttl.duration_since(SystemTime::now()) {
                         Ok(_) => cluster,
-                        Err(_) => BitteCluster::new().await?,
+                        Err(_) => BitteCluster::new(&args).await?,
                     }
                 }
             } else {
-                cluster = BitteCluster::new().await?;
+                cluster = BitteCluster::new(&args).await?;
             }
 
             Ok(cluster)

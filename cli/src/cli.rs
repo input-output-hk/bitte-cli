@@ -31,7 +31,7 @@ pub(crate) async fn provision(sub: &ArgMatches) -> Result<()> {
     let attr: String = sub.value_of_t_or_exit("attr");
     let cache: String = sub.value_of_t_or_exit("cache");
 
-    rebuild::set_ssh_opts(false)?;
+    rebuild::set_ssh_opts(false, &cluster)?;
     ssh::wait_for_ssh(&ip).await?;
     ssh::wait_for_ready(&cluster, &ip)?;
     ssh::ssh_keygen(&ip)?;
@@ -181,8 +181,9 @@ pub(crate) async fn rebuild(sub: &ArgMatches, cluster: ClusterHandle) -> Result<
     let delay = Duration::from_secs(sub.value_of_t::<u64>("delay").unwrap_or(0));
     let copy: bool = sub.is_present("copy");
     let clients: bool = sub.is_present("clients");
+    let name: String = sub.value_of_t("cluster")?;
 
-    rebuild::set_ssh_opts(true)?;
+    rebuild::set_ssh_opts(true, &name)?;
     rebuild::copy(
         only.iter().map(|o| o.as_str()).collect(),
         delay,

@@ -1,6 +1,6 @@
 [package]
 name = "bitte-lib"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["manveru <michael.fellinger@iohk.io>"]
 edition = "2018"
 
@@ -30,7 +30,7 @@ anyhow = "1.0.42"
 enum-utils = "0.1.2"
 
 [dependencies.clap]
-version = "3.0.0-beta.2"
+version = "=3.0.0-beta.2"
 features = ["suggestions", "color", "wrap_help"]
 
 [dev-dependencies]
