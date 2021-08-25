@@ -59,7 +59,15 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
     let cluster = cluster.await??;
 
     if sub.is_present("all") {
-        let nodes = cluster.nodes;
+        let nodes = if sub.is_present("clients") {
+            cluster
+                .nodes
+                .into_iter()
+                .filter(|node| node.nomad_client.is_some())
+                .collect()
+        } else {
+            cluster.nodes
+        };
 
         for node in nodes.iter() {
             init_ssh(node.pub_ip, args.clone(), cluster.name.clone()).await?;
@@ -67,7 +75,16 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
 
         return Ok(());
     } else if sub.is_present("parallel") {
-        let nodes = cluster.nodes;
+        let nodes = if sub.is_present("clients") {
+            cluster
+                .nodes
+                .into_iter()
+                .filter(|node| node.nomad_client.is_some())
+                .collect()
+        } else {
+            cluster.nodes
+        };
+
         let mut handles: Vec<JoinHandle<Result<()>>> = Vec::with_capacity(nodes.len());
 
         for node in nodes.into_iter() {
