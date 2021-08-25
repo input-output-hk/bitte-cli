@@ -37,6 +37,7 @@ async fn main() -> Result<()> {
             (@arg parallel: -p --parallel conflicts_with[job] requires[args] conflicts_with[all] "run <args> on nodes in parallel"))
         (@arg namespace: -n --namespace +takes_value env[NOMAD_NAMESPACE] "specify nomad namespace to search for <job>\nonly valid with --job flag")
         (@arg clients: -l --clients requires[multi] "for -a and -p, execute commands only on Nomad clients")
+        (@arg delay: -d --delay +takes_value requires[all] "for -a, seconds to delay between commands")
         (@arg args: +takes_value +multiple "arguments to ssh"))
       (@subcommand terraform =>
         (about: "Run terraform")

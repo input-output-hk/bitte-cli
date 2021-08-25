@@ -51,6 +51,7 @@ pub(crate) async fn provision(sub: &ArgMatches) -> Result<()> {
 pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
     let mut args = sub.values_of_lossy("args").unwrap_or_default();
     let job: Vec<String> = sub.values_of_t("job").unwrap_or_default();
+    let delay = Duration::from_secs(sub.value_of_t::<u64>("delay").unwrap_or(0));
 
     let namespace: String = sub.value_of_t("namespace").unwrap_or_default();
 
@@ -69,8 +70,13 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
             cluster.nodes
         };
 
-        for node in nodes.iter() {
+        let mut iter = nodes.iter().peekable();
+
+        while let Some(node) = iter.next() {
             init_ssh(node.pub_ip, args.clone(), cluster.name.clone()).await?;
+            if sub.is_present("delay") && iter.peek().is_some() {
+                tokio::time::sleep(delay).await;
+            }
         }
 
         return Ok(());
