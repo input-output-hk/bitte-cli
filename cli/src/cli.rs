@@ -9,7 +9,7 @@ use log::*;
 use prettytable::{cell, row, Table};
 use std::net::IpAddr;
 use std::{env, io, path::Path, process::Command, time::Duration};
-use tokio_stream::{self as stream, StreamExt};
+use tokio::task::JoinHandle;
 
 pub(crate) async fn certs(sub: &ArgMatches) -> Result<()> {
     let domain: String = sub.value_of_t_or_exit("domain");
@@ -68,12 +68,18 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
         return Ok(());
     } else if sub.is_present("parallel") {
         let nodes = cluster.nodes;
-        let name = cluster.name.clone();
+        let mut handles: Vec<JoinHandle<Result<()>>> = Vec::with_capacity(nodes.len());
 
-        let mut stream = stream::iter(nodes)
-            .map(|node| tokio::spawn(init_ssh(node.pub_ip, args.clone(), name.clone())));
+        for node in nodes.into_iter() {
+            let args = args.clone();
+            let name = cluster.name.clone();
+            let handle = tokio::spawn(async move { init_ssh(node.pub_ip, args, name).await });
+            handles.push(handle);
+        }
 
-        while stream.next().await.is_some() {}
+        for handle in handles.into_iter() {
+            handle.await??;
+        }
 
         return Ok(());
     } else if sub.is_present("job") {
