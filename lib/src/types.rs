@@ -574,7 +574,7 @@ pub struct BitteCluster {
     pub nodes: BitteNodes,
     pub domain: String,
     pub provider: BitteProvider,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "skip_info")]
     pub terra: Option<TerraformStateValue>,
     #[serde(skip)]
     pub nomad_api_client: Arc<Client>,
@@ -622,7 +622,7 @@ pub struct BitteNode {
     pub nomad_client: Option<NomadClient>,
 }
 
-fn skip_info(_: &Option<NomadClient>) -> bool {
+fn skip_info<T>(_: &Option<T>) -> bool {
     env::var("BITTE_INFO_NO_ALLOCS").is_ok()
 }
 
