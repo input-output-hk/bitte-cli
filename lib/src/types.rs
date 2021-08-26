@@ -8,6 +8,7 @@ use rusoto_ec2::{DescribeInstancesRequest, Ec2, Ec2Client, Filter, Instance, Tag
 use serde::{de::Deserializer, Deserialize, Serialize};
 use std::collections::hash_set::HashSet;
 use std::env;
+use std::fs;
 use std::io::BufReader;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -1001,6 +1002,8 @@ impl BitteCluster {
 
         let (nodes, terra) = nodes.await??;
 
+        let cache_name = name.clone();
+
         let cluster = Self {
             name,
             domain,
@@ -1013,7 +1016,7 @@ impl BitteCluster {
                 .unwrap(),
         };
 
-        let file = std::fs::File::create(cache_dir()?).ok();
+        let file = std::fs::File::create(cache_dir(cache_name)?).ok();
 
         if let Some(file) = file {
             serde_json::to_writer(file, &cluster)?;
@@ -1025,7 +1028,7 @@ impl BitteCluster {
     #[inline(always)]
     pub fn init(args: ArgMatches, token: Uuid) -> ClusterHandle {
         tokio::spawn(async move {
-            let file = std::fs::File::open(cache_dir()?).ok();
+            let file = std::fs::File::open(cache_dir(args.value_of_t("name")?)?).ok();
 
             let cluster: BitteCluster;
 
@@ -1054,10 +1057,14 @@ impl BitteCluster {
     }
 }
 
-fn cache_dir() -> Result<String> {
-    Ok(format!(
-        "{}/bitte.json",
+fn cache_dir(name: String) -> Result<String> {
+    let dir = format!(
+        "{}/bitte",
         env::var("XDG_CACHE_DIR")
             .or_else::<anyhow::Error, _>(|_| Ok(format!("{}/.cache", env::var("HOME")?)))?
-    ))
+    );
+
+    fs::create_dir_all(&dir)?;
+
+    Ok(format!("{}/{}.json", &dir, name))
 }

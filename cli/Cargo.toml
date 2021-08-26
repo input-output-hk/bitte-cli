@@ -1,6 +1,6 @@
 [package]
 name = "bitte"
-version = "0.3.3"
+version = "0.3.4"
 authors = ["manveru <michael.fellinger@iohk.io>"]
 description = "Deploy all the things!"
 edition = "2018"
