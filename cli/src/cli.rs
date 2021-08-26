@@ -374,7 +374,14 @@ async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
         serde_json::to_writer_pretty(handle, &cluster)?;
     } else {
         let mut instance_table = Table::new();
-        instance_table.add_row(row!["Name", "Private IP", "Public IP"]);
+        instance_table.add_row(row![
+            "Name",
+            "Private IP",
+            "Public IP",
+            "Type",
+            "Zone",
+            "Suffix"
+        ]);
 
         let nodes = cluster.await??.nodes;
 
@@ -385,7 +392,38 @@ async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
                 node.name
             };
 
-            instance_table.add_row(row![name, node.priv_ip, node.pub_ip]);
+            let suffix = {
+                let asg = node
+                    .asg
+                    .unwrap_or_default()
+                    .split('-')
+                    .last()
+                    .unwrap_or_default()
+                    .to_owned();
+
+                let i_type = node
+                    .node_type
+                    .clone()
+                    .unwrap_or_default()
+                    .split('.')
+                    .last()
+                    .unwrap_or_default()
+                    .to_owned();
+                if asg != "" && asg != i_type {
+                    Some(asg)
+                } else {
+                    None
+                }
+            };
+
+            instance_table.add_row(row![
+                name,
+                node.priv_ip,
+                node.pub_ip,
+                node.node_type.unwrap_or_default(),
+                node.zone.unwrap_or_default(),
+                suffix.unwrap_or_default()
+            ]);
         }
 
         instance_table.printstd();

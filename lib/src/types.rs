@@ -4,7 +4,7 @@ use clap::ArgMatches;
 use colored::*;
 use restson::RestPath;
 use rusoto_core::Region;
-use rusoto_ec2::{DescribeInstancesRequest, Ec2, Ec2Client, Filter, Instance};
+use rusoto_ec2::{DescribeInstancesRequest, Ec2, Ec2Client, Filter, Instance, Tag};
 use serde::{de::Deserializer, Deserialize, Serialize};
 use std::collections::hash_set::HashSet;
 use std::env;
@@ -620,6 +620,12 @@ pub struct BitteNode {
     pub nixos: String,
     #[serde(skip_serializing_if = "skip_info")]
     pub nomad_client: Option<NomadClient>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub node_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub zone: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub asg: Option<String>,
 }
 
 fn skip_info<T>(_: &Option<T>) -> bool {
@@ -684,29 +690,67 @@ impl BitteFind for BitteNodes {
 
 impl From<Instance> for BitteNode {
     fn from(instance: Instance) -> Self {
-        let mut tags = instance.tags.unwrap().into_iter();
+        let tags = instance.tags.unwrap_or_default();
+
         let nixos = tags
-            .find(|tag| tag.key.as_ref().unwrap_or(&"".to_owned()) == "UID")
-            .unwrap_or_default()
+            .iter()
+            .find(|tag| tag.key == Some("UID".into()))
+            .unwrap_or(&Tag {
+                key: None,
+                value: None,
+            })
             .value
-            .unwrap_or_default();
+            .as_ref();
+
         let name = tags
-            .find(|tag| tag.key.as_ref().unwrap_or(&"".to_owned()) == "Name")
-            .unwrap_or_default()
+            .iter()
+            .find(|tag| tag.key == Some("Name".into()))
+            .unwrap_or(&Tag {
+                key: None,
+                value: None,
+            })
             .value
-            .unwrap_or_default();
+            .as_ref();
+
+        let asg = tags
+            .iter()
+            .find(|tag| tag.key == Some("aws:autoscaling:groupName".into()))
+            .unwrap_or(&Tag {
+                key: None,
+                value: None,
+            })
+            .value
+            .as_ref();
 
         let no_ip = IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0));
 
+        let zone = if let Some(p) = instance.placement {
+            p.availability_zone
+        } else {
+            None
+        };
+
         Self {
             id: instance.instance_id.unwrap_or_default(),
-            name,
+            name: match name {
+                Some(name) => name.to_owned(),
+                None => "".into(),
+            },
             priv_ip: IpAddr::from_str(&instance.private_ip_address.unwrap_or_default())
                 .unwrap_or(no_ip),
             pub_ip: IpAddr::from_str(&instance.public_ip_address.unwrap_or_default())
                 .unwrap_or(no_ip),
             nomad_client: None,
-            nixos,
+            nixos: match nixos {
+                Some(nixos) => nixos.to_owned(),
+                None => "".into(),
+            },
+            node_type: instance.instance_type,
+            zone,
+            asg: match asg {
+                Some(asg) => Some(asg.to_owned()),
+                None => None,
+            },
         }
     }
 }
