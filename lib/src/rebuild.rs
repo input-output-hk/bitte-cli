@@ -7,7 +7,7 @@ use crate::{
     error::Error,
     handle_command_error,
     ssh::wait_for_ssh,
-    types::{BitteFind, BitteNode, ClusterHandle},
+    types::{BitteCluster, BitteFind, BitteNode},
 };
 
 pub async fn copy(
@@ -15,11 +15,9 @@ pub async fn copy(
     delay: Duration,
     copy: bool,
     clients: bool,
-    cluster: ClusterHandle,
+    cluster: BitteCluster,
 ) -> Result<()> {
     info!("only: {:?}", only);
-
-    let cluster = cluster.await??;
 
     let instances = if only.is_empty() {
         if clients {

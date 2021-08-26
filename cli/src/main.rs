@@ -117,7 +117,7 @@ async fn main() -> Result<()> {
         Some(("provision", sub)) => {
             pretty_env_logger::init();
             cluster.abort();
-            cli::provision(sub).await
+            cli::provision(sub, matches.value_of_t("name")?).await
         }
         Some(("certs", sub)) => {
             pretty_env_logger::init();

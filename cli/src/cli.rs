@@ -24,9 +24,8 @@ pub(crate) async fn certs(sub: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn provision(sub: &ArgMatches) -> Result<()> {
+pub(crate) async fn provision(sub: &ArgMatches, cluster: String) -> Result<()> {
     let ip: IpAddr = sub.value_of_t("ip")?;
-    let cluster: String = sub.value_of_t("cluster")?;
     let flake: String = sub.value_of_t_or_exit("flake");
     let attr: String = sub.value_of_t_or_exit("attr");
     let cache: String = sub.value_of_t_or_exit("cache");
@@ -204,9 +203,10 @@ pub(crate) async fn rebuild(sub: &ArgMatches, cluster: ClusterHandle) -> Result<
     let delay = Duration::from_secs(sub.value_of_t::<u64>("delay").unwrap_or(0));
     let copy: bool = sub.is_present("copy");
     let clients: bool = sub.is_present("clients");
-    let name: String = sub.value_of_t("cluster")?;
 
-    rebuild::set_ssh_opts(true, &name)?;
+    let cluster = cluster.await??;
+
+    rebuild::set_ssh_opts(true, &cluster.name)?;
     rebuild::copy(
         only.iter().map(|o| o.as_str()).collect(),
         delay,
