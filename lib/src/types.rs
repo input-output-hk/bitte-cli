@@ -988,7 +988,6 @@ impl BitteCluster {
             domain.to_owned(),
         ));
 
-        let flake_root: String = args.value_of_t("root")?;
         let args = args.clone();
 
         let nodes = tokio::spawn(BitteNode::find_nodes(
@@ -1014,7 +1013,7 @@ impl BitteCluster {
                 .unwrap(),
         };
 
-        let file = std::fs::File::create(format!("{}/.cache.json", flake_root)).ok();
+        let file = std::fs::File::create(cache_dir()?).ok();
 
         if let Some(file) = file {
             serde_json::to_writer(file, &cluster)?;
@@ -1026,8 +1025,7 @@ impl BitteCluster {
     #[inline(always)]
     pub fn init(args: ArgMatches, token: Uuid) -> ClusterHandle {
         tokio::spawn(async move {
-            let flake_root: String = args.value_of_t("root")?;
-            let file = std::fs::File::open(format!("{}/.cache.json", flake_root)).ok();
+            let file = std::fs::File::open(cache_dir()?).ok();
 
             let cluster: BitteCluster;
 
@@ -1054,4 +1052,12 @@ impl BitteCluster {
             Ok(cluster)
         })
     }
+}
+
+fn cache_dir() -> Result<String> {
+    Ok(format!(
+        "{}/bitte.json",
+        env::var("XDG_CACHE_DIR")
+            .or_else::<anyhow::Error, _>(|_| Ok(format!("{}/.cache", env::var("HOME")?)))?
+    ))
 }

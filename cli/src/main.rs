@@ -20,7 +20,6 @@ async fn main() -> Result<()> {
       (@arg domain: --domain<NAME> env[BITTE_DOMAIN] "The public domain of the cluster")
       (@arg name: --cluster<NAME> env[BITTE_CLUSTER] "The unique name of the cluster")
       (@arg "nomad-token": --nomad<TOKEN> env[NOMAD_TOKEN] "The Nomad token used to query node information")
-      (@arg root: --root<FLAKE_DIR> env[FLAKE_ROOT] "The cluster flake's root directory")
       (@subcommand rebuild =>
         (about: "nixos-rebuild")
         (@arg only: -o --only +takes_value +multiple "pattern of hosts to deploy")
