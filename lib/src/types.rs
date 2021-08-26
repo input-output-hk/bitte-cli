@@ -747,10 +747,7 @@ impl From<Instance> for BitteNode {
             },
             node_type: instance.instance_type,
             zone,
-            asg: match asg {
-                Some(asg) => Some(asg.to_owned()),
-                None => None,
-            },
+            asg: asg.map(|asg| asg.to_owned()),
         }
     }
 }
@@ -950,7 +947,7 @@ type ClientHandle = JoinHandle<Result<NomadClients>>;
 type AllocHandle = JoinHandle<Result<NomadAllocs>>;
 
 impl BitteCluster {
-    pub async fn new(args: &ArgMatches) -> Result<Self> {
+    pub async fn new(args: &ArgMatches, token: Uuid) -> Result<Self> {
         let name: String = args.value_of_t("name")?;
         let domain: String = args.value_of_t("domain")?;
         let provider: BitteProvider = {
@@ -969,7 +966,7 @@ impl BitteCluster {
         };
 
         let nomad_api_client = {
-            let mut token = HeaderValue::from_str(args.value_of("nomad").unwrap())?;
+            let mut token = HeaderValue::from_str(&token.to_string())?;
             token.set_sensitive(true);
             let mut headers = HeaderMap::new();
             headers.insert("X-Nomad-Token", token);
@@ -1027,7 +1024,7 @@ impl BitteCluster {
     }
 
     #[inline(always)]
-    pub fn init(args: ArgMatches) -> ClusterHandle {
+    pub fn init(args: ArgMatches, token: Uuid) -> ClusterHandle {
         tokio::spawn(async move {
             let flake_root: String = args.value_of_t("root")?;
             let file = std::fs::File::open(format!("{}/.cache.json", flake_root)).ok();
@@ -1042,16 +1039,16 @@ impl BitteCluster {
                         let cluster = serde_json::from_reader(reader);
                         match cluster.ok() {
                             Some(c) => c,
-                            None => BitteCluster::new(&args).await?,
+                            None => BitteCluster::new(&args, token).await?,
                         }
                     };
                     match cluster.ttl.duration_since(SystemTime::now()) {
                         Ok(_) => cluster,
-                        Err(_) => BitteCluster::new(&args).await?,
+                        Err(_) => BitteCluster::new(&args, token).await?,
                     }
                 }
             } else {
-                cluster = BitteCluster::new(&args).await?;
+                cluster = BitteCluster::new(&args, token).await?;
             }
 
             Ok(cluster)

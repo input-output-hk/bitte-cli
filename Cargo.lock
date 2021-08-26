@@ -191,6 +191,7 @@ dependencies = [
  "shellexpand",
  "tempfile",
  "tokio 1.9.0",
+ "uuid",
 ]
 
 [[package]]

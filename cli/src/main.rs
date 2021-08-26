@@ -1,11 +1,12 @@
 mod cli;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use bitte_lib::types::{BitteCluster, ClusterHandle};
 use clap::clap_app;
 use clap::{Arg, IntoApp};
 use deploy::cli::Opts;
 use std::env;
+use uuid::Uuid;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -18,7 +19,7 @@ async fn main() -> Result<()> {
       (@arg provider: --provider<NAME> env[BITTE_PROVIDER] "The cluster infrastructure provider")
       (@arg domain: --domain<NAME> env[BITTE_DOMAIN] "The public domain of the cluster")
       (@arg name: --cluster<NAME> env[BITTE_CLUSTER] "The unique name of the cluster")
-      (@arg nomad: --nomad<TOKEN> env[NOMAD_TOKEN] "The Nomad token used to query node information")
+      (@arg "nomad-token": --nomad<TOKEN> env[NOMAD_TOKEN] "The Nomad token used to query node information")
       (@arg root: --root<FLAKE_DIR> env[FLAKE_ROOT] "The cluster flake's root directory")
       (@subcommand rebuild =>
         (about: "nixos-rebuild")
@@ -90,7 +91,11 @@ async fn main() -> Result<()> {
         .expect("Failed to write help text to buffer");
     let matches = app.get_matches();
 
-    let cluster: ClusterHandle = BitteCluster::init(matches.clone());
+    let token: Uuid = matches
+        .value_of_t("nomad-token")
+        .with_context(|| "A Nomad token should be a valid UUID")?;
+
+    let cluster: ClusterHandle = BitteCluster::init(matches.clone(), token);
 
     match matches.subcommand() {
         Some(("rebuild", sub)) => {

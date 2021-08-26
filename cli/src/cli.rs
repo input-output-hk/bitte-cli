@@ -409,7 +409,7 @@ async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
                     .last()
                     .unwrap_or_default()
                     .to_owned();
-                if asg != "" && asg != i_type {
+                if !asg.is_empty() && asg != i_type {
                     Some(asg)
                 } else {
                     None
