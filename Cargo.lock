@@ -488,13 +488,14 @@ dependencies = [
 [[package]]
 name = "deploy-rs"
 version = "0.1.0"
-source = "git+https://github.com/nrdxp/deploy-rs?branch=expand-ssh-opts#72ff5f8817159037471c45f711f2020ca142e023"
+source = "git+https://github.com/input-output-hk/deploy-rs#dad754206c47dcdd8544e450eb2444a5d5d1cad7"
 dependencies = [
  "clap",
  "envmnt",
  "flexi_logger",
  "fork",
  "futures-util",
+ "linked_hash_set",
  "log",
  "merge",
  "notify",
@@ -1348,6 +1349,21 @@ dependencies = [
  "cc",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "linked-hash-map"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fb9b38af92608140b86b693604b9ffcc5824240a484d1ecd4795bacb2fe88f3"
+
+[[package]]
+name = "linked_hash_set"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47186c6da4d81ca383c7c47c1bfc80f4b95f4720514d860a5407aaf4233f9588"
+dependencies = [
+ "linked-hash-map",
 ]
 
 [[package]]
