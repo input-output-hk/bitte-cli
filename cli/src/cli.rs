@@ -105,9 +105,7 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
 
         return Ok(());
     } else if sub.is_present("job") {
-        let name = job.get(0).unwrap();
-        let group = job.get(1).unwrap();
-        let index = job.get(2).unwrap();
+        let (name, group, index) = (&*job[0], &*job[1], &job[2]);
 
         let nodes = cluster.nodes;
         let node = nodes
@@ -125,8 +123,8 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
 
                 allocs.as_ref().unwrap().iter().any(|alloc| {
                     let is_alloc = alloc.namespace == namespace
-                        && &alloc.job_id == name
-                        && &alloc.task_group == group
+                        && alloc.job_id == name
+                        && alloc.task_group == group
                         && alloc.index.get() == index.parse().ok()
                         && alloc.status == "running";
 
