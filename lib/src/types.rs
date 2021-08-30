@@ -517,15 +517,7 @@ pub struct TerraformStateCluster {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TerraformStateValue {
     pub asgs: HashMap<String, TerraformStateAsg>,
-    pub flake: String,
     pub instances: HashMap<String, TerraformStateInstance>,
-    pub kms: String,
-    pub name: String,
-    pub nix: String,
-    pub region: String,
-    pub roles: TerraformStateRoles,
-    #[serde(rename = "s3-bucket")]
-    pub s3_bucket: String,
     #[serde(rename = "s3-cache")]
     pub s3_cache: String,
 }
@@ -555,17 +547,6 @@ pub struct TerraformStateInstance {
     pub public_ip: String,
     pub tags: HashMap<String, String>,
     pub uid: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct TerraformStateRoles {
-    pub client: TerraformStateClient,
-    pub core: TerraformStateClient,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct TerraformStateClient {
-    pub arn: String,
 }
 
 /// A description of a Bitte cluster and its nodes
