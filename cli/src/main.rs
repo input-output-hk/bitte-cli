@@ -1,7 +1,7 @@
 mod cli;
 
 use anyhow::{bail, Context, Result};
-use bitte_lib::types::{BitteCluster, ClusterHandle};
+use bitte_lib::types::{BitteCluster};
 use clap::clap_app;
 use clap::{Arg, IntoApp};
 use deploy::cli::Opts;
@@ -94,38 +94,26 @@ async fn main() -> Result<()> {
         .value_of_t("nomad-token")
         .with_context(|| "A Nomad token should be a valid UUID")?;
 
-    let cluster: ClusterHandle = BitteCluster::init(matches.clone(), token);
+    let run = || {
+        pretty_env_logger::init();
+        BitteCluster::init(matches.clone(), token)
+    };
 
     match matches.subcommand() {
-        Some(("rebuild", sub)) => {
-            pretty_env_logger::init();
-            cli::rebuild(sub, cluster).await
-        }
-        Some(("deploy", sub)) => cli::deploy(sub, cluster).await,
-        Some(("info", sub)) => {
-            pretty_env_logger::init();
-            cli::info(sub, cluster).await
-        }
-        Some(("ssh", sub)) => {
-            pretty_env_logger::init();
-            cli::ssh(sub, cluster).await
-        }
-        Some(("terraform", sub)) => {
-            pretty_env_logger::init();
-            cli::terraform(sub, cluster).await
-        }
+        Some(("rebuild", sub)) => cli::rebuild(sub, run()).await,
+        Some(("deploy", sub)) => cli::deploy(sub, run()).await,
+        Some(("info", sub)) => cli::info(sub, run()).await,
+        Some(("ssh", sub)) => cli::ssh(sub, run()).await,
+        Some(("terraform", sub)) => cli::terraform(sub, run()).await,
         Some(("provision", sub)) => {
             pretty_env_logger::init();
-            cluster.abort();
             cli::provision(sub, matches.value_of_t("name")?).await
         }
         Some(("certs", sub)) => {
             pretty_env_logger::init();
-            cluster.abort();
             cli::certs(sub).await
         }
         _ => {
-            cluster.abort();
             bail!(format!(
                 "Invalid subcommand\n {}",
                 String::from_utf8(help_text).expect("help text contains invalid UTF8")
