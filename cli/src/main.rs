@@ -1,7 +1,7 @@
 mod cli;
 
 use anyhow::{bail, Context, Result};
-use bitte_lib::types::{BitteCluster};
+use bitte_lib::types::BitteCluster;
 use clap::clap_app;
 use clap::{Arg, IntoApp};
 use deploy::cli::Opts;
@@ -88,23 +88,26 @@ async fn main() -> Result<()> {
     let mut help_text = Vec::new();
     app.write_help(&mut help_text)
         .expect("Failed to write help text to buffer");
+
     let matches = app.get_matches();
 
     let token: Uuid = matches
         .value_of_t("nomad-token")
         .with_context(|| "A Nomad token should be a valid UUID")?;
 
-    let run = || {
-        pretty_env_logger::init();
+    let run = |init_log: bool| {
+        if init_log {
+            pretty_env_logger::init()
+        };
         BitteCluster::init(matches.clone(), token)
     };
 
     match matches.subcommand() {
-        Some(("rebuild", sub)) => cli::rebuild(sub, run()).await,
-        Some(("deploy", sub)) => cli::deploy(sub, run()).await,
-        Some(("info", sub)) => cli::info(sub, run()).await,
-        Some(("ssh", sub)) => cli::ssh(sub, run()).await,
-        Some(("terraform", sub)) => cli::terraform(sub, run()).await,
+        Some(("rebuild", sub)) => cli::rebuild(sub, run(true)).await,
+        Some(("deploy", sub)) => cli::deploy(sub, run(false)).await,
+        Some(("info", sub)) => cli::info(sub, run(true)).await,
+        Some(("ssh", sub)) => cli::ssh(sub, run(true)).await,
+        Some(("terraform", sub)) => cli::terraform(sub, run(true)).await,
         Some(("provision", sub)) => {
             pretty_env_logger::init();
             cli::provision(sub, matches.value_of_t("name")?).await
