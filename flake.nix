@@ -2,58 +2,36 @@
   description = "Bitte fläken Sie sich";
 
   inputs = {
-    utils.url = "github:kreisys/flake-utils";
+    digga.url = "github:divnix/digga";  # https://digga.divnix.com
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     naersk.url = "github:nrdxp/naersk/git-deps-fix";
   };
 
-  outputs = { self, nixpkgs, naersk, utils, ... }:
-    utils.lib.simpleFlake {
-      inherit nixpkgs;
+  outputs = inputs @ { self, nixpkgs, naersk, digga }:
+    with digga.lib; mkFlake {
 
-      systems = [ "x86_64-darwin" "x86_64-linux" ];
+      inherit self inputs;
+      supportedSystems = [ "x86_64-darwin" "x86_64-linux" ];
+      channels.nixpkgs = { overlays = [
+        naersk.overlay
+        ./overlay.nix
+      ]; };
 
-      preOverlays = [ naersk ];
+      # exported devshell modules
+      devshellModules = exportModules (importModules ./devshellModules).modules;
 
-      overlay = final: prev: {
-        bitte = final.callPackage ./package.nix { };
-        bitteShellCompat = final.callPackage ./pkgs/bitte-shell.nix { };
+      # provide the pinned build of the bitte package as well as build it with hydra
+      outputsBuilder = channels: {
+        defaultPackage = channels.nixpkps.bitte;
+        hydraJobs = { inherit (channels.nixpkgs) bitte; };
       };
 
-      packages = { bitte }: {
-        defaultPackage = bitte;
-        inherit bitte;
-      };
+      # the local devshell
 
-      hydraJobs = { bitte }@ps: ps;
-
-      devShell = { mkShell, pkgs, stdenv, lib, darwin }:
-        mkShell {
-          RUST_BACKTRACE = "1";
-          RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
-
-          buildInputs = with pkgs;
-            [
-              cfssl
-              sops
-              openssl
-              zlib
-              pkg-config
-              rust-analyzer
-              cargo
-              clippy
-              rls
-              rustc
-              rustfmt
-            ] ++ lib.optionals stdenv.isDarwin (with darwin;
-              with apple_sdk.frameworks; [
-                libiconv
-                libresolv
-                Libsystem
-                SystemConfiguration
-                Security
-                CoreFoundation
-              ]);
-        };
+      # the channel to use for devshell
+      nixos.hostDefaults.channelName = "nixpkgs";
+      # externalModules (as opposed to modules) are not re-exported - q.e.d.
+      devshell.externalModules = [ ./devshell.nix ];
+        
     };
 }
