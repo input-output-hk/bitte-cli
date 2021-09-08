@@ -3,4 +3,3 @@ members = [ "cli", "lib", "iogo" ]
 
 [profile.release]
 lto = "fat"
-codegen-units = 1
