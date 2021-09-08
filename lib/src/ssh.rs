@@ -42,7 +42,7 @@ pub fn wait_for_ready(cluster: &str, ip: &IpAddr) -> Result<()> {
 }
 
 pub async fn wait_for_ssh(ip: &IpAddr) -> Result<()> {
-    let res = wait_for_port(&ip, 22, 10000, 120).await?;
+    let res = wait_for_port(ip, 22, 10000, 120).await?;
     Ok(res)
 }
 

@@ -84,7 +84,7 @@ fn ca_config_file() -> String {
 }
 
 pub fn write_issuing_ca(domain: &str) {
-    let issuing_ca = vault_issuing_ca(&domain);
+    let issuing_ca = vault_issuing_ca(domain);
     let csr_container: Csr = serde_json::from_str(&issuing_ca).expect("Couldn't parse issuing CA");
     fs::write("secrets/issuing-ca.csr", csr_container.data.csr)
         .expect("Couldn't write issuing-ca.csr");

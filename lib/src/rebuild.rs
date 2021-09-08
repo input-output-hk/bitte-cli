@@ -47,7 +47,7 @@ pub async fn copy(
     while let Some(instance) = iter.next() {
         info!("rebuild: {}, {}", instance.name, instance.pub_ip);
         wait_for_ssh(&instance.pub_ip).await?;
-        copy_to(&instance, 10, &cache)?;
+        copy_to(instance, 10, &cache)?;
         if iter.peek().is_some() {
             tokio::time::sleep(delay).await;
         }
