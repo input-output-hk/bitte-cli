@@ -1,6 +1,6 @@
 { bitte, lib, writeText, mkShell, nixos-rebuild, terraform-with-plugins
 , scaler-guard, sops, vault-bin, openssl, cfssl, nixfmt, awscli, nomad, consul
-, consul-template, python38Packages, direnv, jq }:
+, consul-template, python38Packages, direnv, jq, iogo }:
 
 { self, cluster ? builtins.head (builtins.attrNames self.clusters)
 , caCert ? null, domain ? self.clusters.${cluster}.proto.config.cluster.domain
@@ -33,6 +33,7 @@ in mkShell ({
 
   buildInputs = [
     bitte
+    iogo
     nixos-rebuild
     terraform-with-plugins
     scaler-guard

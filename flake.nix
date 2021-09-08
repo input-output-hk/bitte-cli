@@ -5,15 +5,19 @@
     utils.url = "github:kreisys/flake-utils";
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     naersk.url = "github:nrdxp/naersk/git-deps-fix";
+    naersk.inputs.nixpkgs.follows = "nixpkgs";
+    iogo.url = "github:manveru/bitte-iogo";
+    iogo.inputs.nixpkgs.follows = "nixpkgs";
+    iogo.inputs.utils.follows = "utils";
   };
 
-  outputs = { self, nixpkgs, naersk, utils, ... }:
+  outputs = { self, nixpkgs, naersk, utils, iogo, ... }:
     utils.lib.simpleFlake {
       inherit nixpkgs;
 
       systems = [ "x86_64-darwin" "x86_64-linux" ];
 
-      preOverlays = [ naersk ];
+      preOverlays = [ naersk iogo.overlay ];
 
       overlay = final: prev: {
         bitte = final.callPackage ./package.nix { };
