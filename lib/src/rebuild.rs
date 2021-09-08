@@ -127,6 +127,16 @@ pub fn nix_copy_to_machine(target: &str, ssh: &IpAddr) -> Result<()> {
             .arg(format!("ssh://root@{}", ssh))
             .arg(target),
     )?;
+    // vulnix operates on store derivations
+    check_cmd(
+        Command::new("nix")
+            .arg("copy")
+            .arg("--derivation")
+            .arg("--substitute-on-destination")
+            .arg("--to")
+            .arg(format!("ssh://root@{}", ssh))
+            .arg(target),
+    )?;
     Ok(())
 }
 
