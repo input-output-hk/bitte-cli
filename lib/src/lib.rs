@@ -8,10 +8,9 @@ pub mod ssh;
 pub mod terraform;
 pub mod types;
 
-use anyhow::Result;
 use error::Error;
 
-use anyhow::Context;
+use anyhow::{anyhow, Context, Result};
 use execute::Execute;
 use log::debug;
 use std::env;
@@ -67,9 +66,16 @@ pub fn sh(command: std::process::Command) -> Result<String> {
 
 fn check_cmd(cmd: &mut Command) -> Result<()> {
     println!("run: {:?}", cmd);
-    cmd.status()?;
-
-    Ok(())
+    let status = cmd.status()?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{:?} failed with non-zero exit code {:?}",
+            cmd,
+            status
+        ))
+    }
 }
 
 #[derive(Clone)]
