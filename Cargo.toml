@@ -1,5 +1,5 @@
 [workspace]
-members = [ "cli", "lib", "iogo" ]
+members = [ "cli", "lib" ]
 
 [profile.release]
 lto = "fat"
