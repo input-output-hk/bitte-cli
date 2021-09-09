@@ -45,11 +45,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1631116392,
-        "narHash": "sha256-nG8IiyWv2spk3DLmW78dkRAzy8xVH+KKga+7cAZtSk8=",
+        "lastModified": 1631134449,
+        "narHash": "sha256-GdMx9SbcpOkwUrCTRr7KMuu2AxihuOhuP07g9SLM/EQ=",
         "owner": "manveru",
         "repo": "bitte-iogo",
-        "rev": "53db81e26450c46297d696fb88a787e0e2cf9bc2",
+        "rev": "fc6ecce0230d3d2d03d39dadc6005d3f496a90d2",
         "type": "github"
       },
       "original": {
