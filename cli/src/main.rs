@@ -19,7 +19,8 @@ async fn main() -> Result<()> {
       (@arg provider: --provider<NAME> env[BITTE_PROVIDER] "The cluster infrastructure provider")
       (@arg domain: --domain<NAME> env[BITTE_DOMAIN] "The public domain of the cluster")
       (@arg name: --cluster<NAME> env[BITTE_CLUSTER] "The unique name of the cluster")
-      (@arg "nomad-token": --nomad<TOKEN> env[NOMAD_TOKEN] "The Nomad token used to query node information")
+      (@arg bootstrap: --bootstrap "Skip node discovery for the purpose of bootstrapping")
+      (@arg "nomad-token": --nomad[TOKEN] env[NOMAD_TOKEN] required_unless_present[bootstrap] "The Nomad token used to query node information")
       (@subcommand rebuild =>
         (about: "nixos-rebuild")
         (@arg only: -o --only +takes_value +multiple "pattern of hosts to deploy")
@@ -91,15 +92,27 @@ async fn main() -> Result<()> {
 
     let matches = app.get_matches();
 
-    let token: Uuid = matches
-        .value_of_t("nomad-token")
-        .with_context(|| "A Nomad token should be a valid UUID")?;
+    let token: Uuid;
+    if !matches.is_present("bootstrap") {
+        token = matches
+            .value_of_t("nomad-token")
+            .with_context(|| "A Nomad token should be a valid UUID")?;
+    } else {
+        token = Uuid::nil();
+    }
 
     let run = |init_log: bool| {
         if init_log {
             pretty_env_logger::init()
         };
-        BitteCluster::init(matches.clone(), token)
+        if matches.is_present("bootstrap") {
+            tokio::spawn(BitteCluster::dummy(
+                matches.value_of_t("name").unwrap(),
+                matches.value_of_t("domain").unwrap(),
+            ))
+        } else {
+            BitteCluster::init(matches.clone(), token)
+        }
     };
 
     match matches.subcommand() {

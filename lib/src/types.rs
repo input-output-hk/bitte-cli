@@ -929,6 +929,17 @@ type ClientHandle = JoinHandle<Result<NomadClients>>;
 type AllocHandle = JoinHandle<Result<NomadAllocs>>;
 
 impl BitteCluster {
+    pub async fn dummy(name: String, domain: String) -> Result<Self> {
+        Ok(Self {
+            name,
+            domain,
+            provider: BitteProvider::AWS,
+            nodes: vec![],
+            terra: None,
+            nomad_api_client: Arc::new(Client::new()),
+            ttl: SystemTime::now(),
+        })
+    }
     pub async fn new(args: &ArgMatches, token: Uuid) -> Result<Self> {
         let name: String = args.value_of_t("name")?;
         let domain: String = args.value_of_t("domain")?;
