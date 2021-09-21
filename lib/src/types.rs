@@ -23,7 +23,7 @@ use tokio::task::JoinHandle;
 
 use reqwest::{
     header::{HeaderMap, HeaderValue},
-    Client,
+    Client, Response,
 };
 
 use crate::{terraform, Error};
@@ -581,14 +581,14 @@ pub struct NomadClient {
 impl NomadClient {
     async fn find_nomad_nodes(client: Arc<Client>, domain: String) -> Result<NomadClients> {
         let url = format!("https://nomad.{}/v1/nodes", domain);
-        let nodes = client
-            .get(&url)
-            .send()
-            .await
-            .with_context(|| format!("failed to query: {}", &url))?
-            .json::<NomadClients>()
-            .await
-            .with_context(|| format!("failed to decode response from: {}", &url))?;
+        let nodes = if let Ok(response) = client.get(&url).send().await {
+            response
+                .json::<NomadClients>()
+                .await
+                .with_context(|| format!("failed to decode response from: {}", &url))?
+        } else {
+            Vec::new()
+        };
         Ok(nodes)
     }
 }
@@ -783,7 +783,11 @@ impl BitteNode {
 
                 let mut result: BitteNodes = Vec::new();
 
-                let allocs = allocs.await??;
+                let allocs = if let Ok(allocs) = allocs.await? {
+                    allocs
+                } else {
+                    Vec::new()
+                };
                 let clients = clients.await??;
 
                 let state = if let Some(state) = state {
@@ -892,15 +896,20 @@ pub struct NomadAlloc {
 impl NomadAlloc {
     async fn find_allocs(client: Arc<Client>, domain: String) -> Result<NomadAllocs> {
         let url = format!("https://nomad.{}/v1/allocations", domain);
-        let allocs = client
+        let allocs = if let Ok(response) = client
             .get(&url)
             .query(&[("namespace", "*"), ("task_states", "false")])
             .send()
             .await
-            .with_context(|| format!("failed to query: {}", &url))?
-            .json::<NomadAllocs>()
-            .await
-            .with_context(|| format!("failed to decode response from: {}", &url))?;
+        {
+            response
+                .json::<NomadAllocs>()
+                .await
+                .with_context(|| format!("failed to decode response from: {}", &url))?
+        } else {
+            Vec::new()
+        };
+
         Ok(allocs)
     }
 }

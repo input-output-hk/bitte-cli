@@ -1,6 +1,6 @@
 mod cli;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use bitte_lib::types::BitteCluster;
 use clap::clap_app;
 use clap::{Arg, IntoApp};
@@ -20,7 +20,7 @@ async fn main() -> Result<()> {
       (@arg domain: --domain<NAME> env[BITTE_DOMAIN] "The public domain of the cluster")
       (@arg name: --cluster<NAME> env[BITTE_CLUSTER] "The unique name of the cluster")
       (@arg bootstrap: --bootstrap env[BITTE_BOOTSTRAP] "Skip node discovery for the purpose of bootstrapping")
-      (@arg "nomad-token": --nomad[TOKEN] env[NOMAD_TOKEN] required_unless_present[bootstrap] "The Nomad token used to query node information")
+      (@arg "nomad-token": --nomad[TOKEN] env[NOMAD_TOKEN] "The Nomad token used to query node information")
       (@subcommand rebuild =>
         (about: "nixos-rebuild")
         (@arg only: -o --only +takes_value +multiple "pattern of hosts to deploy")
@@ -96,7 +96,7 @@ async fn main() -> Result<()> {
     if !matches.is_present("bootstrap") {
         token = matches
             .value_of_t("nomad-token")
-            .with_context(|| "A Nomad token should be a valid UUID")?;
+            .unwrap_or_else(|_| Uuid::nil());
     } else {
         env::set_var("BITTE_BOOTSTRAP", "1");
         token = Uuid::nil();
