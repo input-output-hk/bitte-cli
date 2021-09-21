@@ -2,4 +2,5 @@
 members = [ "cli", "lib" ]
 
 [profile.release]
-lto = "fat"
+lto = "thin"
+opt-level = 3
