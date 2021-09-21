@@ -19,7 +19,7 @@ async fn main() -> Result<()> {
       (@arg provider: --provider<NAME> env[BITTE_PROVIDER] "The cluster infrastructure provider")
       (@arg domain: --domain<NAME> env[BITTE_DOMAIN] "The public domain of the cluster")
       (@arg name: --cluster<NAME> env[BITTE_CLUSTER] "The unique name of the cluster")
-      (@arg bootstrap: --bootstrap "Skip node discovery for the purpose of bootstrapping")
+      (@arg bootstrap: --bootstrap env[BITTE_BOOTSTRAP] "Skip node discovery for the purpose of bootstrapping")
       (@arg "nomad-token": --nomad[TOKEN] env[NOMAD_TOKEN] required_unless_present[bootstrap] "The Nomad token used to query node information")
       (@subcommand rebuild =>
         (about: "nixos-rebuild")
@@ -98,6 +98,7 @@ async fn main() -> Result<()> {
             .value_of_t("nomad-token")
             .with_context(|| "A Nomad token should be a valid UUID")?;
     } else {
+        env::set_var("BITTE_BOOTSTRAP", "1");
         token = Uuid::nil();
     }
 
