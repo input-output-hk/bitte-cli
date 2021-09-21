@@ -9,15 +9,26 @@
     iogo.url = "github:input-output-hk/bitte-iogo";
     iogo.inputs.nixpkgs.follows = "nixpkgs";
     iogo.inputs.utils.follows = "utils";
+    fenix.url = "github:nix-community/fenix";
+    fenix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, naersk, utils, iogo, ... }:
+  outputs = { self, nixpkgs, naersk, utils, iogo, fenix, ... }:
     utils.lib.simpleFlake {
       inherit nixpkgs;
 
       systems = [ "x86_64-darwin" "x86_64-linux" ];
 
-      preOverlays = [ naersk iogo.overlay ];
+      preOverlays = [
+        naersk
+        iogo.overlay
+        fenix.overlay
+        (final: prev: {
+          naersk = prev.naersk.override {
+            inherit (fenix.packages.${prev.system}.stable) cargo rustc;
+          };
+        })
+      ];
 
       overlay = final: prev: {
         bitte = final.callPackage ./package.nix { };
@@ -31,6 +42,13 @@
 
       hydraJobs = { bitte }@ps: ps;
 
+      extraOutputs = {
+        pkgs = import nixpkgs {
+          system = "x86_64-linux";
+          overlays = [ fenix.overlay ];
+        };
+      };
+
       devShell = { mkShell, pkgs, stdenv, lib, darwin }:
         mkShell {
           RUST_BACKTRACE = "1";
@@ -43,12 +61,14 @@
               openssl
               zlib
               pkg-config
-              rust-analyzer
-              cargo
-              clippy
-              rls
-              rustc
-              rustfmt
+              (pkgs.fenix.stable.withComponents [
+                "cargo"
+                "clippy"
+                "rust-src"
+                "rustc"
+                "rustfmt"
+              ])
+              rust-analyzer-nightly
             ] ++ lib.optionals stdenv.isDarwin (with darwin;
               with apple_sdk.frameworks; [
                 libiconv
