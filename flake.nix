@@ -6,7 +6,7 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     naersk.url = "github:nrdxp/naersk/git-deps-fix";
     naersk.inputs.nixpkgs.follows = "nixpkgs";
-    iogo.url = "github:manveru/bitte-iogo";
+    iogo.url = "github:input-output-hk/bitte-iogo";
     iogo.inputs.nixpkgs.follows = "nixpkgs";
     iogo.inputs.utils.follows = "utils";
   };
