@@ -45,11 +45,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1633542890,
-        "narHash": "sha256-aH6cCdKPX2YUmzdd9ier3g9f8trVjxlDwyOaSYR3Hgs=",
+        "lastModified": 1633590978,
+        "narHash": "sha256-upN76iXaRfMESMAFtKELrdHA/v7xf1PM66M/J/SQYvg=",
         "owner": "input-output-hk",
         "repo": "bitte-iogo",
-        "rev": "33c413bfd13927565be4299e4ed4dd4e97d43752",
+        "rev": "0ac0cace631e58ac331fe5830e465103f1cf4e9d",
         "type": "github"
       },
       "original": {
