@@ -32,13 +32,13 @@
 
       overlay = final: prev: {
         bitte = final.callPackage ./package.nix { };
-        damon = final.callPackage ./pkgs/damon.nix { };
+        damon = final.callPackage (import ./pkgs/damon.nix prev.fetchurl) { };
         bitteShellCompat = final.callPackage ./pkgs/bitte-shell.nix { };
       };
 
-      packages = { bitte }: {
+      packages = { bitte, damon }: {
         defaultPackage = bitte;
-        inherit bitte;
+        inherit bitte damon;
       };
 
       hydraJobs = { bitte }@ps: ps;

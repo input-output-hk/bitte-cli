@@ -1,22 +1,6 @@
-{ lib, buildGoModule, fetchFromGitHub }:
-
-buildGoModule rec {
-  pname = "damon";
-  version = "unstable";
-
-  src = fetchFromGitHub {
-    owner = "hashicorp";
-    repo = "damon";
-    rev = "542c79aecc44b1d0500f9cb9b2e13f07db1e2f35";
-    sha256 = "sha256-vg5PISNqk8N2nn7eABm+/7qzePDbKPkvovdZk2sZYsg=";
-  };
-
-  vendorSha256 = "sha256-/ZZxw6qEUJQUz3J0TxUYJECCcX276r74g0N2tV77+8I=";
-
-  meta = with lib; {
-    homepage = "https://github.com/hashicorp/damon";
-    license = licenses.mpl20;
-    description = "A terminal UI (TUI) for HashiCorp Nomad";
-    maintainers = with maintainers; [ ];
-  };
+fetchurl:
+fetchurl {
+  url =
+    "https://raw.githubusercontent.com/NixOS/nixpkgs/1a5a55a7fa848c169cae8e1a34904eedde38eebb/pkgs/tools/admin/damon/default.nix";
+  hash = "sha256-ghhDhbcTxiz40Gb0EmtTo+q/jHcPQkqrqoz7xdWcf3g=";
 }
