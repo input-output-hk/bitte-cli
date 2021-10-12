@@ -49,10 +49,10 @@ in mkShell ({
     python38Packages.pyhcl
     direnv
     jq
-  ] ++ lib.optoinals stdenv.isLinux [
+  ] ++ lib.optionals stdenv.isLinux [
     # nixos-rebuild will be unusable on non-linux systems
     nixos-rebuild
-  ]++ extraPackages;
+  ] ++ extraPackages;
 
 } // (lib.optionalAttrs (caCert != null) {
   CONSUL_CACERT = caCert;
