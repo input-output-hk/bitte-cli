@@ -1,4 +1,4 @@
-{ bitte, lib, writeText, mkShell, nixos-rebuild, terraform-with-plugins
+{ bitte, stdenv, lib, writeText, mkShell, nixos-rebuild, terraform-with-plugins
 , scaler-guard, sops, vault-bin, openssl, cfssl, nixfmt, awscli, nomad, consul
 , consul-template, python38Packages, direnv, jq, iogo, damon }:
 
@@ -35,7 +35,6 @@ in mkShell ({
     damon
     bitte
     iogo
-    nixos-rebuild
     terraform-with-plugins
     scaler-guard
     sops
@@ -50,7 +49,10 @@ in mkShell ({
     python38Packages.pyhcl
     direnv
     jq
-  ] ++ extraPackages;
+  ] ++ lib.optoinals stdenv.isLinux [
+    # nixos-rebuild will be unusable on non-linux systems
+    nixos-rebuild
+  ]++ extraPackages;
 
 } // (lib.optionalAttrs (caCert != null) {
   CONSUL_CACERT = caCert;
