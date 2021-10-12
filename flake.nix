@@ -32,6 +32,7 @@
 
       overlay = final: prev: {
         bitte = final.callPackage ./package.nix { };
+        damon = final.callPackage ./pkgs/damon.nix { };
         bitteShellCompat = final.callPackage ./pkgs/bitte-shell.nix { };
       };
 
