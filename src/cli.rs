@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use bitte_lib::{
+use bitte::{
     certs, rebuild, ssh, terraform,
     types::{BitteFind, ClusterHandle},
 };
