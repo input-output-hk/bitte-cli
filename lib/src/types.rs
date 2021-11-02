@@ -26,7 +26,7 @@ use reqwest::{
     Client,
 };
 
-use crate::{terraform, Error};
+use crate::Error;
 
 use regex::Regex;
 
@@ -556,8 +556,6 @@ pub struct BitteCluster {
     pub nodes: BitteNodes,
     pub domain: String,
     pub provider: BitteProvider,
-    #[serde(skip_serializing_if = "skip_info")]
-    pub terra: Option<TerraformStateValue>,
     #[serde(skip)]
     pub nomad_api_client: Arc<Client>,
     pub ttl: SystemTime,
@@ -740,9 +738,8 @@ impl BitteNode {
         name: String,
         allocs: AllocHandle,
         clients: ClientHandle,
-        state: TerraHandle,
         args: ArgMatches,
-    ) -> Result<(BitteNodes, Option<TerraformStateValue>)> {
+    ) -> Result<BitteNodes> {
         match provider {
             BitteProvider::AWS => {
                 let regions: HashSet<String> = {
@@ -786,12 +783,6 @@ impl BitteNode {
                 let allocs = allocs.await??;
                 let clients = clients.await??;
 
-                let state = if let Some(state) = state {
-                    Some(state.await??)
-                } else {
-                    None
-                };
-
                 for response in handles.into_iter() {
                     let response = response.await??;
                     let iter = response.reservations.into_iter();
@@ -823,16 +814,6 @@ impl BitteNode {
                                 None => None,
                             };
 
-                            if node.name.is_empty() {
-                                if let Some(state) = &state {
-                                    for inst in state.instances.values() {
-                                        if inst.private_ip == node.priv_ip.to_string() {
-                                            node.name = inst.name.clone()
-                                        };
-                                    }
-                                };
-                            }
-
                             node
                         })
                         .collect();
@@ -840,7 +821,7 @@ impl BitteNode {
                     result.append(&mut nodes);
                 }
 
-                Ok((result, state))
+                Ok(result)
             }
         }
     }
@@ -924,7 +905,6 @@ where
     }
 }
 
-type TerraHandle = Option<JoinHandle<Result<TerraformStateValue>>>;
 type ClientHandle = JoinHandle<Result<NomadClients>>;
 type AllocHandle = JoinHandle<Result<NomadAllocs>>;
 
@@ -938,13 +918,6 @@ impl BitteCluster {
                 Ok(v) => Ok(v),
                 Err(_) => Err(Error::ProviderError { provider }),
             }?
-        };
-
-        let t_state = match &provider {
-            BitteProvider::AWS => Some(tokio::spawn(async move {
-                terraform::output("clients")
-                    .or_else::<anyhow::Error, _>(|_| terraform::output("core"))
-            })),
         };
 
         let nomad_api_client = {
@@ -977,11 +950,9 @@ impl BitteCluster {
             name.to_owned(),
             allocs,
             client_nodes,
-            t_state,
             args,
-        ));
-
-        let (nodes, terra) = nodes.await??;
+        ))
+        .await??;
 
         let cache_name = name.clone();
 
@@ -991,7 +962,6 @@ impl BitteCluster {
             provider,
             nomad_api_client,
             nodes,
-            terra,
             ttl: SystemTime::now()
                 .checked_add(Duration::from_secs(300))
                 .unwrap(),
