@@ -1,7 +1,7 @@
 mod cli;
 
 use anyhow::{bail, Context, Result};
-use bitte_lib::types::BitteCluster;
+use bitte::types::BitteCluster;
 use clap::clap_app;
 use clap::{Arg, IntoApp};
 use deploy::cli::Opts;
