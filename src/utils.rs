@@ -1,7 +1,5 @@
 pub mod certs;
-pub mod consul;
 pub mod error;
-pub mod info;
 pub mod nomad;
 pub mod rebuild;
 pub mod ssh;
@@ -10,17 +8,11 @@ pub mod types;
 
 use error::Error;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use execute::Execute;
 use log::debug;
-use std::env;
 use std::process::Command;
 use std::process::Stdio;
-
-pub fn get_env(name: &str) -> anyhow::Result<String> {
-    let value = env::var(name);
-    value.with_context(|| format!("{} is not set", name))
-}
 
 fn handle_command_error_common(
     mut command: std::process::Command,
@@ -60,10 +52,6 @@ fn handle_command_error(command: std::process::Command) -> Result<String> {
     handle_command_error_common(command, false)
 }
 
-pub fn sh(command: std::process::Command) -> Result<String> {
-    handle_command_error_common(command, true)
-}
-
 fn check_cmd(cmd: &mut Command) -> Result<()> {
     println!("run: {:?}", cmd);
     let status = cmd.status()?;
@@ -85,22 +73,4 @@ pub struct Instance {
     pub uid: String,
     pub flake_attr: String,
     pub s3_cache: String,
-}
-
-impl Instance {
-    pub fn new(
-        public_ip: String,
-        name: String,
-        uid: String,
-        flake_attr: String,
-        s3_cache: String,
-    ) -> Instance {
-        Instance {
-            public_ip,
-            name,
-            uid,
-            flake_attr,
-            s3_cache,
-        }
-    }
 }

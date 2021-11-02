@@ -1,41 +1,5 @@
-use super::sh;
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
-// TODO: check that we have developer or admin policies
-/*
-Example output from `nomad acl token self`:
-
-Accessor ID  = 77777777-8888-9999-aaaa-bbbbbbbbbbbb
-Secret ID    = 88888888-9999-aaaa-bbbb-cccccccccccc
-Name         = vault-admin-aws-max.mustermann-0000000000000000000
-Type         = client
-Global       = false
-Policies     = [admin]
-Create Time  = 2021-02-24 15:25:25.0645971 +0000 UTC
-Create Index = 2492001
-Modify Index = 2492001
-*/
-
-pub fn nomad_token() -> Result<String> {
-    sh(execute::command_args!(
-        "vault",
-        "read",
-        "-field",
-        "secret_id",
-        "nomad/creds/admin"
-    ))
-    .or_else(|_| {
-        sh(execute::command_args!(
-            "vault",
-            "read",
-            "-field",
-            "secret_id",
-            "nomad/creds/developer"
-        ))
-    })
-}
 
 impl std::fmt::Display for Topic {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

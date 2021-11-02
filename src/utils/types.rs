@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use clap::ArgMatches;
-use colored::*;
 use restson::RestPath;
 use rusoto_core::Region;
 use rusoto_ec2::{DescribeInstancesRequest, Ec2, Ec2Client, Filter, Instance, Tag};
@@ -26,7 +25,7 @@ use reqwest::{
     Client,
 };
 
-use crate::Error;
+use super::Error;
 
 use regex::Regex;
 
@@ -90,66 +89,6 @@ pub struct NomadDeployment {
     pub status_description: Option<String>,
     #[serde(rename = "TaskGroups")]
     pub task_groups: HashMap<String, NomadDeploymentTaskGroup>,
-}
-
-impl NomadDeployment {
-    pub fn display(self: &NomadDeployment) {
-        for (name, group) in &self.task_groups {
-            println!(
-                "
-{}
-auto promote: {}, auto revert: {}, promoted: {}
-desired total: {}
-canaries desired/placed: {}/{:?}
-allocs placed/healthy/unhealthy {}/{}/{}
-progress deadline: {}
-require progress by: {}",
-                name,
-                group.auto_promote,
-                group.auto_revert,
-                group.promoted,
-                group.desired_total,
-                group.desired_canaries,
-                group.placed_canaries,
-                group.healthy_allocs,
-                group.placed_allocs,
-                group.unhealthy_allocs,
-                group.progress_deadline,
-                group.require_progress_by,
-            );
-        }
-
-        match &self.status_description {
-            Some(description) => match self.status {
-                NomadDeploymentStatus::Running => {
-                    println!("{}", description.yellow());
-                }
-                NomadDeploymentStatus::Complete => {
-                    println!("{}", description.green());
-                }
-                NomadDeploymentStatus::Successful => {
-                    println!("{}", description.green());
-                }
-                NomadDeploymentStatus::Failed => {
-                    println!("{}", description.red());
-                }
-                NomadDeploymentStatus::Cancelled => {
-                    println!("{}", description.red());
-                }
-            },
-            None => {}
-        }
-    }
-
-    pub fn is_done(self: &NomadDeployment) -> bool {
-        match self.status {
-            NomadDeploymentStatus::Running => false,
-            NomadDeploymentStatus::Complete => true,
-            NomadDeploymentStatus::Successful => true,
-            NomadDeploymentStatus::Failed => true,
-            NomadDeploymentStatus::Cancelled => true,
-        }
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]

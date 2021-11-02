@@ -1,11 +1,11 @@
 mod cli;
+mod utils;
 
 use anyhow::{bail, Context, Result};
-use bitte::types::BitteCluster;
-use clap::clap_app;
-use clap::{Arg, IntoApp};
+use clap::{Arg, IntoApp, clap_app};
 use deploy::cli::Opts;
 use std::env;
+use utils::types::BitteCluster;
 use uuid::Uuid;
 
 #[tokio::main]
