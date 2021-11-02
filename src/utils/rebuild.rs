@@ -2,7 +2,7 @@ use anyhow::Result;
 use log::info;
 use std::{env, net::IpAddr, path::Path, process::Command, time::Duration};
 
-use crate::{
+use super::{
     check_cmd, handle_command_error,
     ssh::wait_for_ssh,
     types::{BitteCluster, BitteFind, BitteNode},

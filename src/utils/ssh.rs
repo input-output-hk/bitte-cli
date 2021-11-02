@@ -4,7 +4,7 @@ use std::{path::Path, process::Command};
 use tokio::{net::TcpStream, time};
 
 use super::check_cmd;
-use crate::error::Error;
+use super::error::Error;
 use anyhow::Result;
 
 pub fn ssh_keygen(ip: &IpAddr) -> Result<()> {

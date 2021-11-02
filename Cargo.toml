@@ -15,13 +15,11 @@ prettytable-rs = "^0.8.0"
 rusoto_ec2 = "^0.46"
 rusoto_core = "^0.46"
 rusoto_signature = "^0.46"
-rusoto_autoscaling = "^0.46"
 tokio = "1.9.0"
 execute = "0.2.8"
 log = "0.4.14"
 pretty_env_logger = "0.4.0"
 anyhow = "1.0.42"
-duct = "0.13"
 deploy-rs = { git = "https://github.com/input-output-hk/deploy-rs" }
 uuid = { version = "0.8.2", features = ["serde"] }
 reqwest = { version = "0.11.4", features = ["json", "gzip"] }
@@ -29,9 +27,7 @@ thiserror = "1.0"
 base64 = "0.13.0"
 flate2 = { version = "1.0.17", features = ["zlib"], default-features = false }
 netrc-rs = "0.1.2"
-colored = "2"
 enum-utils = "0.1.2"
-
 
 [dependencies.clap]
 version = "=3.0.0-beta.2"
@@ -43,7 +39,6 @@ predicates = "1.0.7"
 paste = "1.0.4"
 tempfile = "3.2.0"
 assert_fs = "^1.0"
-pretty_assertions = "^0.7.0"
 rstest = "^0.6"
 
 [profile.release]
