@@ -199,7 +199,6 @@ async fn init_ssh(ip: IpAddr, args: Vec<String>, cluster: String) -> Result<()> 
 pub(crate) async fn rebuild(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
     let only: Vec<String> = sub.values_of_t("only").unwrap_or_default();
     let delay = Duration::from_secs(sub.value_of_t::<u64>("delay").unwrap_or(0));
-    let copy: bool = sub.is_present("copy");
     let clients: bool = sub.is_present("clients");
 
     let cluster = cluster.await??;
@@ -208,7 +207,6 @@ pub(crate) async fn rebuild(sub: &ArgMatches, cluster: ClusterHandle) -> Result<
     rebuild::copy(
         only.iter().map(|o| o.as_str()).collect(),
         delay,
-        copy,
         clients,
         cluster,
     )
@@ -241,7 +239,6 @@ pub(crate) async fn terraform(sub: &ArgMatches, cluster: ClusterHandle) -> Resul
         Some(("apply", sub_sub)) => terraform_apply(workspace, sub_sub, cluster).await,
         Some(("init", sub_sub)) => terraform_init(workspace, sub_sub, cluster).await,
         Some(("passthrough", sub_sub)) => terraform_passthrough(workspace, sub_sub, cluster).await,
-        Some(("output", sub_sub)) => terraform_output(sub_sub, cluster).await,
         _ => {
             cluster.abort();
             Err(anyhow!("Unknown command"))
@@ -333,14 +330,6 @@ pub async fn terraform_init(
     let upgrade: bool = sub.is_present("upgrade");
     terraform::generate_terraform_config(&workspace, cluster).await?;
     terraform::init(upgrade)?;
-    Ok(())
-}
-
-pub async fn terraform_output(_sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
-    let output = cluster.await??.terra;
-    let stdout = io::stdout();
-    let handle = stdout.lock();
-    serde_json::to_writer_pretty(handle, &output)?;
     Ok(())
 }
 

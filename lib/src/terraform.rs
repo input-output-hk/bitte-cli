@@ -1,23 +1,16 @@
+use std::fs::{read_to_string, remove_dir_all};
 use std::process::Command;
 use std::{env, path::Path};
-use std::{
-    fs::{read_to_string, remove_dir_all},
-    io::Read,
-};
 
 use crate::error::Error;
 use crate::types::ClusterHandle;
 use anyhow::Result;
-use flate2::read::ZlibDecoder;
 use log::info;
 use netrc_rs::Netrc;
 use restson::RestClient;
 use shellexpand::tilde;
 
-use crate::{
-    self as lib,
-    types::{HttpPutToken, RawVaultState, TerraformState, TerraformStateValue, VaultLogin},
-};
+use crate::types::{HttpPutToken, VaultLogin};
 
 pub async fn prepare(workspace: String, cluster: ClusterHandle) -> Result<()> {
     set_http_auth()?;
@@ -73,31 +66,6 @@ pub fn init(upgrade: bool) -> Result<()> {
             .expect("terraform init failed")
     };
     Ok(())
-}
-
-fn terraform_vault_client() -> Result<RestClient> {
-    let mut client = RestClient::new("https://vault.infra.aws.iohkdev.io")?;
-    let token = vault_token()?;
-    client.set_header("X-Vault-Token", &token)?;
-    client.set_header("X-Vault-Request", "true")?;
-    Ok(client)
-}
-
-fn terraform_vault_state(workspace: &str) -> Result<String> {
-    let mut client = terraform_vault_client()?;
-    let value: RawVaultState = client.get((lib::get_env("BITTE_CLUSTER")?.as_str(), workspace))?;
-    Ok(value.data.data.value)
-}
-
-pub fn output(workspace: &str) -> Result<TerraformStateValue> {
-    set_http_auth()?;
-    let state = terraform_vault_state(workspace)?;
-    let decoded = base64::decode(state)?;
-    let mut decoder = ZlibDecoder::new(decoded.as_slice());
-    let mut buf = "".to_string();
-    decoder.read_to_string(&mut buf)?;
-    let state: TerraformState = serde_json::from_str(&buf)?;
-    Ok(state.outputs.cluster.value)
 }
 
 fn github_token() -> Result<String> {

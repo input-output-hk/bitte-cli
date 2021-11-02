@@ -3,9 +3,7 @@ use log::info;
 use std::{env, net::IpAddr, path::Path, process::Command, time::Duration};
 
 use crate::{
-    check_cmd,
-    error::Error,
-    handle_command_error,
+    check_cmd, handle_command_error,
     ssh::wait_for_ssh,
     types::{BitteCluster, BitteFind, BitteNode},
 };
@@ -13,7 +11,6 @@ use crate::{
 pub async fn copy(
     only: Vec<&str>,
     delay: Duration,
-    copy: bool,
     clients: bool,
     cluster: BitteCluster,
 ) -> Result<()> {
@@ -35,19 +32,10 @@ pub async fn copy(
 
     let mut iter = instances.iter().peekable();
 
-    let cache = if copy {
-        match cluster.terra {
-            Some(terra) => Ok(Some(terra.s3_cache)),
-            None => Err(Error::MissingCache),
-        }
-    } else {
-        Ok(None)
-    }?;
-
     while let Some(instance) = iter.next() {
         info!("rebuild: {}, {}", instance.name, instance.pub_ip);
         wait_for_ssh(&instance.pub_ip).await?;
-        copy_to(instance, 10, &cache)?;
+        copy_to(instance, 10)?;
         if iter.peek().is_some() {
             tokio::time::sleep(delay).await;
         }
@@ -56,7 +44,7 @@ pub async fn copy(
     Ok(())
 }
 
-fn copy_to(instance: &BitteNode, _attempts: u64, cache: &Option<String>) -> Result<()> {
+fn copy_to(instance: &BitteNode, _attempts: u64) -> Result<()> {
     env::set_var("IP", instance.pub_ip.to_string());
     let flake = ".";
 
@@ -76,11 +64,6 @@ fn copy_to(instance: &BitteNode, _attempts: u64, cache: &Option<String>) -> Resu
     let rebuild_flake: String = format!("{}#{}", flake, instance.nixos);
 
     nix_build(&target)?;
-
-    if let Some(c) = cache {
-        let cache = format!("{}&secret-key=secrets/nix-secret-key-file", c);
-        nix_copy_to_cache(&target, &cache)?;
-    }
 
     nix_copy_to_machine(&target, &instance.pub_ip)?;
     nixos_rebuild(&rebuild_flake, &instance.pub_ip)

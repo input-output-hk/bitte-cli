@@ -24,8 +24,7 @@ async fn main() -> Result<()> {
         (about: "nixos-rebuild")
         (@arg only: -o --only +takes_value +multiple "pattern of hosts to deploy")
         (@arg clients: -l --clients conflicts_with[only] "rebuild all nomad client nodes")
-        (@arg delay: -d --delay +takes_value "seconds to delay between rebuilds")
-        (@arg copy: -c --copy "copy to the S3 cache first"))
+        (@arg delay: -d --delay +takes_value "seconds to delay between rebuilds"))
       (@subcommand info =>
         (about: "Show information about instances and auto-scaling groups")
         (@arg json: -j --json "format as json"))
@@ -54,8 +53,7 @@ async fn main() -> Result<()> {
           delegating to terraform")
           (@arg args: +takes_value +multiple "arguments to terraform"))
         (@subcommand init => (about: "terraform init")
-          (@arg upgrade: --upgrade -u "upgrade provider versions"))
-        (@subcommand output => (about: "terraform output")))
+          (@arg upgrade: --upgrade -u "upgrade provider versions")))
       (@subcommand provision =>
         (about: "Initial provisioning from Terraform (do not run yourself)")
         (@arg ip: +takes_value +required "ip of the node")
