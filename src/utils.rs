@@ -30,18 +30,18 @@ fn handle_command_error_common(
                 if exit_code == 0 {
                     Ok(String::from_utf8_lossy(output.stdout.as_slice()).to_string())
                 } else {
-                    Err(Error::ExeError {
+                    Err(Error::Exe {
                         details: String::from_utf8_lossy(&output.stderr).to_string(),
                     }
                     .into())
                 }
             }
-            None => Err(Error::ExeError {
+            None => Err(Error::Exe {
                 details: "interrupted".to_string(),
             }
             .into()),
         },
-        Err(e) => Err(Error::ExeError {
+        Err(e) => Err(Error::Exe {
             details: e.to_string(),
         }
         .into()),

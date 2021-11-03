@@ -501,8 +501,8 @@ pub struct BitteCluster {
 }
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, FromStr)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum BitteProvider {
-    #[allow(clippy::upper_case_acronyms)]
     AWS,
 }
 
@@ -855,7 +855,7 @@ impl BitteCluster {
             let provider: String = args.value_of_t("provider")?;
             match provider.parse() {
                 Ok(v) => Ok(v),
-                Err(_) => Err(Error::ProviderError { provider }),
+                Err(_) => Err(Error::Provider { provider }),
             }?
         };
 
