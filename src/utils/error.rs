@@ -12,21 +12,21 @@ pub enum Error {
     #[error("github token missin in ~/.netrc file")]
     NoGithubToken,
     #[error("error parsing json")]
-    SerdeError(#[from] serde_json::Error),
+    Serde(#[from] serde_json::Error),
     #[error("error making rest api request")]
-    RestsonError(#[from] restson::Error),
+    Restson(#[from] restson::Error),
     #[error("couldn't generate terraform config")]
     FailedTerraformConfig,
     #[error("error decoding base64 state")]
-    DecodeError(#[from] base64::DecodeError),
+    Decode(#[from] base64::DecodeError),
     #[error("error parsing netrc file")]
-    NetrcError(netrc_rs::Error),
+    Netrc(netrc_rs::Error),
     #[error("couldn't read ~/.netrc")]
     NetrcMissing,
     #[error("error executing external process: {details}")]
-    ExeError { details: String },
+    Exe { details: String },
     #[error("current BITTE_PROVIDER is not valid: {provider}")]
-    ProviderError { provider: String },
+    Provider { provider: String },
     #[error("unknown error")]
     Unknown,
 }
@@ -34,7 +34,7 @@ pub enum Error {
 // NOTE netrc_rs doesn't impl StdError so can't simply `#[from]`
 impl From<netrc_rs::Error> for Error {
     fn from(error: netrc_rs::Error) -> Self {
-        Error::NetrcError(error)
+        Error::Netrc(error)
     }
 }
 
