@@ -4,8 +4,6 @@
   inputs = {
     utils.url = "github:kreisys/flake-utils";
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    naersk.url = "github:nrdxp/naersk/git-deps-fix";
-    naersk.inputs.nixpkgs.follows = "nixpkgs";
     iogo.url = "github:input-output-hk/bitte-iogo";
     iogo.inputs.nixpkgs.follows = "nixpkgs";
     iogo.inputs.utils.follows = "utils";
@@ -13,24 +11,19 @@
     fenix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, naersk, utils, iogo, fenix, ... }:
+  outputs = { self, nixpkgs, utils, iogo, fenix, ... }:
     utils.lib.simpleFlake {
       inherit nixpkgs;
 
       systems = [ "x86_64-darwin" "x86_64-linux" ];
 
       preOverlays = [
-        naersk
         iogo.overlay
         fenix.overlay
-        (final: prev: {
-          naersk = prev.naersk.override {
-            inherit (fenix.packages.${prev.system}.stable) cargo rustc;
-          };
-        })
       ];
 
-      overlay = final: prev: {
+      overlay = let
+      in final: prev: {
         bitte = final.callPackage ./package.nix { };
         damon = final.callPackage (import ./pkgs/damon.nix prev.fetchurl) { };
         bitteShellCompat = final.callPackage ./pkgs/bitte-shell.nix { };
