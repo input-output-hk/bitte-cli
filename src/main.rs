@@ -2,7 +2,7 @@ mod cli;
 mod utils;
 
 use anyhow::{bail, Context, Result};
-use clap::{Arg, IntoApp, clap_app};
+use clap::{clap_app, Arg, IntoApp};
 use deploy::cli::Opts;
 use std::env;
 use utils::types::BitteCluster;
@@ -19,7 +19,7 @@ async fn main() -> Result<()> {
       (@arg provider: --provider<NAME> env[BITTE_PROVIDER] "The cluster infrastructure provider")
       (@arg domain: --domain<NAME> env[BITTE_DOMAIN] "The public domain of the cluster")
       (@arg name: --cluster<NAME> env[BITTE_CLUSTER] "The unique name of the cluster")
-      (@arg "nomad-token": --nomad<TOKEN> env[NOMAD_TOKEN] "The Nomad token used to query node information")
+      (@arg nomad: --nomad[TOKEN] env[NOMAD_TOKEN] "The Nomad token used to query node information")
       (@subcommand rebuild =>
         (about: "nixos-rebuild")
         (@arg only: -o --only +takes_value +multiple "pattern of hosts to deploy")
@@ -30,7 +30,7 @@ async fn main() -> Result<()> {
         (@arg json: -j --json "format as json"))
       (@subcommand ssh =>
         (about: "SSH to instances")
-        (@arg job: -j --job +takes_value +multiple #{3, 3} "specify client by: job group alloc_index\nauto 'cd' to alloc dir when <args> are not specified")
+        (@arg job: -j --job requires[nomad] +takes_value +multiple #{3, 3} "specify client by: job group alloc_index\nauto 'cd' to alloc dir when <args> are not specified")
         (@group multi =>
             (@arg all: -a --all conflicts_with[job] requires[args] "run <args> on all nodes")
             (@arg parallel: -p --parallel conflicts_with[job] requires[args] conflicts_with[all] "run <args> on nodes in parallel"))
@@ -89,9 +89,16 @@ async fn main() -> Result<()> {
 
     let matches = app.get_matches();
 
-    let token: Uuid = matches
-        .value_of_t("nomad-token")
-        .with_context(|| "A Nomad token should be a valid UUID")?;
+    let token: Option<Uuid> = {
+        if matches.is_present("nomad") {
+            let token = matches
+                .value_of_t("nomad")
+                .with_context(|| "A Nomad token should be a valid UUID")?;
+            Some(token)
+        } else {
+            None
+        }
+    };
 
     let run = |init_log: bool| {
         if init_log {
