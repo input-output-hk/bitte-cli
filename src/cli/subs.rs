@@ -1,5 +1,6 @@
 use clap::Parser;
-use deploy::cli::Opts as Deploy;
+use deploy::data as deployData;
+use deploy::settings as deploySettings;
 
 #[derive(Parser)]
 pub enum SubCommands {
@@ -14,6 +15,29 @@ pub enum SubCommands {
 pub struct Info {
     #[clap(short, long, about = "output as JSON")]
     json: bool,
+}
+
+#[derive(Parser, Default)]
+#[clap(about = "Deploy core and client nodes")]
+pub struct Deploy {
+    #[clap(
+        long,
+        short = 'l',
+        about = "(re-)deploy all client nodes",
+    )]
+    pub clients: bool,
+    #[clap(flatten)]
+    pub flags: deployData::Flags,
+
+    #[clap(flatten)]
+    pub generic_settings: deploySettings::GenericSettings,
+    #[clap(
+        about = concat!(
+            "nodes to deploy; takes one or more needles to match against:\n",
+            "private & public ip, node name and aws client id"
+        ),
+    )]
+    pub nodes: Vec<String>,
 }
 
 #[derive(Parser)]
@@ -70,7 +94,7 @@ pub struct Ssh {
         requires = "all"
     )]
     delay: Option<usize>,
-    #[clap(multiple_values = true, about = "arguments to ssh")]
+    #[clap(about = "arguments to ssh")]
     args: Option<String>,
 }
 
@@ -110,7 +134,7 @@ pub struct Passthrough {
         about = "delete and reinitialize the `.terraform` state dir before delegating to terraform"
     )]
     init: bool,
-    #[clap(multiple_values = true, about = "arguments to terraform")]
+    #[clap(about = "arguments to terraform")]
     args: String,
 }
 
