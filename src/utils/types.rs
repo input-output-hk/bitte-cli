@@ -496,7 +496,7 @@ pub struct BitteCluster {
     pub domain: String,
     pub provider: BitteProvider,
     #[serde(skip)]
-    pub nomad_api_client: Arc<Client>,
+    pub nomad_api_client: Option<Arc<Client>>,
     pub ttl: SystemTime,
 }
 
@@ -675,8 +675,8 @@ impl BitteNode {
     async fn find_nodes(
         provider: BitteProvider,
         name: String,
-        allocs: AllocHandle,
-        clients: ClientHandle,
+        allocs: Option<AllocHandle>,
+        clients: Option<ClientHandle>,
         args: ArgMatches,
     ) -> Result<BitteNodes> {
         match provider {
@@ -719,8 +719,16 @@ impl BitteNode {
 
                 let mut result: BitteNodes = Vec::new();
 
-                let allocs = allocs.await??;
-                let clients = clients.await??;
+                let allocs = if let Some(allocs) = allocs {
+                    allocs.await??
+                } else {
+                    Vec::new()
+                };
+                let clients = if let Some(clients) = clients {
+                    clients.await??
+                } else {
+                    Vec::new()
+                };
 
                 for response in handles.into_iter() {
                     let response = response.await??;
@@ -848,7 +856,7 @@ type ClientHandle = JoinHandle<Result<NomadClients>>;
 type AllocHandle = JoinHandle<Result<NomadAllocs>>;
 
 impl BitteCluster {
-    pub async fn new(args: &ArgMatches, token: Uuid) -> Result<Self> {
+    pub async fn new(args: &ArgMatches, token: Option<Uuid>) -> Result<Self> {
         let name: String = args.value_of_t("name")?;
         let domain: String = args.value_of_t("domain")?;
         let provider: BitteProvider = {
@@ -859,39 +867,51 @@ impl BitteCluster {
             }?
         };
 
-        let nomad_api_client = {
-            let mut token = HeaderValue::from_str(&token.to_string())?;
-            token.set_sensitive(true);
-            let mut headers = HeaderMap::new();
-            headers.insert("X-Nomad-Token", token);
-            Arc::new(
-                Client::builder()
-                    .default_headers(headers)
-                    .gzip(true)
-                    .build()?,
-            )
+        let nomad_api_client = match token {
+            Some(token) => {
+                let mut token = HeaderValue::from_str(&token.to_string())?;
+                token.set_sensitive(true);
+                let mut headers = HeaderMap::new();
+                headers.insert("X-Nomad-Token", token);
+                Some(Arc::new(
+                    Client::builder()
+                        .default_headers(headers)
+                        .gzip(true)
+                        .build()?,
+                ))
+            }
+            None => None,
         };
 
-        let allocs = tokio::spawn(NomadAlloc::find_allocs(
-            Arc::clone(&nomad_api_client),
-            domain.to_owned(),
-        ));
+        let nodes = if let Some(client) = &nomad_api_client {
+            let allocs = tokio::spawn(NomadAlloc::find_allocs(
+                Arc::clone(client),
+                domain.to_owned(),
+            ));
 
-        let client_nodes = tokio::spawn(NomadClient::find_nomad_nodes(
-            Arc::clone(&nomad_api_client),
-            domain.to_owned(),
-        ));
+            let client_nodes = tokio::spawn(NomadClient::find_nomad_nodes(
+                Arc::clone(client),
+                domain.to_owned(),
+            ));
 
-        let args = args.clone();
-
-        let nodes = tokio::spawn(BitteNode::find_nodes(
-            provider,
-            name.to_owned(),
-            allocs,
-            client_nodes,
-            args,
-        ))
-        .await??;
+            tokio::spawn(BitteNode::find_nodes(
+                provider,
+                name.to_owned(),
+                Some(allocs),
+                Some(client_nodes),
+                args.clone(),
+            ))
+            .await??
+        } else {
+            tokio::spawn(BitteNode::find_nodes(
+                provider,
+                name.to_owned(),
+                None,
+                None,
+                args.clone(),
+            ))
+            .await??
+        };
 
         let cache_name = name.clone();
 
@@ -916,7 +936,7 @@ impl BitteCluster {
     }
 
     #[inline(always)]
-    pub fn init(args: ArgMatches, token: Uuid) -> ClusterHandle {
+    pub fn init(args: ArgMatches, token: Option<Uuid>) -> ClusterHandle {
         tokio::spawn(async move {
             let file = std::fs::File::open(cache_dir(args.value_of_t("name")?)?).ok();
 
