@@ -2,9 +2,11 @@ use crate::utils::{
     certs, terraform,
     types::{BitteFind, ClusterHandle},
 };
+use crate::DeployOpts;
 use anyhow::{anyhow, Context, Result};
-use clap::ArgMatches;
-use deploy::cli;
+use clap::{ArgMatches, FromArgMatches};
+use deploy::cli as deployCli;
+use deploy::cli::Opts as ExtDeployOpts;
 use log::*;
 use prettytable::{cell, row, Table};
 use std::net::IpAddr;
@@ -174,13 +176,50 @@ async fn init_ssh(ip: IpAddr, args: Vec<String>, cluster: String) -> Result<()> 
 }
 
 pub(crate) async fn deploy(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
-    cluster.await??;
-    match cli::run(Some(sub)).await {
-        Ok(()) => (),
-        Err(err) => {
-            error!("{}", err);
-            std::process::exit(1);
+    let only: Vec<&str> = sub.values_of("only").unwrap_or_default().collect();
+    let clients: bool = sub.is_present("clients");
+    let cluster = cluster.await??;
+
+    info!("only: {:?}", only);
+
+    let instances = if only.is_empty() {
+        if clients {
+            cluster
+                .nodes
+                .into_iter()
+                .filter(|node| node.nomad_client.is_some())
+                .collect()
+        } else {
+            cluster.nodes
         }
+    } else {
+        cluster.nodes.find_needles(only)
+    };
+
+    let targets: Vec<String> = instances.iter().map(
+        |i| format!(".#{}@{}:22", i.nixos, i.pub_ip)
+    ).collect();
+
+    info!("redeploy: {:?}", targets);
+    let opts = <DeployOpts as FromArgMatches>::from_arg_matches(sub).unwrap_or_default();
+    // TODO: disable these options for the general public (target & targets)
+    let opts = ExtDeployOpts {
+        hostname: None,
+        target: None,
+        targets: Some(targets),
+        flags: opts.flags,
+        generic_settings: opts.generic_settings,
+    };
+    // wait_for_ssh(&instance.pub_ip).await?;
+    if let Err(err) = deployCli::run(Some(opts)).await {
+        error!("{}", err);
+        // NB: if your up for a mass rebuild you are expected to:
+        //   - Randomly check on a representative single node before
+        //   - Eventually use the dry-run fearure
+        //   - Watch the logs closely
+        //   - Kill the deployment manually if things appear to go out
+        //     of hand
+        // std::process::exit(1);
     }
     Ok(())
 }

@@ -417,7 +417,7 @@ dependencies = [
 [[package]]
 name = "deploy-rs"
 version = "0.1.0"
-source = "git+https://github.com/input-output-hk/deploy-rs#d630e135698d71cf810544c6d5e696ddfc45c99f"
+source = "git+https://github.com/input-output-hk/deploy-rs#0c28e0c52d07b63eb88c49bcb116714ad7ba2479"
 dependencies = [
  "clap",
  "envmnt",

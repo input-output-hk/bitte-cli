@@ -2,11 +2,23 @@ mod cli;
 mod utils;
 
 use anyhow::{bail, Context, Result};
-use clap::{App, Arg, IntoApp};
-use deploy::cli::Opts;
+use clap::{App, Arg, IntoApp, Parser};
+use deploy::data as deployData;
+use deploy::settings as deploySettings;
 use std::env;
 use utils::types::BitteCluster;
 use uuid::Uuid;
+
+/// Simple Rust rewrite of a simple Nix Flake deployment tool
+#[derive(Parser, Debug, Clone, Default)]
+#[clap(version = "1.0", author = "Serokell <https://serokell.io/>")]
+struct DeployOpts {
+    #[clap(flatten)]
+    pub flags: deployData::Flags,
+
+    #[clap(flatten)]
+    pub generic_settings: deploySettings::GenericSettings,
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -104,7 +116,24 @@ async fn main() -> Result<()> {
         //   (@subcommand certs =>
         //     (@arg domain: +takes_value +required "FQDN of the cluster"))
         // )
-        .subcommand(<Opts as IntoApp>::into_app().name("deploy"))
+        .subcommand(
+            <DeployOpts as IntoApp>::into_app().name("deploy")
+                .arg(
+                    Arg::new("only")
+                        .short('o')
+                        .long("only")
+                        .about("pattern of hosts to deploy")
+                        .takes_value(true)
+                        .multiple_values(true),
+                )
+                .arg(
+                    Arg::new("clients")
+                        .short('l')
+                        .long("clients")
+                        .about("rebuild all nomad client nodes")
+                        .conflicts_with("only"),
+                ),
+        )
         .arg(
             Arg::new("aws-region")
                 .about("The default AWS region")

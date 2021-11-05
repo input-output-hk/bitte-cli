@@ -14,7 +14,7 @@
   src = ./.;
   cargoLock.lockFile = ./Cargo.lock;
   cargoLock.outputHashes = {
-    "deploy-rs-0.1.0" = "sha256-WFmUGwtV9mmQMAuenlRCGpJHJP2vP9MR/iTex+tGPtg=";
+    "deploy-rs-0.1.0" = "sha256-IqP03slZYesbmCY52JQbs0mIegjSgM9MKJIonSzLBfs=";
   };
 
   dontCargoCheck = true; # flaky tests during refactoring
