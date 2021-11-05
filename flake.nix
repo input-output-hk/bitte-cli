@@ -26,7 +26,7 @@
       in final: prev: {
         bitte = final.callPackage ./package.nix { };
         damon = final.callPackage (import ./pkgs/damon.nix prev.fetchurl) { };
-        bitteShellCompat = final.callPackage ./pkgs/bitte-shell.nix { };
+        bitteShell = final.callPackage ./pkgs/bitte-shell.nix { };
       };
 
       packages = { bitte, damon }: {
