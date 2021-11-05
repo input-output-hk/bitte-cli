@@ -14,7 +14,7 @@
   src = ./.;
   cargoLock.lockFile = ./Cargo.lock;
   cargoLock.outputHashes = {
-    "deploy-rs-0.1.0" = "sha256-WFmUGwtV9mmQMAuenlRCGpJHJP2vP9MR/iTex+tGPtg=";
+    "deploy-rs-0.1.0" = "sha256-si4YnxAWaBPIop/UtshR5yUYV0jcESJGEamegVWxxFE=";
   };
 
   nativeBuildInputs = [ pkg-config ];

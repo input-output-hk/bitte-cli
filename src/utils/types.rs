@@ -556,6 +556,7 @@ where
 {
     fn find_needle(self, needle: &str) -> Result<Self::Item>;
     fn find_needles(self, needles: Vec<&str>) -> Self;
+    fn find_clients(self) -> Self;
 }
 
 impl BitteFind for BitteNodes {
@@ -578,6 +579,11 @@ impl BitteFind for BitteNodes {
                     || Some(node.pub_ip) == ip
             })
             .with_context(|| format!("{} does not match any nodes", needle))
+    }
+    fn find_clients(self) -> Self {
+        self.into_iter()
+            .filter(|node| node.nomad_client.is_some())
+            .collect()
     }
 
     fn find_needles(self, needles: Vec<&str>) -> Self {
