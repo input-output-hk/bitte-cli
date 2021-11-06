@@ -34,19 +34,10 @@ async fn main() -> Result<()> {
     };
 
     match matches.subcommand() {
-        Some(("rebuild", sub)) => cli::rebuild(sub, run(true)).await,
         Some(("deploy", sub)) => cli::deploy(sub, run(false)).await,
         Some(("info", sub)) => cli::info(sub, run(true)).await,
         Some(("ssh", sub)) => cli::ssh(sub, run(true)).await,
         Some(("terraform", sub)) => cli::terraform(sub, run(true)).await,
-        Some(("provision", sub)) => {
-            pretty_env_logger::init();
-            cli::provision(sub, matches.value_of_t("name")?).await
-        }
-        Some(("certs", sub)) => {
-            pretty_env_logger::init();
-            cli::certs(sub).await
-        }
         _ => {
             bail!(format!(
                 "Invalid subcommand\n {}",

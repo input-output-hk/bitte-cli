@@ -3,7 +3,7 @@ pub mod opts;
 pub mod subs;
 
 use crate::utils::{
-    certs, rebuild, ssh, terraform,
+    terraform,
     types::{BitteFind, ClusterHandle},
 };
 use anyhow::{anyhow, Context, Result};
@@ -14,42 +14,6 @@ use prettytable::{cell, row, Table};
 use std::net::IpAddr;
 use std::{env, io, path::Path, process::Command, time::Duration};
 use tokio::task::JoinHandle;
-
-pub(crate) async fn certs(sub: &ArgMatches) -> Result<()> {
-    let domain: String = sub.value_of_t_or_exit("domain");
-    env::set_var("VAULT_ADDR", format!("https://vault.{}", domain));
-    env::set_var("VAULT_CACERT", "secrets/ca.pem");
-    env::set_var("VAULT_FORMAT", "json");
-    env::set_var("VAULT_SKIP_VERIFY", "true");
-
-    certs::vault_login()?;
-    certs::write_issuing_ca(&domain);
-    certs::sign_intermediate()?;
-    Ok(())
-}
-
-pub(crate) async fn provision(sub: &ArgMatches, cluster: String) -> Result<()> {
-    let ip: IpAddr = sub.value_of_t("ip")?;
-    let flake: String = sub.value_of_t_or_exit("flake");
-    let attr: String = sub.value_of_t_or_exit("attr");
-    let cache: String = sub.value_of_t_or_exit("cache");
-
-    rebuild::set_ssh_opts(false, &cluster)?;
-    ssh::wait_for_ssh(&ip).await?;
-    ssh::wait_for_ready(&cluster, &ip)?;
-    ssh::ssh_keygen(&ip)?;
-
-    let toplevel = format!(
-        "{}#nixosConfigurations.{}.config.system.build.toplevel",
-        flake, attr
-    );
-    let cache = format!("{}&secret-key=secrets/nix-secret-key-file", &cache);
-    let flake = format!("{}#{}", &flake, &attr);
-    rebuild::nix_copy_to_cache(&toplevel, &cache)?;
-    rebuild::nix_copy_to_machine(&toplevel, &ip)?;
-    rebuild::nixos_rebuild(&flake, &ip)?;
-    Ok(())
-}
 
 pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
     let mut args = sub.values_of_lossy("args").unwrap_or_default();
@@ -200,23 +164,6 @@ async fn init_ssh(ip: IpAddr, args: Vec<String>, cluster: String) -> Result<()> 
     Ok(())
 }
 
-pub(crate) async fn rebuild(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
-    let only: Vec<String> = sub.values_of_t("only").unwrap_or_default();
-    let delay = Duration::from_secs(sub.value_of_t::<u64>("delay").unwrap_or(0));
-    let clients: bool = sub.is_present("clients");
-
-    let cluster = cluster.await??;
-
-    rebuild::set_ssh_opts(true, &cluster.name)?;
-    rebuild::copy(
-        only.iter().map(|o| o.as_str()).collect(),
-        delay,
-        clients,
-        cluster,
-    )
-    .await?;
-    Ok(())
-}
 pub(crate) async fn deploy(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
     cluster.await??;
     match cli::run(Some(sub)).await {
