@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use clap::ArgMatches;
+use clap::{ArgEnum, ArgMatches};
 use restson::RestPath;
 use rusoto_core::Region;
 use rusoto_ec2::{DescribeInstancesRequest, Ec2, Ec2Client, Filter, Instance, Tag};
@@ -500,7 +500,8 @@ pub struct BitteCluster {
     pub ttl: SystemTime,
 }
 
-#[derive(Debug, Serialize, Deserialize, Copy, Clone, FromStr)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, FromStr, ArgEnum)]
+#[enumeration(case_insensitive)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum BitteProvider {
     AWS,
