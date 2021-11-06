@@ -53,32 +53,6 @@ async fn main() -> Result<()> {
                 .value_name("TOKEN"),
         )
         .subcommand(
-            App::new("rebuild")
-                .about("nixos-rebuild")
-                .arg(
-                    Arg::new("only")
-                        .short('o')
-                        .long("only")
-                        .about("pattern of hosts to deploy")
-                        .takes_value(true)
-                        .multiple_values(true),
-                )
-                .arg(
-                    Arg::new("clients")
-                        .short('l')
-                        .long("clients")
-                        .about("rebuild all nomad client nodes")
-                        .conflicts_with("only"),
-                )
-                .arg(
-                    Arg::new("delay")
-                        .short('d')
-                        .long("delay")
-                        .about("seconds to delay between rebuilds")
-                        .takes_value(true),
-                ),
-        )
-        .subcommand(
             App::new("info")
                 .about("Show information about instances and auto-scaling groups")
                 .arg(
@@ -127,14 +101,6 @@ async fn main() -> Result<()> {
         //       (@arg args: +takes_value +multiple "arguments to terraform"))
         //     (@subcommand init => (about: "terraform init")
         //       (@arg upgrade: --upgrade -u "upgrade provider versions")))
-        //   (@subcommand provision =>
-        //     (about: "Initial provisioning from Terraform (do not run yourself)")
-        //     (@arg ip: +takes_value +required "ip of the node")
-        //     (@arg name: +takes_value +required "name of the node")
-        //     (@arg cluster: +takes_value +required "cluster name")
-        //     (@arg flake: +takes_value +required "flake location")
-        //     (@arg attr: +takes_value +required "flake host attr")
-        //     (@arg cache: +takes_value +required "cache location"))
         //   (@subcommand certs =>
         //     (@arg domain: +takes_value +required "FQDN of the cluster"))
         // )
@@ -182,15 +148,10 @@ async fn main() -> Result<()> {
     };
 
     match matches.subcommand() {
-        Some(("rebuild", sub)) => cli::rebuild(sub, run(true)).await,
         Some(("deploy", sub)) => cli::deploy(sub, run(false)).await,
         Some(("info", sub)) => cli::info(sub, run(true)).await,
         Some(("ssh", sub)) => cli::ssh(sub, run(true)).await,
         Some(("terraform", sub)) => cli::terraform(sub, run(true)).await,
-        Some(("provision", sub)) => {
-            pretty_env_logger::init();
-            cli::provision(sub, matches.value_of_t("name")?).await
-        }
         Some(("certs", sub)) => {
             pretty_env_logger::init();
             cli::certs(sub).await

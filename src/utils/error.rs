@@ -3,8 +3,6 @@
 pub enum Error {
     #[error("timeout elapsed")]
     Timeout(#[from] tokio::time::error::Elapsed),
-    #[error("exhausted {0} attempts")]
-    ExhaustedAttempts(usize),
     #[error("connection with {0} failed")]
     ConnectionFailed(#[from] std::io::Error),
     #[error("environment variable")]
@@ -23,12 +21,8 @@ pub enum Error {
     Netrc(netrc_rs::Error),
     #[error("couldn't read ~/.netrc")]
     NetrcMissing,
-    #[error("error executing external process: {details}")]
-    Exe { details: String },
     #[error("current BITTE_PROVIDER is not valid: {provider}")]
     Provider { provider: String },
-    #[error("unknown error")]
-    Unknown,
 }
 
 // NOTE netrc_rs doesn't impl StdError so can't simply `#[from]`
