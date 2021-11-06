@@ -1,3 +1,7 @@
+mod args;
+pub mod opts;
+pub mod subs;
+
 use crate::utils::{
     certs, rebuild, ssh, terraform,
     types::{BitteFind, ClusterHandle},

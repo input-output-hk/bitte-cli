@@ -30,7 +30,7 @@ netrc-rs = "0.1.2"
 enum-utils = "0.1.2"
 
 [dependencies.clap]
-version = "=3.0.0-beta.2"
+version = "=3.0.0-beta.5"
 features = ["suggestions", "color", "wrap_help"]
 
 [dev-dependencies]
