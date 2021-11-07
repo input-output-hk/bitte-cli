@@ -1,4 +1,4 @@
-use crate::utils::types::BitteProvider;
+use crate::types::BitteProvider;
 use clap::Parser;
 
 #[derive(Parser)]

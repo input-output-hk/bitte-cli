@@ -2,10 +2,7 @@ mod args;
 pub mod opts;
 pub mod subs;
 
-use crate::utils::{
-    terraform,
-    types::{BitteFind, ClusterHandle},
-};
+use crate::utils::terraform;
 use anyhow::{anyhow, Context, Result};
 use clap::{ArgMatches, FromArgMatches};
 use deploy::cli as deployCli;
@@ -15,6 +12,7 @@ use prettytable::{cell, row, Table};
 use std::net::IpAddr;
 use std::{env, io, path::Path, process::Command, time::Duration};
 use tokio::task::JoinHandle;
+use crate::types::{BitteFind, ClusterHandle};
 
 pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
     let mut args = sub.values_of_lossy("args").unwrap_or_default();
@@ -174,12 +172,15 @@ pub(crate) async fn deploy(sub: &ArgMatches, cluster: ClusterHandle) -> Result<(
     let instances = if opts.clients {
         cluster.nodes.find_clients()
     } else {
-        cluster.nodes.find_needles(opts.nodes.iter().map(AsRef::as_ref).collect())
+        cluster
+            .nodes
+            .find_needles(opts.nodes.iter().map(AsRef::as_ref).collect())
     };
 
-    let targets: Vec<String> = instances.iter().map(
-        |i| format!(".#{}@{}:22", i.nixos, i.pub_ip)
-    ).collect();
+    let targets: Vec<String> = instances
+        .iter()
+        .map(|i| format!(".#{}@{}:22", i.nixos, i.pub_ip))
+        .collect();
 
     info!("redeploy: {:?}", targets);
     // TODO: disable these options for the general public (target & targets)

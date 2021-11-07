@@ -1,9 +1,5 @@
-pub mod error;
 pub mod nomad;
 pub mod terraform;
-pub mod types;
-
-use error::Error;
 
 #[derive(Clone)]
 pub struct Instance {

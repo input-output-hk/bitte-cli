@@ -1,5 +1,5 @@
 use super::subs::SubCommands;
-use crate::utils::types::BitteProvider;
+use crate::types::BitteProvider;
 use anyhow::{Context, Result};
 use clap::Parser;
 use rusoto_core::Region;

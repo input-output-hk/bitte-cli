@@ -1,11 +1,12 @@
 mod cli;
 mod utils;
+mod types;
 
 use anyhow::{bail, Result};
 use clap::{App, IntoApp};
 use cli::opts::Bitte;
 use std::env;
-use utils::types::BitteCluster;
+use types::BitteCluster;
 use uuid::Uuid;
 
 #[tokio::main]
