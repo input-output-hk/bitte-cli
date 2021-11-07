@@ -15,8 +15,6 @@ pub enum Error {
     Restson(#[from] restson::Error),
     #[error("couldn't generate terraform config")]
     FailedTerraformConfig,
-    #[error("error decoding base64 state")]
-    Decode(#[from] base64::DecodeError),
     #[error("error parsing netrc file")]
     Netrc(netrc_rs::Error),
     #[error("couldn't read ~/.netrc")]

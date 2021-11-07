@@ -12,10 +12,10 @@ use shellexpand::tilde;
 use crate::types::{HttpPutToken, VaultLogin};
 
 pub async fn prepare(workspace: String, cluster: ClusterHandle) -> Result<()> {
-    set_http_auth()?;
+    set_http_auth().await?;
     info!("prepare terraform");
     generate_terraform_config(&workspace, cluster).await?;
-    init(false)?;
+    init(false).await?;
     Ok(())
 }
 
@@ -47,8 +47,8 @@ pub async fn generate_terraform_config(workspace: &str, cluster: ClusterHandle) 
     }
 }
 
-pub fn init(upgrade: bool) -> Result<()> {
-    set_http_auth()?;
+pub async fn init(upgrade: bool) -> Result<()> {
+    set_http_auth().await?;
     println!("run: terraform init");
 
     remove_dir_all(".terraform").ok();
@@ -86,21 +86,21 @@ fn github_token() -> Result<String> {
     Err(Error::NoGithubToken.into())
 }
 
-fn vault_token() -> Result<String> {
+async fn vault_token() -> Result<String> {
     let gh_token = github_token()?;
     let mut client = RestClient::new("https://vault.infra.aws.iohkdev.io")?;
     let data = HttpPutToken { token: gh_token };
-    let result: VaultLogin = client.put_capture((), &data)?;
+    let result: VaultLogin = client.put_capture((), &data).await?;
     Ok(result.auth.client_token)
 }
 
-pub fn set_http_auth() -> Result<()> {
+pub async fn set_http_auth() -> Result<()> {
     if env::var("TF_HTTP_PASSWORD").is_ok() {
         info!("reusing existing TF_HTTP_* variables");
     } else {
         info!("set TF_HTTP_* variables");
         env::set_var("TF_HTTP_USERNAME", "TOKEN");
-        env::set_var("TF_HTTP_PASSWORD", vault_token()?);
+        env::set_var("TF_HTTP_PASSWORD", vault_token().await?);
     }
 
     Ok(())

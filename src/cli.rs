@@ -2,6 +2,7 @@ mod args;
 pub mod opts;
 pub mod subs;
 
+use crate::types::{BitteFind, ClusterHandle};
 use crate::utils::terraform;
 use anyhow::{anyhow, Context, Result};
 use clap::{ArgMatches, FromArgMatches};
@@ -12,7 +13,6 @@ use prettytable::{cell, row, Table};
 use std::net::IpAddr;
 use std::{env, io, path::Path, process::Command, time::Duration};
 use tokio::task::JoinHandle;
-use crate::types::{BitteFind, ClusterHandle};
 
 pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
     let mut args = sub.values_of_lossy("args").unwrap_or_default();
@@ -283,14 +283,14 @@ pub async fn terraform_passthrough(
     let config: bool = !sub.is_present("no_config");
     let args = sub.values_of_lossy("args").unwrap_or_default();
 
-    terraform::set_http_auth()?;
+    terraform::set_http_auth().await?;
 
     if config {
         terraform::generate_terraform_config(&workspace, cluster).await?;
     }
 
     if init {
-        terraform::init(false)?;
+        terraform::init(false).await?;
     }
 
     let mut cmd = Command::new("terraform");
@@ -308,8 +308,10 @@ pub async fn terraform_init(
     cluster: ClusterHandle,
 ) -> Result<()> {
     let upgrade: bool = sub.is_present("upgrade");
-    terraform::generate_terraform_config(&workspace, cluster).await?;
-    terraform::init(upgrade)?;
+    let config = terraform::generate_terraform_config(&workspace, cluster);
+    let init = terraform::init(upgrade);
+    config.await?;
+    init.await?;
     Ok(())
 }
 
