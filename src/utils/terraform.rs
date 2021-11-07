@@ -2,15 +2,14 @@ use std::fs::{read_to_string, remove_dir_all};
 use std::process::Command;
 use std::{env, path::Path};
 
-use super::error::Error;
-use super::types::ClusterHandle;
+use crate::types::{error::Error, ClusterHandle};
 use anyhow::Result;
 use log::info;
 use netrc_rs::Netrc;
 use restson::RestClient;
 use shellexpand::tilde;
 
-use super::types::{HttpPutToken, VaultLogin};
+use crate::types::{HttpPutToken, VaultLogin};
 
 pub async fn prepare(workspace: String, cluster: ClusterHandle) -> Result<()> {
     set_http_auth()?;
