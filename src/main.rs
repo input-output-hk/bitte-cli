@@ -21,9 +21,7 @@ async fn main() -> Result<()> {
 
     let matches = app.get_matches();
 
-    let token: Option<Uuid> = matches.value_of_t("nomad").ok();
-
-    let run = |init_log: bool| {
+    let run = |init_log: bool, token| {
         if init_log {
             pretty_env_logger::init()
         };
@@ -31,10 +29,17 @@ async fn main() -> Result<()> {
     };
 
     match matches.subcommand() {
-        Some(("deploy", sub)) => cli::deploy(sub, run(false)).await?,
-        Some(("info", sub)) => cli::info(sub, run(true)).await?,
-        Some(("ssh", sub)) => cli::ssh(sub, run(true)).await?,
-        Some(("terraform", sub)) => cli::terraform(sub, run(true)).await?,
+        Some(("deploy", sub)) => cli::deploy(sub, run(false, None)).await?,
+        Some(("info", sub)) => cli::info(sub, run(true, None)).await?,
+        Some(("ssh", sub)) => {
+            let token: Option<Uuid> = if sub.is_present("job") {
+                sub.value_of_t("nomad").ok()
+            } else {
+                None
+            };
+            cli::ssh(sub, run(true, token)).await?
+        }
+        Some(("terraform", sub)) => cli::terraform(sub, run(true, None)).await?,
         _ => (),
     }
     Ok(())

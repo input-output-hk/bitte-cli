@@ -1,9 +1,7 @@
 use super::subs::SubCommands;
 use crate::types::BitteProvider;
-use anyhow::{Context, Result};
 use clap::Parser;
 use rusoto_core::Region;
-use uuid::Uuid;
 
 #[derive(Parser)]
 pub struct Bitte {
@@ -31,16 +29,6 @@ pub struct Bitte {
     name: String,
     #[clap(
         long,
-        global = true,
-        value_name = "TOKEN",
-        about = "The Nomad token used to query node information",
-        env = "NOMAD_TOKEN",
-        hidden = true,
-        parse(try_from_str = token_context)
-    )]
-    nomad: Option<Uuid>,
-    #[clap(
-        long,
         about = "The default AWS region",
         env = "AWS_DEFAULT_REGION",
         value_name = "REGION",
@@ -59,8 +47,4 @@ pub struct Bitte {
     aws_asg_regions: Option<Vec<Region>>,
     #[clap(subcommand)]
     commands: SubCommands,
-}
-
-fn token_context(string: &str) -> Result<Uuid> {
-    Uuid::parse_str(string).with_context(|| format!("'{}' is not a valid UUID", string))
 }

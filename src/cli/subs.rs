@@ -1,6 +1,8 @@
-use clap::Parser;
+use anyhow::{Context, Result};
+use clap::{ArgSettings, Parser};
 use deploy::data as deployData;
 use deploy::settings as deploySettings;
+use uuid::Uuid;
 
 #[derive(Parser)]
 pub enum SubCommands {
@@ -20,11 +22,7 @@ pub struct Info {
 #[derive(Parser, Default)]
 #[clap(about = "Deploy core and client nodes")]
 pub struct Deploy {
-    #[clap(
-        long,
-        short = 'l',
-        about = "(re-)deploy all client nodes",
-    )]
+    #[clap(long, short = 'l', about = "(re-)deploy all client nodes")]
     pub clients: bool,
     #[clap(flatten)]
     pub flags: deployData::Flags,
@@ -55,6 +53,15 @@ pub struct Ssh {
         value_names = &["JOB", "GROUP", "INDEX"],
     )]
     job: Option<String>,
+    #[clap(
+        long,
+        value_name = "TOKEN",
+        about = "for '-j': The Nomad token used to query node information",
+        env = "NOMAD_TOKEN",
+        parse(try_from_str = token_context),
+        setting = ArgSettings::HideEnvValues
+    )]
+    nomad: Option<Uuid>,
     #[clap(
         long,
         short,
@@ -143,4 +150,8 @@ pub struct Passthrough {
 pub struct Init {
     #[clap(long, short, about = "upgrade provider versions")]
     upgrade: bool,
+}
+
+fn token_context(string: &str) -> Result<Uuid> {
+    Uuid::parse_str(string).with_context(|| format!("'{}' is not a valid UUID", string))
 }
