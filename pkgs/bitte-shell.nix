@@ -50,9 +50,6 @@ in mkShell ({
     python38Packages.pyhcl
     direnv
     jq
-  ] ++ lib.optionals stdenv.isLinux [
-    # nixos-rebuild will be unusable on non-linux systems
-    nixos-rebuild
   ] ++ extraPackages;
 
 } // (lib.optionalAttrs (caCert != null) {
