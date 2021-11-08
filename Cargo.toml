@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 regex = "*"
-restson = "^1.0.0"
 serde_json = "^1.0.0"
 serde = { version = "1.0", features = [ "derive", "rc" ] }
 shellexpand = "^2.0"

@@ -3,10 +3,10 @@ use std::process::Command;
 use std::{env, path::Path};
 
 use crate::types::{error::Error, ClusterHandle};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use log::info;
 use netrc_rs::Netrc;
-use restson::RestClient;
+use reqwest::Client;
 use shellexpand::tilde;
 
 use crate::types::{HttpPutToken, VaultLogin};
@@ -88,9 +88,18 @@ fn github_token() -> Result<String> {
 
 async fn vault_token() -> Result<String> {
     let gh_token = github_token()?;
-    let mut client = RestClient::new("https://vault.infra.aws.iohkdev.io")?;
+    let client = Client::builder().gzip(true).build()?;
     let data = HttpPutToken { token: gh_token };
-    let result: VaultLogin = client.put_capture((), &data).await?;
+    let url = "https://vault.infra.aws.iohkdev.io/v1/auth/github-terraform/login";
+    let result: VaultLogin = client
+        .put(url)
+        .json(&data)
+        .send()
+        .await
+        .with_context(|| format!("failed to query: {}", &url))?
+        .json::<VaultLogin>()
+        .await
+        .with_context(|| format!("failed to decode response from: {}", &url))?;
     Ok(result.auth.client_token)
 }
 

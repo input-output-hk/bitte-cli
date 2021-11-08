@@ -11,8 +11,6 @@ pub enum Error {
     NoGithubToken,
     #[error("error parsing json")]
     Serde(#[from] serde_json::Error),
-    #[error("error making rest api request")]
-    Restson(#[from] restson::Error),
     #[error("couldn't generate terraform config")]
     FailedTerraformConfig,
     #[error("error parsing netrc file")]
