@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use clap::{ArgSettings, Parser};
+use clap::{AppSettings, ArgSettings, Parser};
 use deploy::data as deployData;
 use deploy::settings as deploySettings;
 use uuid::Uuid;
@@ -10,6 +10,8 @@ pub enum SubCommands {
     Ssh(Ssh),
     Terraform(Terraform),
     Deploy(Deploy),
+    #[clap(setting = AppSettings::Hidden)]
+    Completions(Completions),
 }
 
 #[derive(Parser)]
@@ -112,6 +114,20 @@ pub struct Terraform {
     workspace: String,
     #[clap(subcommand)]
     commands: TerraSubs,
+}
+
+#[derive(Parser)]
+#[clap(about = "Generate CLI completions", alias = "comp")]
+pub struct Completions {
+    #[clap(subcommand)]
+    shells: Shells,
+}
+
+#[derive(Parser)]
+pub enum Shells {
+    Bash,
+    Zsh,
+    Fish,
 }
 
 #[derive(Parser)]

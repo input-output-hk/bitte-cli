@@ -5,7 +5,8 @@ pub mod subs;
 use crate::types::{BitteFind, ClusterHandle};
 use crate::utils::terraform;
 use anyhow::{anyhow, Context, Result};
-use clap::{ArgMatches, FromArgMatches};
+use clap::{App, ArgMatches, FromArgMatches};
+use clap_generate::{generate, generators};
 use deploy::cli as deployCli;
 use deploy::cli::Opts as ExtDeployOpts;
 use log::*;
@@ -390,5 +391,15 @@ async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
         instance_table.printstd();
     }
 
+    Ok(())
+}
+
+pub(crate) async fn completions(sub: &ArgMatches, mut app: App<'_>) -> Result<()> {
+    match sub.subcommand() {
+        Some(("bash", _)) => generate(generators::Bash, &mut app, "bitte", &mut std::io::stdout()),
+        Some(("zsh", _)) => generate(generators::Zsh, &mut app, "bitte", &mut std::io::stdout()),
+        Some(("fish", _)) => generate(generators::Fish, &mut app, "bitte", &mut std::io::stdout()),
+        _ => (),
+    };
     Ok(())
 }

@@ -2,14 +2,10 @@
 # darwin dependencies
 , darwin }:
 
-(makeRustPlatform {
-  inherit (fenix.stable) cargo rustc;
-}).buildRustPackage {
+(makeRustPlatform { inherit (fenix.stable) cargo rustc; }).buildRustPackage {
 
   inherit (with builtins; (fromTOML (readFile ./Cargo.toml)).package)
-    name
-    version
-  ;
+    name version;
 
   src = ./.;
   cargoLock.lockFile = ./Cargo.lock;
@@ -27,4 +23,20 @@
       darwin.libresolv
       darwin.Libsystem
     ]);
-} // { meta.description = "A swiss knife for the bitte cluster"; }
+
+  doCheck = false;
+
+  postInstall = ''
+    export BITTE_CLUSTER=b
+    export BITTE_PROVIDER=aws
+    export BITTE_DOMAIN=b.b.b
+
+    mkdir -p $out/share/zsh/site-functions
+    $out/bin/bitte comp zsh > $out/share/zsh/site-functions/_bitte
+
+    mkdir -p $out/share/bash-completion/completions
+    $out/bin/bitte comp bash > $out/share/bash-completion/completions/bitte
+  '';
+} // {
+  meta.description = "A swiss knife for the bitte cluster";
+}

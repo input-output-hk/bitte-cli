@@ -19,7 +19,7 @@ async fn main() -> Result<()> {
         .author(clap::crate_authors!("\n"))
         .about(clap::crate_description!());
 
-    let matches = app.get_matches();
+    let matches = app.clone().get_matches();
 
     let run = |init_log: bool, token| {
         if init_log {
@@ -40,6 +40,7 @@ async fn main() -> Result<()> {
             cli::ssh(sub, run(true, token)).await?
         }
         Some(("terraform", sub)) => cli::terraform(sub, run(true, None)).await?,
+        Some(("completions", sub)) => cli::completions(sub, app).await?,
         _ => (),
     }
     Ok(())
