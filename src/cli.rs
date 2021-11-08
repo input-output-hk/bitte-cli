@@ -27,11 +27,7 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
 
     if sub.is_present("all") {
         let nodes = if sub.is_present("clients") {
-            cluster
-                .nodes
-                .into_iter()
-                .filter(|node| node.nomad_client.is_some())
-                .collect()
+            cluster.nodes.find_clients()
         } else {
             cluster.nodes
         };
@@ -48,11 +44,7 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
         return Ok(());
     } else if sub.is_present("parallel") {
         let nodes = if sub.is_present("clients") {
-            cluster
-                .nodes
-                .into_iter()
-                .filter(|node| node.nomad_client.is_some())
-                .collect()
+            cluster.nodes.find_clients()
         } else {
             cluster.nodes
         };
