@@ -205,6 +205,8 @@ pub(crate) async fn info(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()>
 }
 
 pub(crate) async fn terraform(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
+    warn!("This command is deprecated, instead use: `nix run .#clusters.$BITTE_CLUSTER.tf.[...]`");
+
     let workspace: String = sub.value_of_t_or_exit("workspace");
 
     match sub.subcommand() {
