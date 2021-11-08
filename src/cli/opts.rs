@@ -45,6 +45,15 @@ pub struct Bitte {
         require_delimiter = true
     )]
     aws_asg_regions: Option<Vec<Region>>,
+    #[clap(
+        short,
+        long,
+        parse(from_occurrences),
+        global = true,
+        env = "RUST_LOG",
+        about = "set log level: 'unset' is 'warn', '-v' is 'info', '-vv' is 'debug', ..."
+    )]
+    verbose: i32,
     #[clap(subcommand)]
     commands: SubCommands,
 }

@@ -15,6 +15,17 @@ use std::net::IpAddr;
 use std::{env, io, path::Path, process::Command, time::Duration};
 use tokio::task::JoinHandle;
 
+pub fn init_log(level: u64) {
+    let level = match level {
+        0 => "warn",
+        1 => "info",
+        2 => "debug",
+        _ => "trace",
+    };
+    env::set_var("RUST_LOG", &level);
+    pretty_env_logger::init()
+}
+
 pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> {
     let mut args = sub.values_of_lossy("args").unwrap_or_default();
     let job: Vec<String> = sub.values_of_t("job").unwrap_or_default();

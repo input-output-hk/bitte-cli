@@ -23,7 +23,7 @@ async fn main() -> Result<()> {
 
     let run = |init_log: bool, token| {
         if init_log {
-            pretty_env_logger::init()
+            cli::init_log(matches.occurrences_of("verbose"))
         };
         BitteCluster::init(matches.clone(), token)
     };
