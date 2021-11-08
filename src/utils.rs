@@ -1,5 +1,4 @@
 pub mod nomad;
-pub mod terraform;
 
 #[derive(Clone)]
 pub struct Instance {

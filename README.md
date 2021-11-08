@@ -34,15 +34,6 @@ To install:
     export AWS_DEFAULT_REGION=eu-central-1
     export AWS_PROFILE=cvn-testnet
 
-## Detailed Workflow
-
-    bitte terraform
-    terraform init
-    terraform plan -out cvn-testnet.plan
-    terraform apply cvn-testnet.plan
-    bitte certs
-    bitte deploy
-
 # Development
 
 This program is written in [Rust](https://doc.rust-lang.org/stable/book) using

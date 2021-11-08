@@ -1,7 +1,6 @@
 pub mod error;
 
 use clap::{ArgEnum, ArgMatches};
-use restson::RestPath;
 use rusoto_core::Region;
 use rusoto_ec2::{DescribeInstancesRequest, Ec2, Ec2Client, Filter, Instance, Tag};
 use serde::{de::Deserializer, Deserialize, Serialize};
@@ -27,16 +26,6 @@ use error::Error;
 
 use regex::Regex;
 
-impl RestPath<()> for HttpPutToken {
-    fn get_path(_: ()) -> Result<String, restson::Error> {
-        Ok("/v1/auth/github-terraform/login".to_string())
-    }
-}
-
-#[derive(Serialize)]
-pub struct HttpPutToken {
-    pub token: String,
-}
 
 #[derive(Serialize, Deserialize)]
 pub struct VaultLogin {

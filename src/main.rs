@@ -39,7 +39,6 @@ async fn main() -> Result<()> {
             };
             cli::ssh(sub, run(true, token)).await?
         }
-        Some(("terraform", sub)) => cli::terraform(sub, run(true, None)).await?,
         Some(("completions", sub)) => cli::completions(sub, app).await?,
         _ => (),
     }

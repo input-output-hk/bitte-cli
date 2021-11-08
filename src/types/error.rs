@@ -7,18 +7,10 @@ pub enum Error {
     ConnectionFailed(#[from] std::io::Error),
     #[error("environment variable")]
     EnvVar(#[from] std::env::VarError),
-    #[error("github token missin in ~/.netrc file")]
-    NoGithubToken,
     #[error("error parsing json")]
     Serde(#[from] serde_json::Error),
-    #[error("error making rest api request")]
-    Restson(#[from] restson::Error),
-    #[error("couldn't generate terraform config")]
-    FailedTerraformConfig,
     #[error("error parsing netrc file")]
     Netrc(netrc_rs::Error),
-    #[error("couldn't read ~/.netrc")]
-    NetrcMissing,
     #[error("current BITTE_PROVIDER is not valid: {provider}")]
     Provider { provider: String },
 }

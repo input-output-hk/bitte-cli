@@ -8,7 +8,6 @@ use uuid::Uuid;
 pub enum SubCommands {
     Info(Info),
     Ssh(Ssh),
-    Terraform(Terraform),
     Deploy(Deploy),
     #[clap(setting = AppSettings::Hidden)]
     Completions(Completions),
@@ -108,15 +107,6 @@ pub struct Ssh {
 }
 
 #[derive(Parser)]
-#[clap(about = "Run terraform", alias = "tf")]
-pub struct Terraform {
-    #[clap(about = "name of the terraform workspace")]
-    workspace: String,
-    #[clap(subcommand)]
-    commands: TerraSubs,
-}
-
-#[derive(Parser)]
 #[clap(about = "Generate CLI completions", alias = "comp")]
 pub struct Completions {
     #[clap(subcommand)]
@@ -128,44 +118,6 @@ pub enum Shells {
     Bash,
     Zsh,
     Fish,
-}
-
-#[derive(Parser)]
-pub enum TerraSubs {
-    Plan(Plan),
-    Passthrough(Passthrough),
-    Init(Init),
-    #[clap(about = "terraform apply")]
-    Apply,
-}
-
-#[derive(Parser)]
-#[clap(about = "terraform plan")]
-pub struct Plan {
-    #[clap(long, short, about = "create a destruction plan")]
-    destroy: bool,
-}
-
-#[derive(Parser)]
-#[clap(about = "delegate to terraform", aliases = &["passthru", "pt"])]
-pub struct Passthrough {
-    #[clap(long, short, about = "skip regenerating the terraform config")]
-    no_config: bool,
-    #[clap(
-        long,
-        short,
-        about = "delete and reinitialize the `.terraform` state dir before delegating to terraform"
-    )]
-    init: bool,
-    #[clap(about = "arguments to terraform")]
-    args: String,
-}
-
-#[derive(Parser)]
-#[clap(about = "terraform init")]
-pub struct Init {
-    #[clap(long, short, about = "upgrade provider versions")]
-    upgrade: bool,
 }
 
 fn token_context(string: &str) -> Result<Uuid> {
