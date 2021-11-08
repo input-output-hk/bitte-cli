@@ -161,10 +161,9 @@ impl BitteFind for BitteNodes {
             })
             .with_context(|| format!("{} does not match any nodes", needle))
     }
+
     fn find_clients(self) -> Self {
-        self.into_iter()
-            .filter(|node| node.nomad_client.is_some())
-            .collect()
+        self.into_iter().filter(|node| node.asg.is_some()).collect()
     }
 
     fn find_needles(self, needles: Vec<&str>) -> Self {
