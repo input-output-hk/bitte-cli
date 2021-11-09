@@ -11,7 +11,7 @@ use deploy::cli::Opts as ExtDeployOpts;
 use log::*;
 use prettytable::{cell, row, Table};
 use std::net::IpAddr;
-use std::{env, io, path::Path, process::Command, time::Duration};
+use std::{env, io, path::Path, process::Command, process::Stdio, time::Duration};
 use tokio::task::JoinHandle;
 
 pub fn init_log(level: u64) {
@@ -179,6 +179,28 @@ pub(crate) async fn deploy(sub: &ArgMatches, cluster: ClusterHandle) -> Result<(
             .nodes
             .find_needles(opts.nodes.iter().map(AsRef::as_ref).collect())
     };
+
+    let nixos_configurations: Vec<String> = instances.iter().map(|i|i.nixos.clone()).collect::<Vec<String>>();
+    info!("regenerate secrets for: {:?}", nixos_configurations);
+
+    for nixos_configuration in nixos_configurations {
+      let output = Command::new("nix").arg("run").arg(
+          format!(
+              ".#nixosConfigurations.'{}'.config.secrets.generateScript",
+              nixos_configuration
+          )
+      )
+      .stderr(Stdio::piped())
+      .stdout(Stdio::piped())
+      .output()?;
+
+      if !output.status.success() {
+          error!(
+              "Secret generation on {} failed with exit code {}",
+              nixos_configuration, output.status.code().unwrap(),
+          );
+      }
+    }
 
     let targets: Vec<String> = instances
         .iter()
