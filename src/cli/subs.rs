@@ -102,7 +102,7 @@ pub struct Ssh {
         requires = "all"
     )]
     delay: Option<usize>,
-    #[clap(about = "arguments to ssh")]
+    #[clap(about = "arguments to ssh", multiple_values = true)]
     args: Option<String>,
 }
 
