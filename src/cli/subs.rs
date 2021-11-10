@@ -157,7 +157,7 @@ pub struct Passthrough {
         about = "delete and reinitialize the `.terraform` state dir before delegating to terraform"
     )]
     init: bool,
-    #[clap(about = "arguments to terraform")]
+    #[clap(about = "arguments to terraform", multiple_values = true)]
     args: String,
 }
 
