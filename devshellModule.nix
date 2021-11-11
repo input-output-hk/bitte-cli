@@ -59,9 +59,9 @@ in
     commands = [
       (infra { package = pkgs.bitte; })
       (infra { package = pkgs.sops; })
-      (infra { package = pkgs.vault-bin; })
+      (infra { package = pkgs.vault-bin; name = "vault"; })
       (infra { package = pkgs.consul; })
-      (infra { package = pkgs.awscli; })
+      (infra { package = pkgs.awscli; name = "aws"; })
       (app { package = pkgs.iogo; })
       (app { package = pkgs.nomad; })
       (utils { package = pkgs.jq; })
