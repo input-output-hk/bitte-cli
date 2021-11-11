@@ -10,7 +10,8 @@ use clap_generate::{generate, generators};
 use deploy::cli as deployCli;
 use deploy::cli::Opts as ExtDeployOpts;
 use log::*;
-use prettytable::{cell, row, Table};
+use prettytable::{cell, format, row, Table};
+use std::collections::HashMap;
 use std::net::IpAddr;
 use std::{env, io, path::Path, process::Command, time::Duration};
 use tokio::task::JoinHandle;
@@ -348,60 +349,70 @@ async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
         env::set_var("BITTE_INFO_NO_ALLOCS", "");
         serde_json::to_writer_pretty(handle, &cluster)?;
     } else {
-        let mut instance_table = Table::new();
-        instance_table.add_row(row![
-            "Name",
-            "Private IP",
-            "Public IP",
-            "Type",
-            "Zone",
-            "Suffix"
-        ]);
+        let mut core_nodes_table = Table::new();
+        core_nodes_table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+        core_nodes_table.add_row(row!["Core Instance", "Private IP", "Public IP", "Zone"]);
+
+        let mut client_nodes_table_map: HashMap<String, Table> = HashMap::new();
 
         let nodes = cluster.await??.nodes;
 
         for node in nodes.into_iter() {
-            let name = if node.nomad_client.is_some() {
-                node.nomad_client.unwrap().id.to_hyphenated().to_string()
-            } else {
-                node.name
-            };
-
-            let suffix = {
-                let asg = node
-                    .asg
-                    .unwrap_or_default()
-                    .split('-')
-                    .last()
-                    .unwrap_or_default()
-                    .to_owned();
-
-                let i_type = node
-                    .node_type
-                    .clone()
-                    .unwrap_or_default()
-                    .split('.')
-                    .last()
-                    .unwrap_or_default()
-                    .to_owned();
-                if !asg.is_empty() && asg != i_type {
-                    Some(asg)
-                } else {
-                    None
+            // println!("{:#?}", node);
+            match node.asg {
+                Some(asg) => {
+                    let name: String = asg.to_string();
+                    // TODO extract true client group
+                    let group: String = {
+                        let suffix = name.split('-').last().unwrap_or_default().to_owned();
+                        let i_type = node
+                            .node_type
+                            .clone()
+                            .unwrap_or_default()
+                            .split('.')
+                            .last()
+                            .unwrap_or_default()
+                            .to_owned();
+                        if suffix == i_type {
+                            "N/A".to_string()
+                        } else {
+                            suffix
+                        }
+                    };
+                    let client_nodes_table =
+                        client_nodes_table_map.entry(group.clone()).or_insert({
+                            let mut client_nodes_table = Table::new();
+                            client_nodes_table
+                                .set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+                            client_nodes_table.add_row(row![
+                                format!("Auto Scaling Group ({})", group),
+                                "Private IP",
+                                "Public IP",
+                                "Zone",
+                            ]);
+                            client_nodes_table
+                        });
+                    client_nodes_table.add_row(row![
+                        name,
+                        node.priv_ip,
+                        node.pub_ip,
+                        node.zone.unwrap_or_default(),
+                    ]);
                 }
-            };
-
-            instance_table.add_row(row![
-                name,
-                node.priv_ip,
-                node.pub_ip,
-                node.node_type.unwrap_or_default(),
-                node.zone.unwrap_or_default(),
-                suffix.unwrap_or_default()
-            ]);
+                None => {
+                    core_nodes_table.add_row(row![
+                        node.name,
+                        node.priv_ip,
+                        node.pub_ip,
+                        node.zone.unwrap_or_default(),
+                    ]);
+                }
+            }
         }
-
-        instance_table.printstd();
+        core_nodes_table.printstd();
+        for val in client_nodes_table_map.values() {
+            val.printstd();
+        }
     }
 
     Ok(())
