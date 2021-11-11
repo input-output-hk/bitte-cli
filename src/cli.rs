@@ -9,9 +9,9 @@ use clap_generate::{generate, generators};
 use deploy::cli as deployCli;
 use deploy::cli::Opts as ExtDeployOpts;
 use log::*;
-use prettytable::{cell, row, Table, format};
-use std::net::IpAddr;
+use prettytable::{cell, format, row, Table};
 use std::collections::HashMap;
+use std::net::IpAddr;
 use std::{env, io, path::Path, process::Command, process::Stdio, time::Duration};
 use tokio::task::JoinHandle;
 
@@ -181,26 +181,30 @@ pub(crate) async fn deploy(sub: &ArgMatches, cluster: ClusterHandle) -> Result<(
             .find_needles(opts.nodes.iter().map(AsRef::as_ref).collect())
     };
 
-    let nixos_configurations: Vec<String> = instances.iter().map(|i|i.nixos.clone()).collect::<Vec<String>>();
+    let nixos_configurations: Vec<String> = instances
+        .iter()
+        .map(|i| i.nixos.clone())
+        .collect::<Vec<String>>();
     info!("regenerate secrets for: {:?}", nixos_configurations);
 
     for nixos_configuration in nixos_configurations {
-      let output = Command::new("nix").arg("run").arg(
-          format!(
-              ".#nixosConfigurations.'{}'.config.secrets.generateScript",
-              nixos_configuration
-          )
-      )
-      .stderr(Stdio::piped())
-      .stdout(Stdio::piped())
-      .output()?;
+        let output = Command::new("nix")
+            .arg("run")
+            .arg(format!(
+                ".#nixosConfigurations.'{}'.config.secrets.generateScript",
+                nixos_configuration
+            ))
+            .stderr(Stdio::piped())
+            .stdout(Stdio::piped())
+            .output()?;
 
-      if !output.status.success() {
-          error!(
-              "Secret generation on {} failed with exit code {}",
-              nixos_configuration, output.status.code().unwrap(),
-          );
-      }
+        if !output.status.success() {
+            error!(
+                "Secret generation on {} failed with exit code {}",
+                nixos_configuration,
+                output.status.code().unwrap(),
+            );
+        }
     }
 
     let targets: Vec<String> = instances
@@ -247,12 +251,7 @@ async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
     } else {
         let mut core_nodes_table = Table::new();
         core_nodes_table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-        core_nodes_table.add_row(row![
-            "Core Instance",
-            "Private IP",
-            "Public IP",
-            "Zone"
-        ]);
+        core_nodes_table.add_row(row!["Core Instance", "Private IP", "Public IP", "Zone"]);
 
         let mut client_nodes_table_map: HashMap<String, Table> = HashMap::new();
 
@@ -267,25 +266,32 @@ async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
                     let group: String = {
                         let suffix = name.split('-').last().unwrap_or_default().to_owned();
                         let i_type = node
-                            .node_type.clone().unwrap_or_default().split('.')
-                            .last().unwrap_or_default().to_owned();
+                            .node_type
+                            .clone()
+                            .unwrap_or_default()
+                            .split('.')
+                            .last()
+                            .unwrap_or_default()
+                            .to_owned();
                         if suffix == i_type {
                             "N/A".to_string()
                         } else {
                             suffix
                         }
                     };
-                    let client_nodes_table = client_nodes_table_map.entry(group.clone()).or_insert({
-                        let mut client_nodes_table = Table::new();
-                        client_nodes_table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-                        client_nodes_table.add_row(row![
-                            format!("Auto Scaling Group ({})", group),
-                            "Private IP",
-                            "Public IP",
-                            "Zone",
-                        ]);
-                        client_nodes_table
-                    });
+                    let client_nodes_table =
+                        client_nodes_table_map.entry(group.clone()).or_insert({
+                            let mut client_nodes_table = Table::new();
+                            client_nodes_table
+                                .set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+                            client_nodes_table.add_row(row![
+                                format!("Auto Scaling Group ({})", group),
+                                "Private IP",
+                                "Public IP",
+                                "Zone",
+                            ]);
+                            client_nodes_table
+                        });
                     client_nodes_table.add_row(row![
                         name,
                         node.priv_ip,

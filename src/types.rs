@@ -26,7 +26,6 @@ use error::Error;
 
 use regex::Regex;
 
-
 #[derive(Serialize, Deserialize)]
 pub struct VaultLogin {
     pub request_id: String,

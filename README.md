@@ -16,12 +16,14 @@ runs a cluster of Consul, Vault, and Nomad instances.
 ### Install cli tools outside of nix
 
 To install the bitte tools, you will also need the following dependencies:
+
 - [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
 - pkg-config
 - openssl (linux only, darwin will use Security framework)
 - zlib
 
 To install:
+
 ```bash
   cargo install --path cli  # for the bitte cli
   cargo install --path iogo # for the iogo utility
@@ -63,6 +65,7 @@ Another important detail to understand is that, unlike some other languages,
 [futures](https://rust-lang.github.io/async-book/01_getting_started/01_chapter.html)
 in Rust are lazy by default. That means that a future will not begin execution
 until `await` is called on it, e.g:
+
 ```rust
 // execution of `foo` does not occur here
 let foo = async { 3 * 40 };

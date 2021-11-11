@@ -25,13 +25,12 @@
         devshell.overlay
       ];
 
-      overlay = let
-      in final: prev: {
+      overlay = final: prev: {
         bitte = final.callPackage ./package.nix { };
         damon = final.callPackage (import ./pkgs/damon.nix prev.fetchurl) { };
         treefmt = treefmt.defaultPackage.${final.system};
         bitteShell = final.callPackage ./pkgs/bitte-shell.nix {
-            bitteDevshellModule = self.devshellModules.bitte;
+          bitteDevshellModule = self.devshellModules.bitte;
         };
       };
 
@@ -57,7 +56,9 @@
 
           buildInputs = with pkgs;
             [
-              treefmt
+              pkgs.treefmt
+              shfmt
+              nodePackages.prettier
               cfssl
               sops
               openssl
@@ -72,14 +73,14 @@
               ])
               rust-analyzer-nightly
             ] ++ lib.optionals stdenv.isDarwin (with darwin;
-              with apple_sdk.frameworks; [
-                libiconv
-                libresolv
-                Libsystem
-                SystemConfiguration
-                Security
-                CoreFoundation
-              ]);
+            with apple_sdk.frameworks; [
+              libiconv
+              libresolv
+              Libsystem
+              SystemConfiguration
+              Security
+              CoreFoundation
+            ]);
         };
     };
 }
