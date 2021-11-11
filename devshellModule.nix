@@ -69,6 +69,7 @@ in
       (utils { package = pkgs.fx; name = "fx"; })
       (utils { package = pkgs.curlie; })
       (utils { package = pkgs.treefmt; })
+      (utils { package = pkgs.go-jira; name = "jira"; })
     ];
 
     packages = with pkgs;
