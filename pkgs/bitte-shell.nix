@@ -1,61 +1,30 @@
-{ bitte, stdenv, lib, writeText, mkShell, nixos-rebuild, scaler-guard, sops
-, vault-bin, openssl, cfssl, nixfmt, awscli, nomad, consul, consul-template
-, python38Packages, direnv, jq, iogo, damon }:
+{ devshell, bitteDevshellModule }:
 
 { self, cluster ? builtins.head (builtins.attrNames self.clusters)
 , caCert ? null, domain ? self.clusters.${cluster}.proto.config.cluster.domain
-, extraEnv ? { }, extraPackages ? [ ]
+, extraPackages ? [ ]
 , region ? self.clusters.${cluster}.proto.config.cluster.region or ""
-, profile ? "", provider ? "AWS", namespace ? cluster, nixConfig ? null }:
-let
-  asgRegions = lib.attrValues (lib.mapAttrs (_: v: v.region)
-    self.clusters.${cluster}.proto.config.cluster.autoscalingGroups);
-  asgRegionString =
-    lib.strings.replaceStrings [ " " ] [ ":" ] (toString asgRegions);
-in mkShell ({
-  # for bitte-cli
-  LOG_LEVEL = "debug";
+, profile ? "", provider ? "AWS", namespace ? cluster, nixConfig ? null
+, asg ? self.clusters.${cluster}.proto.config.cluster.autoscalingGroups }:
 
-  NIX_CONFIG = ''
-    extra-experimental-features = nix-command flakes ca-references recursive-nix
-    allow-import-from-derivation = true
-    extra-substituters = https://hydra.iohk.io
-    extra-trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
-    bash-prompt = \[\033[0;32m\][bitte]:\[\033[m\]\040
-  '' + (lib.optionalString (nixConfig != null) nixConfig);
-
-  BITTE_CLUSTER = cluster;
-  BITTE_DOMAIN = domain;
-  BITTE_PROVIDER = provider;
-  NOMAD_NAMESPACE = namespace;
-  VAULT_ADDR = "https://vault.${domain}";
-  NOMAD_ADDR = "https://nomad.${domain}";
-  CONSUL_HTTP_ADDR = "https://consul.${domain}";
-
-  buildInputs = [
-    damon
-    bitte
-    iogo
-    scaler-guard
-    sops
-    vault-bin
-    openssl
-    cfssl
-    nixfmt
-    awscli
-    nomad
-    consul
-    consul-template
-    python38Packages.pyhcl
-    direnv
-    jq
-  ] ++ extraPackages;
-
-} // (lib.optionalAttrs (caCert != null) {
-  CONSUL_CACERT = caCert;
-  VAULT_CACERT = caCert;
-}) // lib.optionalAttrs (provider == "AWS") {
-  AWS_PROFILE = profile;
-  AWS_DEFAULT_REGION = region;
-  AWS_ASG_REGIONS = asgRegionString;
-} // extraEnv)
+in {
+    inherit devshellModule;
+    devshell = devshell.mkShell {
+        imports = [ bitteDevshellModule ];
+        packages = extraPackages;
+        bitte = { inherit cluster domain namespace provider; };
+        bitte.cert = caCert;
+        bitte.aws_region = region;
+        bitte.aws_profile = profile;
+        bitte.aws_autoscaling_groups = asg;
+        env = [{
+            name = "NIX_CONFIG";
+            value = ''
+              extra-experimental-features = nix-command flakes ca-references recursive-nix
+              allow-import-from-derivation = true
+              substituters = https://cache.nixos.org https://hydra.iohk.io
+              trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
+            '' + (lib.optionalString (nixConfig != null) nixConfig);
+        }];
+    };
+}
