@@ -355,7 +355,8 @@ async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
 
         let mut client_nodes_table_map: HashMap<String, Table> = HashMap::new();
 
-        let nodes = cluster.await??.nodes;
+        let mut nodes = cluster.await??.nodes;
+        nodes.sort();
 
         for node in nodes.into_iter() {
             // println!("{:#?}", node);
@@ -385,7 +386,7 @@ async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
                             client_nodes_table
                                 .set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
                             client_nodes_table.add_row(row![
-                                format!("Auto Scaling Group ({})", group),
+                                format!("Instance ID ({})", group),
                                 "Private IP",
                                 "Public IP",
                                 "Zone",
@@ -393,7 +394,7 @@ async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
                             client_nodes_table
                         });
                     client_nodes_table.add_row(row![
-                        name,
+                        node.id,
                         node.priv_ip,
                         node.pub_ip,
                         node.zone.unwrap_or_default(),
