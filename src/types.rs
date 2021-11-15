@@ -9,6 +9,7 @@ use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
+use std::cmp::Ordering;
 
 use anyhow::{Context, Result};
 use enum_utils::FromStr;
@@ -127,6 +128,26 @@ where
     fn find_needles(self, needles: Vec<&str>) -> Self;
     fn find_clients(self) -> Self;
 }
+
+impl Ord for BitteNode {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.name.cmp(&other.name)
+    }
+}
+
+impl PartialOrd for BitteNode {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for BitteNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+impl Eq for BitteNode { }
 
 impl BitteFind for BitteNodes {
     fn find_needle(self, needle: &str) -> Result<Self::Item> {
