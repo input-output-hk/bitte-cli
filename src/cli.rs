@@ -79,42 +79,13 @@ pub(crate) async fn ssh(sub: &ArgMatches, cluster: ClusterHandle) -> Result<()> 
         let (name, group, index) = (&*job[0], &*job[1], &job[2]);
 
         let nodes = cluster.nodes;
-        let node = nodes
-            .into_iter()
-            .find(|node| {
-                let client = &node.nomad_client;
-                if client.is_none() {
-                    return false;
-                };
-
-                let allocs = &client.as_ref().unwrap().allocs;
-                if allocs.is_none() || allocs.as_ref().unwrap().is_empty() {
-                    return false;
-                };
-
-                allocs.as_ref().unwrap().iter().any(|alloc| {
-                    let is_alloc = alloc.namespace == namespace
-                        && alloc.job_id == name
-                        && alloc.task_group == group
-                        && alloc.index.get() == index.parse().ok()
-                        && alloc.status == "running";
-
-                    if is_alloc && args.is_empty() {
-                        args.extend(vec![
-                            "-t".into(),
-                            format!("cd /var/lib/nomad/alloc/{}; bash", alloc.id),
-                        ]);
-                    }
-
-                    is_alloc
-                })
-            })
-            .with_context(|| {
-                format!(
-                    "{}, {}, {} does not match any nomad allocations",
-                    name, group, index
-                )
-            })?;
+        let (node, alloc) = nodes.find_with_job(name, group, index, namespace.as_ref())?;
+        if args.is_empty() {
+            args.extend(vec![
+                "-t".into(),
+                format!("cd /var/lib/nomad/alloc/{}; bash", alloc.id),
+            ]);
+        }
 
         ip = node.pub_ip;
     } else {

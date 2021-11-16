@@ -127,6 +127,7 @@ where
     fn find_needle(self, needle: &str) -> Result<Self::Item>;
     fn find_needles(self, needles: Vec<&str>) -> Self;
     fn find_clients(self) -> Self;
+    fn find_with_job(self, name: &str, group: &str, index: &str, namespace: &str) -> Result<(Self::Item, NomadAlloc)>;
 }
 
 impl Ord for BitteNode {
@@ -150,6 +151,43 @@ impl PartialEq for BitteNode {
 impl Eq for BitteNode { }
 
 impl BitteFind for BitteNodes {
+    fn find_with_job(self, name: &str, group: &str, index: &str, namespace: &str) -> Result<(Self::Item, NomadAlloc)> {
+        let node = self.into_iter()
+            .find(|node| {
+                let client = &node.nomad_client;
+                if client.is_none() {
+                    return false;
+                };
+
+                let allocs = &client.as_ref().unwrap().allocs;
+                if allocs.is_none() || allocs.as_ref().unwrap().is_empty() {
+                    return false;
+                };
+
+                allocs.as_ref().unwrap().iter().any(|alloc| {
+                    alloc.namespace == namespace
+                        && alloc.job_id == name
+                        && alloc.task_group == group
+                        && alloc.index.get() == index.parse().ok()
+                        && alloc.status == "running"
+                })
+            })
+            .with_context(|| {
+                format!(
+                    "{}, {}, {} does not match any running nomad allocations in namespace {}",
+                    name, group, index, namespace
+                )
+            })?;
+        let alloc = node.nomad_client.as_ref().unwrap().allocs.as_ref().unwrap().iter().find(|alloc| {
+                    alloc.namespace == namespace
+                        && alloc.job_id == name
+                        && alloc.task_group == group
+                        && alloc.index.get() == index.parse().ok()
+                        && alloc.status == "running"
+                }).unwrap().clone();
+        Ok((node, alloc))
+    }
+
     fn find_needle(self, needle: &str) -> Result<Self::Item> {
         self.into_iter()
             .find(|node| {
