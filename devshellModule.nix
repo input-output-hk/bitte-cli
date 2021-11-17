@@ -74,14 +74,18 @@ in
 
     packages = with pkgs;
       [
+        cfssl
+        consul-template
         damon
+        openssl
+        python38Packages.pyhcl
         scaler-guard
         vault-bin
-        openssl
-        cfssl
-        nixfmt
-        consul-template
-        python38Packages.pyhcl
+
+        # treefmt deps
+        nixpkgs-fmt
+        nodePackages.prettier
+        shfmt
       ];
 
     env = [
