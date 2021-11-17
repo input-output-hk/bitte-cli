@@ -4,12 +4,12 @@ use clap::{ArgEnum, ArgMatches};
 use rusoto_core::Region;
 use rusoto_ec2::{DescribeInstancesRequest, Ec2, Ec2Client, Filter, Instance, Tag};
 use serde::{de::Deserializer, Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::collections::hash_set::HashSet;
 use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
-use std::cmp::Ordering;
 
 use anyhow::{Context, Result};
 use enum_utils::FromStr;
@@ -127,7 +127,13 @@ where
     fn find_needle(self, needle: &str) -> Result<Self::Item>;
     fn find_needles(self, needles: Vec<&str>) -> Self;
     fn find_clients(self) -> Self;
-    fn find_with_job(self, name: &str, group: &str, index: &str, namespace: &str) -> Result<(Self::Item, NomadAlloc)>;
+    fn find_with_job(
+        self,
+        name: &str,
+        group: &str,
+        index: &str,
+        namespace: &str,
+    ) -> Result<(Self::Item, NomadAlloc)>;
 }
 
 impl Ord for BitteNode {
@@ -148,11 +154,18 @@ impl PartialEq for BitteNode {
     }
 }
 
-impl Eq for BitteNode { }
+impl Eq for BitteNode {}
 
 impl BitteFind for BitteNodes {
-    fn find_with_job(self, name: &str, group: &str, index: &str, namespace: &str) -> Result<(Self::Item, NomadAlloc)> {
-        let node = self.into_iter()
+    fn find_with_job(
+        self,
+        name: &str,
+        group: &str,
+        index: &str,
+        namespace: &str,
+    ) -> Result<(Self::Item, NomadAlloc)> {
+        let node = self
+            .into_iter()
             .find(|node| {
                 let client = &node.nomad_client;
                 if client.is_none() {
@@ -178,13 +191,23 @@ impl BitteFind for BitteNodes {
                     name, group, index, namespace
                 )
             })?;
-        let alloc = node.nomad_client.as_ref().unwrap().allocs.as_ref().unwrap().iter().find(|alloc| {
-                    alloc.namespace == namespace
-                        && alloc.job_id == name
-                        && alloc.task_group == group
-                        && alloc.index.get() == index.parse().ok()
-                        && alloc.status == "running"
-                }).unwrap().clone();
+        let alloc = node
+            .nomad_client
+            .as_ref()
+            .unwrap()
+            .allocs
+            .as_ref()
+            .unwrap()
+            .iter()
+            .find(|alloc| {
+                alloc.namespace == namespace
+                    && alloc.job_id == name
+                    && alloc.task_group == group
+                    && alloc.index.get() == index.parse().ok()
+                    && alloc.status == "running"
+            })
+            .unwrap()
+            .clone();
         Ok((node, alloc))
     }
 
