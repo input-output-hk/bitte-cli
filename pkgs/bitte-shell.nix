@@ -31,6 +31,7 @@ in mkShell ({
   VAULT_ADDR = "https://vault.${domain}";
   NOMAD_ADDR = "https://nomad.${domain}";
   CONSUL_HTTP_ADDR = "https://consul.${domain}";
+  DEPLOY_SKIP_CHECKS = "true";
 
   buildInputs = [
     damon
