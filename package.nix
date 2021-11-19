@@ -7,18 +7,20 @@
 , fenix
   # darwin dependencies
 , darwin
+, toolchain
+, self
 }:
 
-(makeRustPlatform { inherit (fenix.stable) cargo rustc; }).buildRustPackage
+(makeRustPlatform { inherit (fenix.${toolchain}) cargo rustc; }).buildRustPackage
   {
 
-    inherit (with builtins; (fromTOML (readFile ./Cargo.toml)).package)
+    inherit (with builtins; (fromTOML (readFile "${self}/Cargo.toml")).package)
       name version;
 
-    src = ./.;
-    cargoLock.lockFile = ./Cargo.lock;
+    src = self;
+    cargoLock.lockFile = "${self}/Cargo.lock";
     cargoLock.outputHashes = {
-      "deploy-rs-0.1.0" = "sha256-si4YnxAWaBPIop/UtshR5yUYV0jcESJGEamegVWxxFE=";
+      "deploy-rs-0.1.0" = "sha256-g9c52aWBbwC/J3mdfUNp9EoWSI2xNyYts51jR68RKIU=";
     };
 
     nativeBuildInputs = [ pkg-config ];

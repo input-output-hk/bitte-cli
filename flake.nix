@@ -2,15 +2,15 @@
   description = "Bitte fläken Sie sich";
 
   inputs = {
-    utils.url = "github:numtide/flake-utils";
+    utils.follows = "iogo/utils";
     devshell.url = "github:numtide/devshell";
     treefmt.url = "github:numtide/treefmt";
 
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.follows = "fenix/nixpkgs";
     iogo.url = "github:input-output-hk/bitte-iogo";
+    iogo.inputs.devshell.follows = "devshell";
     iogo.inputs.nixpkgs.follows = "nixpkgs";
     fenix.url = "github:nix-community/fenix";
-    fenix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs = { self, nixpkgs, utils, iogo, fenix, devshell, treefmt, ... }:
@@ -23,7 +23,7 @@
       ];
 
       pkgsOverlays = final: prev: {
-        bitte = final.callPackage ./package.nix { };
+        bitte = final.callPackage ./package.nix { inherit toolchain self; };
         damon = final.callPackage (import ./pkgs/damon.nix prev.fetchurl) { };
         treefmt = treefmt.defaultPackage.${final.system};
         bitteShell = final.callPackage ./pkgs/bitte-shell.nix {
@@ -36,48 +36,56 @@
         config.allowUnfree = true;
       };
 
+      toolchain = "stable";
 
     in
     utils.lib.eachSystem [ "x86_64-darwin" "x86_64-linux" ]
-      (system: rec {
-        legacyPackages = pkgsForSystem system;
-        packages = {
-          defaultPackage = legacyPackages.bitte;
-          inherit (legacyPackages) bitte damon;
-        };
-        devShell = with legacyPackages; mkShell {
-          RUST_BACKTRACE = "1";
-          RUST_SRC_PATH = rustPlatform.rustLibSrc;
+      (system:
+        let
+          legacyPackages = pkgsForSystem system;
+          rustPkg = legacyPackages.fenix.${toolchain}.withComponents [
+            "cargo"
+            "clippy"
+            "rust-src"
+            "rustc"
+            "rustfmt"
+          ];
+        in
+        rec
+        {
+          inherit legacyPackages;
 
-          buildInputs = [
-            legacyPackages.treefmt
-            shfmt
-            nodePackages.prettier
-            cfssl
-            sops
-            openssl
-            zlib
-            pkg-config
-            (legacyPackages.fenix.stable.withComponents [
-              "cargo"
-              "clippy"
-              "rust-src"
-              "rustc"
-              "rustfmt"
-            ])
-            rust-analyzer-nightly
-          ] ++ lib.optionals stdenv.isDarwin (
-            with darwin; with apple_sdk.frameworks; [
-              libiconv
-              libresolv
-              Libsystem
-              SystemConfiguration
-              Security
-              CoreFoundation
-            ]
-          );
-        };
-      }) // {
+          packages = {
+            inherit (legacyPackages) bitte damon;
+          };
+          defaultPackage = legacyPackages.bitte;
+          devShell = with legacyPackages; mkShell {
+            RUST_BACKTRACE = "1";
+            RUST_SRC_PATH = "${rustPkg}/lib/rustlib/src/rust/library";
+
+            buildInputs = [
+              legacyPackages.treefmt
+              shfmt
+              nodePackages.prettier
+              cfssl
+              sops
+              openssl
+              zlib
+              pkg-config
+              rustPkg
+              rust-analyzer-nightly
+            ] ++ lib.optionals stdenv.isDarwin (
+              with darwin; with apple_sdk.frameworks; [
+                libiconv
+                libresolv
+                Libsystem
+                SystemConfiguration
+                Security
+                CoreFoundation
+              ]
+            );
+          };
+        }) // {
       overlay = final: prev: (nixpkgs.lib.composeManyExtensions overlays) final prev;
       devshellModules.bitte = import ./devshellModule.nix;
     }; # outputs
