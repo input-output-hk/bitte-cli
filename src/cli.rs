@@ -342,24 +342,24 @@ pub async fn terraform_apply(
 }
 
 async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
+    let cluster = cluster.await??;
     if json {
         let stdout = io::stdout();
         let handle = stdout.lock();
-        let cluster = cluster.await??;
         env::set_var("BITTE_INFO_NO_ALLOCS", "");
         serde_json::to_writer_pretty(handle, &cluster)?;
     } else {
         let mut core_nodes_table = Table::new();
-        core_nodes_table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-        core_nodes_table.add_row(row!["Core Instance", "Private IP", "Public IP", "Zone"]);
+        core_nodes_table.set_format(*format::consts::FORMAT_BOX_CHARS);
+        core_nodes_table
+            .add_row(row![ bc => format!("{} Core Instance", cluster.provider), "Private IP", "Public IP", "Zone"]);
 
         let mut client_nodes_table_map: HashMap<String, Table> = HashMap::new();
 
-        let mut nodes = cluster.await??.nodes;
+        let mut nodes = cluster.nodes;
         nodes.sort();
 
         for node in nodes.into_iter() {
-            // println!("{:#?}", node);
             match node.asg {
                 Some(asg) => {
                     let name: String = asg.to_string();
@@ -375,18 +375,18 @@ async fn info_print(cluster: ClusterHandle, json: bool) -> Result<()> {
                             .unwrap_or_default()
                             .to_owned();
                         if suffix == i_type {
-                            "N/A".to_string()
+                            "".to_string()
                         } else {
-                            suffix
+                            format!(" ({})", suffix)
                         }
                     };
+
                     let client_nodes_table =
                         client_nodes_table_map.entry(group.clone()).or_insert({
                             let mut client_nodes_table = Table::new();
-                            client_nodes_table
-                                .set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-                            client_nodes_table.add_row(row![
-                                format!("Instance ID ({})", group),
+                            client_nodes_table.set_format(*format::consts::FORMAT_BOX_CHARS);
+                            client_nodes_table.add_row(row![ bc =>
+                                format!("{} Instance ID{}", cluster.provider, group),
                                 "Private IP",
                                 "Public IP",
                                 "Zone",

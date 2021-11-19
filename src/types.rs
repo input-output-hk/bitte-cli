@@ -6,6 +6,7 @@ use rusoto_ec2::{DescribeInstancesRequest, Ec2, Ec2Client, Filter, Instance, Tag
 use serde::{de::Deserializer, Deserialize, Serialize};
 use std::collections::hash_set::HashSet;
 use std::env;
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
@@ -78,6 +79,15 @@ pub struct BitteCluster {
 #[allow(clippy::upper_case_acronyms)]
 pub enum BitteProvider {
     AWS,
+}
+
+impl Display for BitteProvider {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        let provider = match *self {
+            BitteProvider::AWS => "AWS",
+        };
+        write!(f, "{}", provider)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
