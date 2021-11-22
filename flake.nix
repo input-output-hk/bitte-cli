@@ -5,6 +5,7 @@
     utils.follows = "iogo/utils";
     devshell.url = "github:numtide/devshell";
     treefmt.url = "github:numtide/treefmt";
+    treefmt.inputs.nixpkgs.follows = "nixpkgs";
 
     nixpkgs.follows = "fenix/nixpkgs";
     iogo.url = "github:input-output-hk/bitte-iogo";
