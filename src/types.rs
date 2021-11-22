@@ -1,8 +1,10 @@
 pub mod error;
 
+use aws_sdk_ec2::{
+    model::{Filter, Instance, Tag},
+    Client as Ec2Client, Region,
+};
 use clap::{ArgEnum, ArgMatches};
-use rusoto_core::Region;
-use rusoto_ec2::{DescribeInstancesRequest, Ec2, Ec2Client, Filter, Instance, Tag};
 use serde::{de::Deserializer, Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::hash_set::HashSet;
@@ -275,34 +277,26 @@ impl BitteFind for BitteNodes {
 impl From<Instance> for BitteNode {
     fn from(instance: Instance) -> Self {
         let tags = instance.tags.unwrap_or_default();
+        let empty_tag = Tag::builder().build();
 
         let nixos = tags
             .iter()
             .find(|tag| tag.key == Some("UID".into()))
-            .unwrap_or(&Tag {
-                key: None,
-                value: None,
-            })
+            .unwrap_or(&empty_tag)
             .value
             .as_ref();
 
         let name = tags
             .iter()
             .find(|tag| tag.key == Some("Name".into()))
-            .unwrap_or(&Tag {
-                key: None,
-                value: None,
-            })
+            .unwrap_or(&empty_tag)
             .value
             .as_ref();
 
         let asg = tags
             .iter()
             .find(|tag| tag.key == Some("aws:autoscaling:groupName".into()))
-            .unwrap_or(&Tag {
-                key: None,
-                value: None,
-            })
+            .unwrap_or(&empty_tag)
             .value
             .as_ref();
 
@@ -329,7 +323,7 @@ impl From<Instance> for BitteNode {
                 Some(nixos) => nixos.to_owned(),
                 None => "".into(),
             },
-            node_type: instance.instance_type,
+            node_type: instance.instance_type.map(|s| s.as_str().to_owned()),
             zone,
             asg: asg.map(|asg| asg.to_owned()),
         }
@@ -353,29 +347,24 @@ impl BitteNode {
                     result.into_iter().collect()
                 };
 
-                let mut handles = Vec::new();
+                let mut handles = Vec::with_capacity(regions.len());
 
                 for region_str in regions {
-                    let region = Region::from_str(&region_str)?;
-                    let client = Ec2Client::new(region);
-                    let request = DescribeInstancesRequest {
-                        instance_ids: None,
-                        dry_run: None,
-                        filters: Some(vec![
-                            Filter {
-                                name: Some("tag:Cluster".to_owned()),
-                                values: Some(vec![name.to_owned()]),
-                            },
-                            Filter {
-                                name: Some("instance-state-name".to_owned()),
-                                values: Some(vec!["running".to_owned()]),
-                            },
-                        ]),
-                        max_results: None,
-                        next_token: None,
-                    };
+                    let region = Region::new(region_str.clone());
+                    let config = aws_config::from_env().region(region).load().await;
+                    let client = Ec2Client::new(&config);
+                    let request = client.describe_instances().set_filters(Some(vec![
+                        Filter::builder()
+                            .set_name(Some("tag:Cluster".to_owned()))
+                            .set_values(Some(vec![name.to_owned()]))
+                            .build(),
+                        Filter::builder()
+                            .set_name(Some("instance-state-name".to_owned()))
+                            .set_values(Some(vec!["running".to_owned()]))
+                            .build(),
+                    ]));
                     let response = tokio::spawn(async move {
-                        client.describe_instances(request).await.with_context(|| {
+                        request.send().await.with_context(|| {
                             format!("failed to connect to ec2.{}.amazonaws.com", region_str)
                         })
                     });

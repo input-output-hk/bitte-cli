@@ -1,7 +1,6 @@
 use super::subs::SubCommands;
 use crate::types::BitteProvider;
 use clap::Parser;
-use rusoto_core::Region;
 
 #[derive(Parser)]
 pub struct Bitte {
@@ -34,7 +33,7 @@ pub struct Bitte {
         value_name = "REGION",
         required_if_eq("provider", "AWS")
     )]
-    aws_region: Option<Region>,
+    aws_region: Option<String>,
     #[clap(
         long,
         about = "Regions containing Nomad clients",
@@ -44,7 +43,7 @@ pub struct Bitte {
         value_delimiter(':'),
         require_delimiter = true
     )]
-    aws_asg_regions: Option<Vec<Region>>,
+    aws_asg_regions: Option<Vec<String>>,
     #[clap(
         short,
         long,
