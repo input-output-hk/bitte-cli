@@ -59,7 +59,13 @@ in
     name = cfg.cluster;
 
     commands = [
-      (infra { package = inputs.nix.packages.${pkgs.system}.nix; })
+      (infra {
+        package = inputs.nix.packages.${pkgs.system}.nix.overrideAttrs (old: {
+          patches = (old.patches or []) ++ [
+            ./patches/nix/0001-Allow-paths-in-flake-local-settings.patch
+          ];
+        });
+      })
       (infra { package = pkgs.bitte; })
       (infra { package = pkgs.sops; })
       (infra { package = pkgs.vault-bin; name = "vault"; })
