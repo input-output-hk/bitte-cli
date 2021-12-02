@@ -1,4 +1,4 @@
-{ lib, config, pkgs, ... }:
+inputs: { lib, config, pkgs, ... }:
 let
 
   mkStringOptionType = description: lib.mkOption {
@@ -53,10 +53,13 @@ in
   };
 
   config = {
+    # tempfix: remove when merged https://github.com/numtide/devshell/pull/123
+    devshell.startup.load_profiles = lib.mkForce (lib.noDepEntry "");
 
     name = cfg.cluster;
 
     commands = [
+      (infra { package = inputs.nix.packages.${pkgs.system}.nix; })
       (infra { package = pkgs.bitte; })
       (infra { package = pkgs.sops; })
       (infra { package = pkgs.vault-bin; name = "vault"; })
@@ -64,6 +67,7 @@ in
       (infra { package = pkgs.awscli; name = "aws"; })
       (app { package = pkgs.iogo; })
       (app { package = pkgs.nomad; })
+      (utils { package = pkgs.bitwarden-cli; name = "bw"; })
       (utils { package = pkgs.jq; })
       (utils { package = pkgs.ijq; })
       (utils { package = pkgs.fx; name = "fx"; })

@@ -6,15 +6,17 @@
     devshell.url = "github:numtide/devshell";
     treefmt.url = "github:numtide/treefmt";
     treefmt.inputs.nixpkgs.follows = "nixpkgs";
+    nix.url = "github:nixos/nix"; # might need ditribute fixed versions
 
     nixpkgs.follows = "fenix/nixpkgs";
     iogo.url = "github:input-output-hk/bitte-iogo";
     iogo.inputs.devshell.follows = "devshell";
     iogo.inputs.nixpkgs.follows = "nixpkgs";
+    nix.inputs.nixpkgs.follows = "nixpkgs";
     fenix.url = "github:nix-community/fenix";
   };
 
-  outputs = { self, nixpkgs, utils, iogo, fenix, devshell, treefmt, ... }:
+  outputs = { self, nixpkgs, utils, iogo, fenix, devshell, treefmt, ... }@inputs:
     let
       overlays = [
         iogo.overlay
@@ -88,6 +90,6 @@
           };
         }) // {
       overlay = final: prev: (nixpkgs.lib.composeManyExtensions overlays) final prev;
-      devshellModules.bitte = import ./devshellModule.nix;
+      devshellModules.bitte = import ./devshellModule.nix inputs;
     }; # outputs
 }
