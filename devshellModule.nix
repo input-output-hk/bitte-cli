@@ -1,4 +1,4 @@
-inputs: { lib, config, pkgs, ... }:
+inputs: { lib, config, pkgs, extraModulesPath, ... }:
 let
 
   mkStringOptionType = description: lib.mkOption {
@@ -39,6 +39,7 @@ let
 
 in
 {
+  _file = ./devshellModule.nix;
 
   options.bitte = {
     cluster = mkStringOptionType "Name of the cluster";
@@ -52,11 +53,17 @@ in
     aws_autoscaling_groups = mkAttrsOptionType "AWS auto scaling groups";
   };
 
+  imports = [ "${extraModulesPath}/git/hooks.nix" ];
+
   config = {
     # tempfix: remove when merged https://github.com/numtide/devshell/pull/123
     devshell.startup.load_profiles = lib.mkForce (lib.noDepEntry "");
 
     name = cfg.cluster;
+    git.hooks = {
+      enable = true;
+      pre-commit.text = builtins.readFile ./pre-commit.sh;
+    };
 
     commands = [
       (infra {
