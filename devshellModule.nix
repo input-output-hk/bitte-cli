@@ -103,6 +103,10 @@ in
         nixpkgs-fmt
         nodePackages.prettier
         shfmt
+
+        # pre-commit deps
+        editorconfig-checker
+        # treefmt -already captured below
       ];
 
     env = [
