@@ -100,6 +100,7 @@ in
         vault-bin
 
         # treefmt deps
+        nixfmt
         nixpkgs-fmt
         nodePackages.prettier
         shfmt
