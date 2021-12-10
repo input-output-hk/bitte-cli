@@ -20,13 +20,13 @@ reqwest = { version = "^0.11.0", features = ["json", "gzip"] }
 thiserror = "^1.0.0"
 netrc-rs = "0.1.2"
 enum-utils = "0.1.2"
-clap_generate = "=3.0.0-beta.5"
-aws-config = "0.0.25-alpha"
-aws-sdk-ec2 = "0.0.25-alpha"
+clap_generate = "^3.0.0-rc.3"
+aws-config = "0.2.0"
+aws-sdk-ec2 = "0.2.0"
 
 [dependencies.clap]
-version = "=3.0.0-beta.5"
-features = ["suggestions", "color", "wrap_help"]
+version = "^3.0.0-rc.3"
+features = ["wrap_help", "derive", "env"]
 
 [profile.release]
 lto = "thin"

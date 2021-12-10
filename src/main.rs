@@ -5,7 +5,6 @@ mod utils;
 use anyhow::Result;
 use clap::{App, IntoApp};
 use cli::opts::Bitte;
-use std::env;
 use types::BitteCluster;
 use uuid::Uuid;
 
@@ -13,11 +12,7 @@ use uuid::Uuid;
 async fn main() -> Result<()> {
     let _toml = include_str!("../Cargo.toml");
 
-    let app: App = <Bitte as IntoApp>::into_app()
-        .name(clap::crate_name!())
-        .version(clap::crate_version!())
-        .author(clap::crate_authors!("\n"))
-        .about(clap::crate_description!());
+    let app: App = <Bitte as IntoApp>::into_app();
 
     let matches = app.clone().get_matches();
 

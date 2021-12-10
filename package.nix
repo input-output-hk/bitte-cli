@@ -20,7 +20,7 @@
     src = self;
     cargoLock.lockFile = "${self}/Cargo.lock";
     cargoLock.outputHashes = {
-      "deploy-rs-0.1.0" = "sha256-1L27SlBPpzMF/hakKdmkk1NU9W8jXAmMiC3OSDSBq4U=";
+      "deploy-rs-0.1.0" = "sha256-cDFOojpoHdRt2NFM/39GPPjqARoVuy+yVk0/BgYHwv0=";
     };
 
     nativeBuildInputs = [ pkg-config ];
