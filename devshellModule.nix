@@ -75,6 +75,7 @@ in
       })
       (infra { package = pkgs.bitte; })
       (infra { package = pkgs.sops; })
+      (infra { package = pkgs.ragenix; })
       (infra { package = pkgs.vault-bin; name = "vault"; })
       (infra { package = pkgs.consul; })
       (infra { package = pkgs.awscli; name = "aws"; })
