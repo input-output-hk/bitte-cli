@@ -8,17 +8,16 @@
   # darwin dependencies
 , darwin
 , toolchain
-, self
 }:
 
 (makeRustPlatform { inherit (fenix.${toolchain}) cargo rustc; }).buildRustPackage
   {
 
-    inherit (with builtins; (fromTOML (readFile "${self}/Cargo.toml")).package)
+    inherit (with builtins; (fromTOML (readFile ./Cargo.toml)).package)
       name version;
 
-    src = self;
-    cargoLock.lockFile = "${self}/Cargo.lock";
+    src = lib.cleanSource ./.;
+    cargoLock.lockFile = ./Cargo.lock;
     cargoLock.outputHashes = {
       "deploy-rs-0.1.0" = "sha256-cDFOojpoHdRt2NFM/39GPPjqARoVuy+yVk0/BgYHwv0=";
     };
