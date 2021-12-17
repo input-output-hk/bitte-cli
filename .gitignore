@@ -1,6 +1,3 @@
 result
-/.terraform
-/config.tf.json
 **/target
 /.direnv
-/*.dwarf

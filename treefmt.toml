@@ -23,7 +23,12 @@ excludes = ["CHANGELOG.md"]
 
 [formatter.rust]
 command = "rustfmt"
-options = ["--edition", "2021"]
+options = [
+    "--edition",
+    "2021",
+    "--config",
+    "format_macro_matchers=true,format_macro_bodies=true"
+]
 includes = ["*.rs"]
 
 [formatter.shell]

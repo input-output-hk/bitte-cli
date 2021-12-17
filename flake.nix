@@ -26,10 +26,10 @@
       ];
 
       pkgsOverlays = final: prev: {
-        bitte = final.callPackage ./package.nix { inherit toolchain self; };
-        damon = final.callPackage (import ./pkgs/damon.nix prev.fetchurl) { };
+        bitte = final.callPackage ./cli/package.nix { inherit toolchain; };
+        damon = final.callPackage (import ./shell/pkgs/damon.nix prev.fetchurl) { };
         treefmt = treefmt.defaultPackage.${final.system};
-        bitteShell = final.callPackage ./pkgs/bitte-shell.nix {
+        bitteShell = final.callPackage ./shell/pkgs/bitte-shell.nix {
           bitteDevshellModule = self.devshellModules.bitte;
         };
       };
@@ -90,6 +90,6 @@
           };
         }) // {
       overlay = final: prev: (nixpkgs.lib.composeManyExtensions overlays) final prev;
-      devshellModules.bitte = import ./devshellModule.nix inputs;
+      devshellModules.bitte = import ./shell/devshellModule.nix inputs;
     }; # outputs
 }
