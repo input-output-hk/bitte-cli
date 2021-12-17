@@ -94,7 +94,6 @@ in
       [
         cfssl
         consul-template
-        damon
         openssl
         python38Packages.pyhcl
         scaler-guard

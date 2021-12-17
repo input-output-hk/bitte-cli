@@ -27,7 +27,6 @@
 
       pkgsOverlays = final: prev: {
         bitte = final.callPackage ./cli/package.nix { inherit toolchain; };
-        damon = final.callPackage (import ./shell/pkgs/damon.nix prev.fetchurl) { };
         treefmt = treefmt.defaultPackage.${final.system};
         bitteShell = final.callPackage ./shell/pkgs/bitte-shell.nix {
           bitteDevshellModule = self.devshellModules.bitte;
@@ -59,7 +58,7 @@
           inherit legacyPackages;
 
           packages = {
-            inherit (legacyPackages) bitte damon;
+            inherit (legacyPackages) bitte;
           };
           defaultPackage = legacyPackages.bitte;
           devShell = with legacyPackages; mkShell {
