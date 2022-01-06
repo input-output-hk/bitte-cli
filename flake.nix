@@ -2,7 +2,7 @@
   description = "Bitte fläken Sie sich";
 
   inputs = {
-    utils.follows = "iogo/utils";
+    utils.url = "github:numtide/flake-utils";
     devshell.url = "github:numtide/devshell";
     treefmt.url = "github:numtide/treefmt";
     treefmt.inputs.nixpkgs.follows = "nixpkgs";

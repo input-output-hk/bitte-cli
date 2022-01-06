@@ -1,6 +1,45 @@
 inputs: { lib, config, pkgs, extraModulesPath, ... }:
 let
 
+  # TODO: remove
+  # backport form 21.11
+  # bitte pins bitte-cli to 21.11
+  # but use of overlays destroy it all
+  writeShellApplication =
+    { name
+    , text
+    , runtimeInputs ? [ ]
+    , checkPhase ? null
+    }:
+    pkgs.writeTextFile {
+      inherit name;
+      executable = true;
+      destination = "/bin/${name}";
+      text = ''
+        #!${pkgs.runtimeShell}
+        set -o errexit
+        set -o nounset
+        set -o pipefail
+
+        export PATH="${lib.makeBinPath runtimeInputs}:$PATH"
+
+        ${text}
+      '';
+
+      checkPhase =
+        if checkPhase == null then ''
+          runHook preCheck
+          ${pkgs.stdenv.shell} -n $out/bin/${name}
+          ${pkgs.shellcheck}/bin/shellcheck $out/bin/${name}
+          runHook postCheck
+        ''
+        else checkPhase;
+
+      # backwards incompatible:
+      # meta.mainProgram = name;
+    };
+
+
   mkStringOptionType = description: lib.mkOption {
     inherit description;
     type = lib.types.str;
@@ -66,6 +105,17 @@ in
     };
 
     commands = [
+      (infra {
+        package = writeShellApplication {
+          name = "diff-against-bitte-commit";
+          runtimeInputs = [
+            pkgs.nix-diff
+            # pkgs.nix - we rather use the patched version below
+          ];
+          text = builtins.readFile ./diff-against-bitte-commit.sh;
+        };
+        help = "What changes with bitte commit XYZ";
+      })
       (infra {
         package = inputs.nix.packages.${pkgs.system}.nix.overrideAttrs (old: {
           patches = (old.patches or []) ++ [
