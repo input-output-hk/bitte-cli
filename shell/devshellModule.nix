@@ -148,6 +148,7 @@ in
         python38Packages.pyhcl
         scaler-guard
         vault-bin
+        nix-diff
 
         # treefmt deps
         nixfmt
