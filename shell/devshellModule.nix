@@ -138,6 +138,7 @@ in
       (utils { package = pkgs.curlie; })
       (utils { package = pkgs.treefmt; })
       (utils { package = pkgs.go-jira; name = "jira"; })
+      (utils { package = pkgs.pwgen; })
     ];
 
     packages = with pkgs;
