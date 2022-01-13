@@ -91,6 +91,8 @@ impl Display for BitteProvider {
 pub struct NomadClient {
     #[serde(rename = "ID")]
     pub id: Uuid,
+    #[serde(rename = "NodeClass")]
+    pub node_class: String,
     pub allocs: Option<NomadAllocs>,
     #[serde(rename = "Address")]
     pub address: Option<IpAddr>,
@@ -510,9 +512,10 @@ type ClientHandle = JoinHandle<Result<NomadClients>>;
 type AllocHandle = JoinHandle<Result<NomadAllocs>>;
 
 impl BitteCluster {
-    pub async fn new(args: &ArgMatches, token: Option<Uuid>) -> Result<Self> {
+    pub async fn new(args: &ArgMatches) -> Result<Self> {
         let name: String = args.value_of_t("name")?;
         let domain: String = args.value_of_t("domain")?;
+        let nomad_token: Option<Uuid> = args.value_of_t("nomad-token").ok();
         let provider: BitteProvider = {
             let provider: String = args.value_of_t("provider")?;
             match provider.parse() {
@@ -521,7 +524,7 @@ impl BitteCluster {
             }?
         };
 
-        let nomad_api_client = match token {
+        let nomad_api_client = match nomad_token {
             Some(token) => {
                 let mut token = HeaderValue::from_str(&token.to_string())?;
                 token.set_sensitive(true);
@@ -582,7 +585,7 @@ impl BitteCluster {
     }
 
     #[inline(always)]
-    pub fn init(args: ArgMatches, token: Option<Uuid>) -> ClusterHandle {
-        tokio::spawn(async move { BitteCluster::new(&args, token).await })
+    pub fn init(args: ArgMatches) -> ClusterHandle {
+        tokio::spawn(async move { BitteCluster::new(&args).await })
     }
 }
