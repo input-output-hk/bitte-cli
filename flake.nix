@@ -6,7 +6,7 @@
     devshell.url = "github:numtide/devshell";
     treefmt.url = "github:numtide/treefmt";
     treefmt.inputs.nixpkgs.follows = "nixpkgs";
-    nix.url = "github:nixos/nix"; # might need ditribute fixed versions
+    nix.url = "github:nixos/nix/2.6.0"; # might need ditribute fixed versions
 
     nixpkgs.follows = "fenix/nixpkgs";
     iogo.url = "github:input-output-hk/bitte-iogo";
@@ -27,7 +27,7 @@
 
       pkgsOverlays = final: prev: {
         bitte = final.callPackage ./cli/package.nix { inherit toolchain; };
-        treefmt = treefmt.defaultPackage.${final.system};
+        treefmt = treefmt.defaultPackage."${final.system}";
         bitteShell = final.callPackage ./shell/pkgs/bitte-shell.nix {
           bitteDevshellModule = self.devshellModules.bitte;
         };
@@ -45,7 +45,7 @@
       (system:
         let
           legacyPackages = pkgsForSystem system;
-          rustPkg = legacyPackages.fenix.${toolchain}.withComponents [
+          rustPkg = legacyPackages.fenix."${toolchain}".withComponents [
             "cargo"
             "clippy"
             "rust-src"
@@ -88,7 +88,7 @@
             );
           };
         }) // {
-      overlay = final: prev: (nixpkgs.lib.composeManyExtensions overlays) final prev;
+      overlay = nixpkgs.lib.composeManyExtensions overlays;
       devshellModules.bitte = import ./shell/devshellModule.nix inputs;
     }; # outputs
 }
