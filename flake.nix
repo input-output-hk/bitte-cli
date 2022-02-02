@@ -4,19 +4,15 @@
   inputs = {
     utils.url = "github:numtide/flake-utils";
     devshell.url = "github:numtide/devshell";
-    treefmt.url = "github:numtide/treefmt";
-    treefmt.inputs.nixpkgs.follows = "nixpkgs";
     nix.url = "github:nixos/nix/2.6.0"; # might need ditribute fixed versions
 
-    nixpkgs.follows = "fenix/nixpkgs";
+    nixpkgs.url = "github:nixos/nixpkgs/efeefb2af1469a5d1f0ae7ca8f0dfd9bb87d5cfb";
+    treefmt-nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     iogo.url = "github:input-output-hk/bitte-iogo";
-    iogo.inputs.devshell.follows = "devshell";
-    iogo.inputs.nixpkgs.follows = "nixpkgs";
-    nix.inputs.nixpkgs.follows = "nixpkgs";
     fenix.url = "github:nix-community/fenix";
   };
 
-  outputs = { self, nixpkgs, utils, iogo, fenix, devshell, treefmt, ... }@inputs:
+  outputs = { self, nixpkgs, utils, iogo, fenix, devshell, treefmt-nixpkgs,... }@inputs:
     let
       overlays = [
         iogo.overlay
@@ -27,7 +23,7 @@
 
       pkgsOverlays = final: prev: {
         bitte = final.callPackage ./cli/package.nix { inherit toolchain; };
-        treefmt = treefmt.defaultPackage."${final.system}";
+        inherit (treefmt-nixpkgs.legacyPackages."${final.system}") treefmt;
         bitteShell = final.callPackage ./shell/pkgs/bitte-shell.nix {
           bitteDevshellModule = self.devshellModules.bitte;
         };
