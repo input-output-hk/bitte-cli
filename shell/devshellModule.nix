@@ -110,18 +110,11 @@ in
           name = "diff-against-bitte-commit";
           runtimeInputs = [
             pkgs.nix-diff
-            # pkgs.nix - we rather use the patched version below
+            inputs.nix.packages.${pkgs.system}.nix
           ];
           text = builtins.readFile ./diff-against-bitte-commit.sh;
         };
         help = "What changes with bitte commit XYZ";
-      })
-      (infra {
-        package = inputs.nix.packages.${pkgs.system}.nix.overrideAttrs (old: {
-          patches = (old.patches or []) ++ [
-            ./patches/nix/0001-Allow-paths-in-flake-local-settings.patch
-          ];
-        });
       })
       (infra { package = pkgs.bitte; })
       (infra { package = pkgs.sops; })
