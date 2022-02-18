@@ -1,5 +1,9 @@
 inputs: { lib, config, pkgs, extraModulesPath, ... }:
 let
+  inherit (inputs.self.packages.${pkgs.system}) bitte;
+  iogo = inputs.iogo.defaultPackage."${pkgs.system}";
+  treefmt = inputs.treefmt.defaultPackage."${pkgs.system}";
+  ragenix = inputs.ragenix.defaultPackage."${pkgs.system}";
 
   # TODO: remove
   # backport form 21.11
@@ -116,20 +120,20 @@ in
         };
         help = "What changes with bitte commit XYZ";
       })
-      (infra { package = pkgs.bitte; })
+      (infra { package = bitte; })
       (infra { package = pkgs.sops; })
-      (infra { package = pkgs.ragenix; })
+      (infra { package = ragenix; })
       (infra { package = pkgs.vault-bin; name = "vault"; })
       (infra { package = pkgs.consul; })
       (infra { package = pkgs.awscli; name = "aws"; })
-      (app { package = pkgs.iogo; })
+      (app { package = iogo; })
       (app { package = pkgs.nomad; })
       (utils { package = pkgs.bitwarden-cli; name = "bw"; })
       (utils { package = pkgs.jq; })
       (utils { package = pkgs.ijq; })
       (utils { package = pkgs.fx; name = "fx"; })
       (utils { package = pkgs.curlie; })
-      (utils { package = pkgs.treefmt; })
+      (utils { package = treefmt; })
       (utils { package = pkgs.go-jira; name = "jira"; })
       (utils { package = pkgs.pwgen; })
     ];

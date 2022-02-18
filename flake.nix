@@ -14,24 +14,16 @@
     iogo.inputs.nixpkgs.follows = "nixpkgs";
     nix.inputs.nixpkgs.follows = "nixpkgs";
     fenix.url = "github:nix-community/fenix";
+
+    ragenix.url = "github:input-output-hk/ragenix";
   };
 
   outputs = { self, nixpkgs, utils, iogo, fenix, devshell, treefmt, ... }@inputs:
     let
       overlays = [
-        iogo.overlay
         fenix.overlay
         devshell.overlay
-        pkgsOverlays
       ];
-
-      pkgsOverlays = final: prev: {
-        bitte = final.callPackage ./cli/package.nix { inherit toolchain; };
-        treefmt = treefmt.defaultPackage."${final.system}";
-        bitteShell = final.callPackage ./shell/pkgs/bitte-shell.nix {
-          bitteDevshellModule = self.devshellModules.bitte;
-        };
-      };
 
       pkgsForSystem = system: import nixpkgs {
         inherit overlays system;
@@ -58,7 +50,7 @@
           inherit legacyPackages;
 
           packages = {
-            inherit (legacyPackages) bitte;
+            bitte = legacyPackages.callPackage ./cli/package.nix { inherit toolchain; };
           };
           defaultPackage = legacyPackages.bitte;
           devShell = with legacyPackages; mkShell {
@@ -88,7 +80,6 @@
             );
           };
         }) // {
-      overlay = nixpkgs.lib.composeManyExtensions overlays;
       devshellModules.bitte = import ./shell/devshellModule.nix inputs;
     }; # outputs
 }
