@@ -6,13 +6,11 @@
     devshell.url = "github:numtide/devshell";
     treefmt.url = "github:numtide/treefmt";
     treefmt.inputs.nixpkgs.follows = "nixpkgs";
-    nix.url = "github:nixos/nix/bd383d1";
 
     nixpkgs.follows = "fenix/nixpkgs";
     iogo.url = "github:input-output-hk/bitte-iogo";
     iogo.inputs.devshell.follows = "devshell";
     iogo.inputs.nixpkgs.follows = "nixpkgs";
-    nix.inputs.nixpkgs.follows = "nixpkgs";
     fenix.url = "github:nix-community/fenix";
 
     ragenix.url = "github:input-output-hk/ragenix";

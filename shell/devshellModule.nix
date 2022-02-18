@@ -114,7 +114,6 @@ in
           name = "diff-against-bitte-commit";
           runtimeInputs = [
             pkgs.nix-diff
-            inputs.nix.packages.${pkgs.system}.nix
           ];
           text = builtins.readFile ./diff-against-bitte-commit.sh;
         };
