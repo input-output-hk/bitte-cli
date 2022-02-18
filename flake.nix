@@ -6,7 +6,7 @@
     devshell.url = "github:numtide/devshell";
     treefmt.url = "github:numtide/treefmt";
     treefmt.inputs.nixpkgs.follows = "nixpkgs";
-    nix.url = "github:nixos/nix/2.6.0"; # might need ditribute fixed versions
+    nix.url = "github:nixos/nix/bd383d1";
 
     nixpkgs.follows = "fenix/nixpkgs";
     iogo.url = "github:input-output-hk/bitte-iogo";
