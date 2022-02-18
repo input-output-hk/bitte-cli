@@ -136,16 +136,9 @@ in
 
     packages = with pkgs;
       [
-        cfssl
-        consul-template
-        openssl
-        python38Packages.pyhcl
-        scaler-guard
-        vault-bin
         nix-diff
 
         # treefmt deps
-        nixfmt
         nixpkgs-fmt
         nodePackages.prettier
         shfmt
