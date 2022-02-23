@@ -7,11 +7,14 @@
     treefmt.url = "github:numtide/treefmt";
     treefmt.inputs.nixpkgs.follows = "nixpkgs";
 
-    nixpkgs.follows = "fenix/nixpkgs";
     iogo.url = "github:input-output-hk/bitte-iogo";
     iogo.inputs.devshell.follows = "devshell";
     iogo.inputs.nixpkgs.follows = "nixpkgs";
-    fenix.url = "github:nix-community/fenix";
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    nixpkgs.url = "nixpkgs/nixos-unstable";
 
     ragenix.url = "github:input-output-hk/ragenix";
   };
