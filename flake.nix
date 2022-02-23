@@ -16,42 +16,39 @@
     ragenix.url = "github:input-output-hk/ragenix";
   };
 
-  outputs = { self, nixpkgs, utils, iogo, fenix, devshell, treefmt, ... }@inputs:
+  outputs =
+    { self, nixpkgs, utils, iogo, fenix, devshell, treefmt, ... }@inputs:
     let
-      overlays = [
-        fenix.overlay
-        devshell.overlay
-      ];
+      overlays = [ fenix.overlay devshell.overlay ];
 
-      pkgsForSystem = system: import nixpkgs {
-        inherit overlays system;
-        config.allowUnfree = true;
-      };
+      pkgsForSystem = system:
+        import nixpkgs {
+          inherit overlays system;
+          config.allowUnfree = true;
+        };
 
       toolchain = "stable";
 
-    in
-    utils.lib.eachSystem [ "x86_64-darwin" "x86_64-linux" ]
-      (system:
-        let
-          legacyPackages = pkgsForSystem system;
-          rustPkg = legacyPackages.fenix."${toolchain}".withComponents [
-            "cargo"
-            "clippy"
-            "rust-src"
-            "rustc"
-            "rustfmt"
-          ];
-        in
-        rec
-        {
-          inherit legacyPackages;
+    in utils.lib.eachSystem [ "x86_64-darwin" "x86_64-linux" ] (system:
+      let
+        legacyPackages = pkgsForSystem system;
+        rustPkg = legacyPackages.fenix."${toolchain}".withComponents [
+          "cargo"
+          "clippy"
+          "rust-src"
+          "rustc"
+          "rustfmt"
+        ];
+      in rec {
+        inherit legacyPackages;
 
-          packages = {
-            bitte = legacyPackages.callPackage ./cli/package.nix { inherit toolchain; };
-          };
-          defaultPackage = legacyPackages.bitte;
-          devShell = with legacyPackages; mkShell {
+        packages = {
+          bitte =
+            legacyPackages.callPackage ./cli/package.nix { inherit toolchain; };
+        };
+        defaultPackage = legacyPackages.bitte;
+        devShell = with legacyPackages;
+          mkShell {
             RUST_BACKTRACE = "1";
             RUST_SRC_PATH = "${rustPkg}/lib/rustlib/src/rust/library";
 
@@ -66,18 +63,17 @@
               pkg-config
               rustPkg
               rust-analyzer-nightly
-            ] ++ lib.optionals stdenv.isDarwin (
-              with darwin; with apple_sdk.frameworks; [
+            ] ++ lib.optionals stdenv.isDarwin (with darwin;
+              with apple_sdk.frameworks; [
                 libiconv
                 libresolv
                 Libsystem
                 SystemConfiguration
                 Security
                 CoreFoundation
-              ]
-            );
+              ]);
           };
-        }) // {
-      devshellModules.bitte = import ./shell/devshellModule.nix inputs;
-    }; # outputs
+      }) // {
+        devshellModules.bitte = import ./shell/devshellModule.nix inputs;
+      }; # outputs
 }
