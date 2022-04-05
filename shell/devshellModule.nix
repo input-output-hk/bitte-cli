@@ -119,6 +119,19 @@ in
         };
         help = "What changes with bitte commit XYZ";
       })
+      (infra {
+        package = writeShellApplication {
+          name = "nomad-exec";
+          runtimeInputs = [
+            pkgs.consul
+            pkgs.curl
+            pkgs.jq
+            pkgs.nomad
+          ];
+          text = builtins.readFile ./nomad-exec.sh;
+        };
+        help = "Nomad allocation shell exec helper";
+      })
       (infra { package = bitte; })
       (infra { package = pkgs.sops; })
       (infra { package = ragenix; })
