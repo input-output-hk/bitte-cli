@@ -3,26 +3,17 @@
 
   inputs = {
     utils.url = "github:numtide/flake-utils";
-    devshell.url = "github:numtide/devshell";
-    treefmt.url = "github:numtide/treefmt";
-    treefmt.inputs.nixpkgs.follows = "nixpkgs";
-
-    iogo.url = "github:input-output-hk/bitte-iogo";
-    iogo.inputs.devshell.follows = "devshell";
-    iogo.inputs.nixpkgs.follows = "nixpkgs";
     fenix = {
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nixpkgs.url = "nixpkgs/nixos-unstable";
-
-    ragenix.url = "github:input-output-hk/ragenix";
   };
 
   outputs =
-    { self, nixpkgs, utils, iogo, fenix, devshell, treefmt, ... }@inputs:
+    { self, nixpkgs, utils, fenix, ... }@inputs:
     let
-      overlays = [ fenix.overlay devshell.overlay ];
+      overlays = [ fenix.overlay ];
 
       pkgsForSystem = system:
         import nixpkgs {

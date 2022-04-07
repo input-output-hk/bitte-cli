@@ -1,48 +1,5 @@
-inputs: { lib, config, pkgs, extraModulesPath, ... }:
+inputs: { lib, config, pkgs, ... }:
 let
-  inherit (inputs.self.packages.${pkgs.system}) bitte;
-  iogo = inputs.iogo.defaultPackage."${pkgs.system}";
-  treefmt = inputs.treefmt.defaultPackage."${pkgs.system}";
-  ragenix = inputs.ragenix.defaultPackage."${pkgs.system}";
-
-  # TODO: remove
-  # backport form 21.11
-  # bitte pins bitte-cli to 21.11
-  # but use of overlays destroy it all
-  writeShellApplication =
-    { name
-    , text
-    , runtimeInputs ? [ ]
-    , checkPhase ? null
-    }:
-    pkgs.writeTextFile {
-      inherit name;
-      executable = true;
-      destination = "/bin/${name}";
-      text = ''
-        #!${pkgs.runtimeShell}
-        set -o errexit
-        set -o nounset
-        set -o pipefail
-
-        export PATH="${lib.makeBinPath runtimeInputs}:$PATH"
-
-        ${text}
-      '';
-
-      checkPhase =
-        if checkPhase == null then ''
-          runHook preCheck
-          ${pkgs.stdenv.shell} -n $out/bin/${name}
-          ${pkgs.shellcheck}/bin/shellcheck $out/bin/${name}
-          runHook postCheck
-        ''
-        else checkPhase;
-
-      # backwards incompatible:
-      # meta.mainProgram = name;
-    };
-
 
   mkStringOptionType = description: lib.mkOption {
     inherit description;
@@ -75,11 +32,6 @@ let
     lib.strings.replaceStrings [ " " ] [ ":" ]
       (toString asgRegions);
 
-  withCategory = category: attrset: attrset // { inherit category; };
-  infra = withCategory "infra";
-  app = withCategory "app";
-  utils = withCategory "utils";
-
 in
 {
   _file = ./devshellModule.nix;
@@ -96,73 +48,11 @@ in
     aws_autoscaling_groups = mkAttrsOptionType "AWS auto scaling groups";
   };
 
-  imports = [ "${extraModulesPath}/git/hooks.nix" ];
-
   config = {
     # tempfix: remove when merged https://github.com/numtide/devshell/pull/123
     devshell.startup.load_profiles = lib.mkForce (lib.noDepEntry "");
 
     name = cfg.cluster;
-    git.hooks = {
-      enable = true;
-      pre-commit.text = builtins.readFile ./pre-commit.sh;
-    };
-
-    commands = [
-      (infra {
-        package = writeShellApplication {
-          name = "diff-against-bitte-commit";
-          runtimeInputs = [
-            pkgs.nix-diff
-          ];
-          text = builtins.readFile ./diff-against-bitte-commit.sh;
-        };
-        help = "What changes with bitte commit XYZ";
-      })
-      (infra {
-        package = writeShellApplication {
-          name = "nomad-exec";
-          runtimeInputs = [
-            pkgs.consul
-            pkgs.curl
-            pkgs.jq
-            pkgs.nomad
-          ];
-          text = builtins.readFile ./nomad-exec.sh;
-        };
-        help = "Nomad allocation shell exec helper";
-      })
-      (infra { package = bitte; })
-      (infra { package = pkgs.sops; })
-      (infra { package = ragenix; })
-      (infra { package = pkgs.vault-bin; name = "vault"; })
-      (infra { package = pkgs.consul; })
-      (infra { package = pkgs.awscli; name = "aws"; })
-      (app { package = iogo; })
-      (app { package = pkgs.nomad; })
-      (utils { package = pkgs.bitwarden-cli; name = "bw"; })
-      (utils { package = pkgs.jq; })
-      (utils { package = pkgs.ijq; })
-      (utils { package = pkgs.fx; name = "fx"; })
-      (utils { package = pkgs.curlie; })
-      (utils { package = treefmt; })
-      (utils { package = pkgs.go-jira; name = "jira"; })
-      (utils { package = pkgs.pwgen; })
-    ];
-
-    packages = with pkgs;
-      [
-        nix-diff
-
-        # treefmt deps
-        nixpkgs-fmt
-        nodePackages.prettier
-        shfmt
-
-        # pre-commit deps
-        editorconfig-checker
-        # treefmt -already captured below
-      ];
 
     env = [
       { name = "BITTE_CLUSTER"; value = cfg.cluster; }
